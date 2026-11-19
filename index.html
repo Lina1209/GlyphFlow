@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GlyphFlow — Генератор рукописных шрифтов</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+<!-- Шапка -->
+<header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-lg">Ф</div>
+<h1 class="text-xl font-bold tracking-tight">GlyphFlow <span class="text-xs font-normal text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded ml-1">MVP</span></h1>
+</div>
+<div class="flex items-center gap-3">
+<input id="fontName" type="text" value="MyHandwriting" placeholder="Название шрифта"
+class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500" />
+<button id="downloadBtn"
+class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 rounded-lg text-sm transition flex items-center gap-2 shadow-lg shadow-indigo-500/20">
+<span>Скачать .TTF</span>
+</button>
+</div>
+</header>
+
+<!-- Основная рабочая область -->
+<main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl w-full mx-auto">
+<!-- Левая колонка: Выбор глифа -->
+<section class="lg:col-span-4 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col h-[620px]">
+<div class="flex items-center justify-between mb-3">
+<h2 class="font-semibold text-slate-300">Символы (Глифы)</h2>
+<span id="progressText" class="text-xs text-slate-400">Готово: 0</span>
+</div>
+<div id="glyphGrid" class="grid grid-cols-6 gap-2 overflow-y-auto pr-1 flex-1 content-start">
+<!-- Кнопки букв генерируются через JS -->
+</div>
+</section>
+
+<!-- Центральная колонка: Холст рисования -->
+<section class="lg:col-span-5 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col items-center justify-between">
+<div class="w-full flex items-center justify-between mb-2">
+<div>
+<span class="text-xs text-slate-400 uppercase tracking-wider">Редактирование символа</span>
+<div id="currentCharLabel" class="text-2xl font-bold text-indigo-400">А</div>
+</div>
+<div class="flex gap-2">
+<button id="undoBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">
+↩ Отменить штрих
+</button>
+<button id="clearBtn" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 px-3 py-1.5 rounded-lg text-xs font-medium transition">
+Очистить
+</button>
+</div>
+</div>
+
+<!-- Контейнер холста с направляющими -->
+<div class="relative w-[360px] h-[360px] bg-white rounded-xl shadow-inner overflow-hidden cursor-crosshair select-none border-2 border-slate-600">
+<!-- Типографские линии (SVG сетка) -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 360 360">
+<!-- Линия прописных (Cap Height) -->
+<line x1="0" y1="70" x2="360" y2="70" stroke="#cbd5e1" stroke-dasharray="4 4" stroke-width="1" />
+<text x="8" y="65" fill="#94a3b8" font-size="10">Прописные</text>
+<!-- Линия строчных (X-Height) -->
+<line x1="0" y1="145" x2="360" y2="145" stroke="#cbd5e1" stroke-dasharray="4 4" stroke-width="1" />
+<text x="8" y="140" fill="#94a3b8" font-size="10">Строчные</text>
+<!-- Базовая линия (Baseline) -->
+<line x1="0" y1="270" x2="360" y2="270" stroke="#f43f5e" stroke-width="1.5" />
+<text x="8" y="264" fill="#f43f5e" font-size="10" font-weight="bold">Базовая линия</text>
+<!-- Нижний выносной элемент (Descender) -->
+<line x1="0" y1="330" x2="360" y2="330" stroke="#cbd5e1" stroke-dasharray="4 4" stroke-width="1" />
+</svg>
+<!-- Интерактивный SVG для рисования -->
+<svg id="drawSvg" class="relative z-10 w-full h-full touch-none" viewBox="0 0 360 360"></svg>
+</div>
+
+<!-- Настройки кисти -->
+<div class="w-full grid grid-cols-2 gap-4 mt-4 bg-slate-900/60 p-3 rounded-lg border border-slate-700/60">
+<div>
+<label class="flex justify-between text-xs text-slate-400 mb-1">
+<span>Толщина пера</span>
+<span id="sizeVal">16px</span>
+</label>
+<input id="brushSize" type="range" min="6" max="36" value="16" class="w-full accent-indigo-500" />
+</div>
+<div>
+<label class="flex justify-between text-xs text-slate-400 mb-1">
+<span>Заострение концов</span>
+<span id="thinningVal">0.6</span>
+</label>
+<input id="brushThinning" type="range" min="0" max="0.9" step="0.1" value="0.6" class="w-full accent-indigo-500" />
+</div>
+</div>
+</section>
+
+<!-- Правая колонка: Предпросмотр текста -->
+<section class="lg:col-span-3 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col">
+<h2 class="font-semibold text-slate-300 mb-2">Проверка шрифта</h2>
+<p class="text-xs text-slate-400 mb-3">Нарисуйте несколько букв (например, А, Б, В, О, П, Р, С) и введите слово ниже:</p>
+<textarea id="previewInput" rows="3"
+class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm focus:outline-none focus:border-indigo-500 mb-4"
+placeholder="Введите текст для проверки...">ПРИВЕТ</textarea>
+<div class="flex-1 bg-white rounded-xl p-4 text-slate-900 overflow-auto flex flex-col justify-center items-center border border-slate-600">
+<div id="livePreviewOutput" class="text-5xl break-all text-center leading-relaxed" style="font-family: 'LiveCustomFont', sans-serif;">
+ПРИВЕТ
+</div>
+</div>
+<p class="text-[11px] text-slate-400 mt-3 text-center">Ненарисованные буквы отображаются стандартным шрифтом.</p>
+</section>
+</main>
+
+<script type="module">
+// Импортируем библиотеку каллиграфической кисти perfect-freehand
+import { getStroke } from 'https://esm.sh/perfect-freehand@1.2.0';
+
+// Набор символов для старта (Кириллица + Латиница + Цифры)
+const CHARS = [
+...'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ',
+...'абвгдеёжзийклмнопрстуфхцчшщъыьэюя',
+...'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+...'0123456789!?.,-'
+];
+
+// Хранилище штрихов для каждого символа
+const glyphData = {};
+let currentChar = 'А';
+let currentPoints = [];
+let isDrawing = false;
+
+// Элементы DOM
+const glyphGrid = document.getElementById('glyphGrid');
+const drawSvg = document.getElementById('drawSvg');
+const currentCharLabel = document.getElementById('currentCharLabel');
+const brushSizeInput = document.getElementById('brushSize');
+const brushThinningInput = document.getElementById('brushThinning');
+const sizeVal = document.getElementById('sizeVal');
+const thinningVal = document.getElementById('thinningVal');
+const previewInput = document.getElementById('previewInput');
+const livePreviewOutput = document.getElementById('livePreviewOutput');
+const progressText = document.getElementById('progressText');
+
+// Преобразование массива точек от perfect-freehand в SVG-путь
+function getSvgPathFromStroke(stroke) {
+if (!stroke.length) return '';
+const d = stroke.reduce(
+(acc, [x0, y0], i, arr) => {
+const [x1, y1] = arr[(i + 1) % arr.length];
+acc.push(x0.toFixed(1), y0.toFixed(1), ((x0 + x1) / 2).toFixed(1), ((y0 + y1) / 2).toFixed(1));
+return acc;
+},
+['M', ...stroke[0].map(n => n.toFixed(1)), 'Q']
+);
+d.push('Z');
+return d.join(' ');
+}
+
+// Отрисовка сетки символов слева
+function renderGrid() {
+glyphGrid.innerHTML = '';
+let completedCount = 0;
+CHARS.forEach(char => {
+const hasStrokes = glyphData[char] && glyphData[char].length > 0;
+if (hasStrokes) completedCount++;
+const btn = document.createElement('button');
+btn.textContent = char;
+btn.className = `h-10 rounded-lg font-medium text-sm transition flex items-center justify-center border ${
+char === currentChar
+? 'bg-indigo-600 border-indigo-400 text-white shadow-md'
+: hasStrokes
+? 'bg-emerald-950/60 border-emerald-600/60 text-emerald-300 hover:bg-emerald-900/60'
+: 'bg-slate-900/70 border-slate-700 text-slate-400 hover:bg-slate-700'
+}`;
+btn.onclick = () => selectChar(char);
+glyphGrid.appendChild(btn);
+});
+progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
+}
+
+// Переключение активной буквы
+function selectChar(char) {
+currentChar = char;
+currentCharLabel.textContent = char;
+renderGrid();
+renderCanvas();
+}
+
+// Отрисовка всех штрихов текущей буквы на холсте
+function renderCanvas() {
+drawSvg.innerHTML = '';
+const strokes = glyphData[currentChar] || [];
+strokes.forEach(s => {
+const outline = getStroke(s.points, {
+size: s.size,
+thinning: s.thinning,
+smoothing: 0.5,
+streamline: 0.5,
+});
+const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+path.setAttribute('d', getSvgPathFromStroke(outline));
+path.setAttribute('fill', '#0f172a');
+drawSvg.appendChild(path);
+});
+
+// Рисуем текущий незавершенный штрих
+if (isDrawing && currentPoints.length > 0) {
+const outline = getStroke(currentPoints, {
+size: Number(brushSizeInput.value),
+thinning: Number(brushThinningInput.value),
+smoothing: 0.5,
+streamline: 0.5,
+});
+const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+path.setAttribute('d', getSvgPathFromStroke(outline));
+path.setAttribute('fill', '#4f46e5');
+drawSvg.appendChild(path);
+}
+}
+
+// Получение точных координат внутри SVG 360x360
+function getPointerPos(e) {
+const rect = drawSvg.getBoundingClientRect();
+const x = ((e.clientX - rect.left) / rect.width) * 360;
+const y = ((e.clientY - rect.top) / rect.height) * 360;
+return [x, y, e.pressure || 0.5];
+}
+
+// События рисования
+drawSvg.addEventListener('pointerdown', (e) => {
+e.target.setPointerCapture(e.pointerId);
+isDrawing = true;
+currentPoints = [getPointerPos(e)];
+renderCanvas();
+});
+
+drawSvg.addEventListener('pointermove', (e) => {
+if (!isDrawing) return;
+currentPoints.push(getPointerPos(e));
+renderCanvas();
+});
+
+drawSvg.addEventListener('pointerup', () => {
+if (!isDrawing) return;
+isDrawing = false;
+if (!glyphData[currentChar]) glyphData[currentChar] = [];
+glyphData[currentChar].push({
+points: currentPoints,
+size: Number(brushSizeInput.value),
+thinning: Number(brushThinningInput.value),
+});
+currentPoints = [];
+renderCanvas();
+renderGrid();
+updateLiveFont();
+});
+
+// Кнопки управления
+document.getElementById('undoBtn').onclick = () => {
+if (glyphData[currentChar] && glyphData[currentChar].length > 0) {
+glyphData[currentChar].pop();
+renderCanvas();
+renderGrid();
+updateLiveFont();
+}
+};
+
+document.getElementById('clearBtn').onclick = () => {
+glyphData[currentChar] = [];
+renderCanvas();
+renderGrid();
+updateLiveFont();
+};
+
+brushSizeInput.oninput = () => sizeVal.textContent = brushSizeInput.value + 'px';
+brushThinningInput.oninput = () => thinningVal.textContent = brushThinningInput.value;
+previewInput.oninput = () => livePreviewOutput.textContent = previewInput.value;
+
+// Генерация объекта шрифта opentype.js
+function buildOpenTypeFont() {
+const unitsPerEm = 1000;
+const ascender = 800;
+const descender = -200;
+const baselineY = 270;
+const scale = 3.2;
+
+const notdefGlyph = new opentype.Glyph({
+name: '.notdef',
+unicode: 0,
+advanceWidth: 500,
+path: new opentype.Path()
+});
+
+const spaceGlyph = new opentype.Glyph({
+name: 'space',
+unicode: 32,
+advanceWidth: 350,
+path: new opentype.Path()
+});
+
+const glyphs = [notdefGlyph, spaceGlyph];
+
+Object.keys(glyphData).forEach(char => {
+const strokes = glyphData[char];
+if (!strokes || strokes.length === 0) return;
+
+const fontPath = new opentype.Path();
+let minX = Infinity;
+let maxX = -Infinity;
+
+strokes.forEach(s => {
+const outline = getStroke(s.points, {
+size: s.size,
+thinning: s.thinning,
+smoothing: 0.5,
+streamline: 0.5,
+});
+
+if (outline.length < 3) return;
+
+const mapped = outline.map(([x, y]) => {
+if (x < minX) minX = x;
+if (x > maxX) maxX = x;
+return {
+x: x * scale,
+y: (baselineY - y) * scale
+};
+});
+
+fontPath.moveTo(mapped[0].x, mapped[0].y);
+for (let i = 1; i < mapped.length; i++) {
+fontPath.lineTo(mapped[i].x, mapped[i].y);
+}
+fontPath.close();
+});
+
+const advanceWidth = maxX > 0 ? Math.round((maxX + 20) * scale) : 550;
+glyphs.push(new opentype.Glyph({
+name: 'uni' + char.charCodeAt(0).toString(16).toUpperCase(),
+unicode: char.charCodeAt(0),
+advanceWidth: advanceWidth,
+path: fontPath
+}));
+});
+
+const familyName = document.getElementById('fontName').value.trim() || 'MyHandwriting';
+return new opentype.Font({
+familyName: familyName,
+styleName: 'Regular',
+unitsPerEm: unitsPerEm,
+ascender: ascender,
+descender: descender,
+glyphs: glyphs
+});
+}
+
+// Обновление живого предпросмотра через Blob URL
+function updateLiveFont() {
+try {
+const font = buildOpenTypeFont();
+const arrayBuffer = font.toArrayBuffer();
+const blob = new Blob([arrayBuffer], { type: 'font/ttf' });
+const url = URL.createObjectURL(blob);
+
+let styleTag = document.getElementById('dynamic-font-style');
+if (!styleTag) {
+styleTag = document.createElement('style');
+styleTag.id = 'dynamic-font-style';
+document.head.appendChild(styleTag);
+}
+styleTag.textContent = `@font-face { font-family: 'LiveCustomFont'; src: url('${url}'); }`;
+} catch (err) {
+console.error('Ошибка обновления шрифта:', err);
+}
+}
+
+// Скачивание готового .TTF файла
+document.getElementById('downloadBtn').onclick = () => {
+const font = buildOpenTypeFont();
+font.download();
+};
+
+// Инициализация
+renderGrid();
+renderCanvas();
+</script>
+</body>
+</html>
