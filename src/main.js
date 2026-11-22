@@ -948,6 +948,18 @@ try { drawSvg.setPointerCapture(e.pointerId); } catch (err) { panPointerId = nul
 return;
 }
 if (e.button !== 0 || !e.isPrimary || isDrawing || panPointerId !== null) return;
+const existingStrokes = glyphData[currentChar] || [];
+if (existingStrokes.length >= MAX_STROKES_PER_GLYPH) {
+contourStatus.textContent = 'Достигнут лимит: не более ' + MAX_STROKES_PER_GLYPH + ' штрихов на символ.';
+return;
+}
+const existingProjectPoints = Object.values(glyphData).reduce((total, strokes) =>
+total + (Array.isArray(strokes) ? strokes.reduce((sum, stroke) =>
+sum + (Array.isArray(stroke.points) ? stroke.points.length : 0), 0) : 0), 0);
+if (existingProjectPoints >= MAX_PROJECT_POINTS) {
+contourStatus.textContent = 'Достигнут лимит точек проекта. Сохраните резервную копию и начните отдельный проект.';
+return;
+}
 try {
 if (e.pointerType !== 'touch') drawSvg.setPointerCapture(e.pointerId);
 } catch (err) {
@@ -1044,6 +1056,17 @@ applyViewBox();
 return;
 }
 if (!isDrawing || e.pointerId !== activePointerId) return;
+if (currentPoints.length >= MAX_STROKE_POINTS) {
+contourStatus.textContent = 'Достигнут лимит ' + MAX_STROKE_POINTS + ' точек на штрих. Завершите штрих и продолжайте новым.';
+return;
+}
+const projectPoints = Object.values(glyphData).reduce((total, strokes) =>
+total + (Array.isArray(strokes) ? strokes.reduce((sum, stroke) =>
+sum + (Array.isArray(stroke.points) ? stroke.points.length : 0), 0) : 0), 0);
+if (projectPoints + currentPoints.length >= MAX_PROJECT_POINTS) {
+contourStatus.textContent = 'Достигнут лимит точек проекта. Сохраните резервную копию и начните отдельный проект.';
+return;
+}
 currentPoints.push(getPointerPos(e));
 scheduleStrokePreviewRender();
 });
