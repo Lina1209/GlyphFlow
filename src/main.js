@@ -303,7 +303,7 @@ if (!Array.isArray(candidate) || !candidate.length) return false;
 try {
 // Our editor stores rings without duplicated closing vertices. polygon-clipping
 // requires closed rings; normalize the API boundary without changing editable data.
-const normalized = polygonClipping.union(...closePolygonClippingRings(candidate));
+const normalized = polygonClipping.union(closePolygonClippingRings(candidate));
 const normalizedSignature = compoundTopologySignature(normalized);
 const originalSignature = compoundTopologySignature(original);
 const area = multiPolygonArea(normalized);
