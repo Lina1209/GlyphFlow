@@ -4,16 +4,22 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import { createFont } from 'fonteditor-core';
 import { getStroke } from 'perfect-freehand';
+import polygonClipping from 'polygon-clipping';
 
 const require = createRequire(import.meta.url);
 const opentype = require('opentype.js');
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const startMarker = 'function buildOpenTypeFont() {';
+const helperStartMarker = 'const glyphGeometryCache = new WeakMap();';
+const builderStartMarker = 'function buildOpenTypeFont() {';
 const endMarker = '// Обновление живого предпросмотра';
-const start = html.indexOf(startMarker);
-const end = html.indexOf(endMarker, start);
-assert.ok(start >= 0 && end > start, 'Could not locate buildOpenTypeFont() in index.html');
-const builderSource = html.slice(start, end);
+const helperStart = html.indexOf(helperStartMarker);
+const builderStart = html.indexOf(builderStartMarker);
+const helperEnd = html.indexOf('function updateContourTools()', helperStart);
+const builderEnd = html.indexOf(endMarker, builderStart);
+assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Could not locate glyph geometry helpers in index.html');
+assert.ok(builderStart >= 0 && builderEnd > builderStart, 'Could not locate buildOpenTypeFont() in index.html');
+const geometrySource = html.slice(helperStart, helperEnd);
+const builderSource = geometrySource + '\n' + html.slice(builderStart, builderEnd);
 
 const rectangle = (x1, y1, x2, y2) => [
   [x1, y1], [x2, y1], [x2, y2], [x1, y2]
@@ -58,6 +64,7 @@ const context = {
   opentype,
   glyphData,
   getStroke,
+  polygonClipping,
   document: { getElementById: id => ({ value: id === 'fontName' ? 'GlyphFlow CI Fixture' : '' }) }
 };
 vm.runInNewContext(builderSource + '\nthis.buildOpenTypeFont = buildOpenTypeFont;', context);
@@ -120,7 +127,7 @@ for (const char of ['О', '∞']) {
 }
 assert.equal(reparsedTtf.charToGlyph('Р').path.commands.filter(command => command.type === 'M').length, 2,
   'Outer contour and explicit hole must survive TTF conversion');
-assert.equal(reparsedTtf.charToGlyph('Ж').path.commands.filter(command => command.type === 'M').length, 3,
-  'Intersecting multi-stroke glyph must preserve its three brush contours');
+assert.equal(reparsedTtf.charToGlyph('Ж').path.commands.filter(command => command.type === 'M').length, 1,
+  'Three intersecting brush strokes must be Boolean-unioned into one outline contour');
 
-console.log('GlyphFlow font pipeline passed: real perfect-freehand curves, closed loop, explicit hole contour, intersecting multi-stroke glyph, self-crossing trajectory, OTF-to-TTF conversion, Unicode and multi-contour preservation.');
+console.log('GlyphFlow font pipeline passed: real perfect-freehand curves, closed loop, explicit hole subtraction, Boolean union of intersecting brush strokes, self-crossing trajectory, OTF-to-TTF conversion, Unicode and multi-contour preservation.');
