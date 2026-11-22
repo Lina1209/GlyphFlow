@@ -12,7 +12,7 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
 <!-- Шапка -->
-<header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+<header id="editorTop" class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
 <div class="flex items-center gap-3">
 <div class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-lg">Ф</div>
 <h1 class="text-xl font-bold tracking-tight">GlyphFlow <span class="text-xs font-normal text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded ml-1">MVP</span></h1>
@@ -20,10 +20,10 @@
 <div class="flex items-center gap-3">
 <input id="fontName" type="text" value="MyHandwriting" placeholder="Название шрифта"
 class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500" />
-<button id="downloadBtn"
-class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 rounded-lg text-sm transition flex items-center gap-2 shadow-lg shadow-indigo-500/20">
-<span>Скачать .TTF</span>
-</button>
+<div class="flex flex-wrap items-center gap-2">
+<button id="saveToLibraryBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium px-3 py-1.5 rounded-lg text-sm transition">Сохранить в библиотеку</button>
+<button id="downloadBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 rounded-lg text-sm transition shadow-lg shadow-indigo-500/20"><span>Скачать .TTF</span></button>
+</div>
 </div>
 </header>
 
@@ -144,6 +144,26 @@ placeholder="Введите текст для проверки...">ПРИВЕТ<
 <p class="text-[11px] text-slate-400 mt-3 text-center">Ненарисованные буквы отображаются стандартным шрифтом.</p>
 </section>
 </main>
+
+<section id="fontLibrary" class="max-w-7xl w-full mx-auto px-6 pb-8">
+<div class="bg-slate-800 rounded-xl border border-slate-700 p-4 sm:p-5">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+<div>
+<h2 class="text-lg font-semibold text-slate-100">Библиотека шрифтов <span id="fontLibraryCount" class="text-xs font-normal text-indigo-300 bg-indigo-950 px-2 py-1 rounded-full">0</span></h2>
+<p class="text-xs text-slate-400 mt-1">Ваши шрифты и проекты хранятся в этом браузере на устройстве.</p>
+</div>
+<div class="flex flex-wrap gap-2">
+<label class="cursor-pointer rounded-md bg-slate-700 hover:bg-slate-600 px-3 py-2 text-xs">Импортировать TTF/OTF<input id="importFontInput" type="file" accept=".ttf,.otf,font/ttf,font/otf" multiple class="hidden"></label>
+<label class="cursor-pointer rounded-md bg-slate-700 hover:bg-slate-600 px-3 py-2 text-xs">Восстановить копию<input id="importLibraryBackupInput" type="file" accept=".json,application/json" class="hidden"></label>
+<button id="exportFontLibraryBtn" class="rounded-md bg-indigo-700 hover:bg-indigo-600 px-3 py-2 text-xs">Резервная копия</button>
+</div>
+</div>
+<input id="fontLibrarySearch" type="search" placeholder="Найти шрифт…" class="w-full sm:max-w-sm bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm mb-3">
+<p id="fontLibraryStatus" role="status" aria-live="polite" class="text-xs text-emerald-300 mb-2 min-h-4"></p>
+<div id="fontLibraryList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+</div>
+</section>
+
 
 <script type="module" src="./src/main.js"></script>
 <script>
