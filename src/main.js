@@ -1088,6 +1088,18 @@ draftSyncStatus.classList.remove('hidden');
 }
 }
 
+function showDraftWriteError(err) {
+if (draftWriteConflict || !draftSyncStatus) return;
+draftSyncStatus.textContent = 'Не удалось сохранить черновик: ' + describeStorageError(err, 'ошибка автосохранения');
+draftSyncStatus.classList.remove('hidden');
+}
+
+function clearDraftWriteError() {
+if (draftWriteConflict || !draftSyncStatus) return;
+draftSyncStatus.textContent = '';
+draftSyncStatus.classList.add('hidden');
+}
+
 if (draftSyncChannel) {
 draftSyncChannel.addEventListener('message', event => {
 const savedAt = Number(event.data?.savedAt);
@@ -1141,6 +1153,7 @@ savedAt: Math.max(Date.now(), lastDraftSavedAt + 1)
 };
 } catch (err) {
 console.warn('Не удалось подготовить черновик к сохранению:', err);
+showDraftWriteError(err);
 return draftWriteQueue;
 }
 
@@ -1171,13 +1184,17 @@ tx.onabort = () => reject(conflictDetected
 : (tx.error || new Error('Сохранение черновика отменено')));
 });
 lastDraftSavedAt = snapshot.savedAt;
+clearDraftWriteError();
 draftSyncChannel?.postMessage({ savedAt: lastDraftSavedAt });
 } finally {
 if (db) db.close();
 }
 }).catch(err => {
 if (err?.message === 'Черновик уже сохранён в другой вкладке') showDraftWriteConflict();
-else console.warn('Автосохранение недоступно:', err);
+else {
+console.warn('Автосохранение недоступно:', err);
+showDraftWriteError(err);
+}
 });
 return draftWriteQueue;
 }
