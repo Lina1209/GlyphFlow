@@ -374,7 +374,7 @@ test('contour editor assigns a hole role and preserves it in the generated font'
   await expect(svg.locator('.glyph-fill')).toHaveCount(1);
 
   await page.locator('#contourModeBtn').click();
-  const innerContour = svg.locator('[data-contour-index="1"]');
+  const innerContour = svg.locator('path[data-contour-index="1"]');
   await expect(innerContour).toBeVisible();
   await clickContourPath(page, innerContour);
   const roleSelect = page.locator('#contourRoleSelect');
@@ -495,7 +495,7 @@ test('two separate hole contours remain distinct in the exported TTF', async ({p
   await page.locator('#contourModeBtn').click();
   const roleSelect = page.locator('#contourRoleSelect');
   for (const index of [1, 2]) {
-    const contour = page.locator(`[data-contour-index="${index}"]`);
+    const contour = page.locator(`path[data-contour-index="${index}"]`);
     await expect(contour).toBeVisible();
     await clickContourPath(page, contour);
     await roleSelect.selectOption('hole');
@@ -644,7 +644,7 @@ test('contour editor rejects a hole outside the actual outer polygon but inside 
   // outside the actual diagonal capsule polygon.
   await drawClosedContour(page, [[80,280],[92,280]]);
   await page.locator('#contourModeBtn').click();
-  const outsideContour = page.locator('[data-contour-index="1"]');
+  const outsideContour = page.locator('path[data-contour-index="1"]');
   await expect(outsideContour).toBeVisible();
   await clickContourPath(page, outsideContour);
   const roleSelect = page.locator('#contourRoleSelect');
