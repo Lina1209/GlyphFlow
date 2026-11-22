@@ -1299,6 +1299,7 @@ test('edits final Boolean compound rings with undo, redo, draft persistence and 
   await page.mouse.down();
   await page.mouse.move(bounds.x + bounds.width / 2 + 7, bounds.y + bounds.height / 2 + 5);
   await page.mouse.up();
+  console.log('compound editor drag state', await page.locator('#drawSvg').evaluate(element => ({...element.dataset})));
 
   const afterPath = await page.locator('#drawSvg .glyph-fill').getAttribute('d');
   expect(afterPath).not.toBe(beforePath);
