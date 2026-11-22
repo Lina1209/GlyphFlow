@@ -500,18 +500,11 @@ test('two separate hole contours remain distinct in the exported TTF', async ({p
     await clickContourPath(page, contour);
     await roleSelect.selectOption('hole');
     await page.locator('#applyContourRoleBtn').click();
-    console.log('multi-hole role assignment', await page.locator('#drawSvg').evaluate(element => ({
-      selectedContourIndex: element.dataset.selectedContourIndex || null,
-      validation: element.dataset.contourContainmentDebug || null,
-      status: document.getElementById('contourStatus').textContent
-    })));
     await expect(roleSelect).toHaveValue('hole');
   }
-  const holeDiagnostics = await page.locator('#drawSvg').evaluate(element => ({
-    pathMoveCount: (element.querySelector('.glyph-fill')?.getAttribute('d')?.match(/M/g) || []).length,
-    selectedContourIndex: element.dataset.selectedContourIndex || null,
-    validation: element.dataset.contourContainmentDebug || null
-  }));
+  const holePathCount = await page.locator('#drawSvg .glyph-fill').getAttribute('d')
+    .then(pathData => (pathData?.match(/M/g) || []).length);
+  expect(holePathCount).toBe(3);
   const storedHoleDepths = await page.evaluate(() => new Promise((resolve, reject) => {
     const request = indexedDB.open('glyphflow-local', 1);
     request.onerror = () => reject(request.error);
@@ -524,7 +517,7 @@ test('two separate hole contours remain distinct in the exported TTF', async ({p
       tx.oncomplete = () => db.close();
     };
   }));
-  console.log('two-hole diagnostics', {holeDiagnostics, storedHoleDepths});
+  expect(storedHoleDepths).toEqual([0, 1, 1]);
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#downloadBtn').click();
   const download = await downloadPromise;
@@ -951,11 +944,6 @@ test('exports four nested contour levels with alternating transparent counters',
     await expect(selector).toBeEnabled();
     await selector.selectOption(level);
     await page.locator('#applyContourRoleBtn').click();
-    console.log('nested contour assignment', level, await page.locator('#drawSvg').evaluate(element => ({
-      selectedContourIndex: element.dataset.selectedContourIndex || null,
-      validation: element.dataset.contourContainmentDebug || null,
-      status: document.getElementById('contourStatus').textContent
-    })));
     await expect(selector).toHaveValue(level);
   }
   await expect(page.locator('#contourStatus')).toContainText('Уровень 3');
