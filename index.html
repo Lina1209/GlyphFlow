@@ -265,10 +265,28 @@ maxX: Math.max(box.maxX, point[0]), maxY: Math.max(box.maxY, point[1])
 }), {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity});
 }
 function segmentsIntersect(a, b, c, d) {
+const epsilon = 1e-7;
 const cross = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+const onSegment = (p, q, r) =>
+Math.abs(cross(p, q, r)) <= epsilon &&
+q[0] >= Math.min(p[0], r[0]) - epsilon && q[0] <= Math.max(p[0], r[0]) + epsilon &&
+q[1] >= Math.min(p[1], r[1]) - epsilon && q[1] <= Math.max(p[1], r[1]) + epsilon;
 const abC = cross(a, b, c), abD = cross(a, b, d);
 const cdA = cross(c, d, a), cdB = cross(c, d, b);
-return abC * abD < -0.0001 && cdA * cdB < -0.0001;
+if (((abC > epsilon && abD < -epsilon) || (abC < -epsilon && abD > epsilon)) &&
+((cdA > epsilon && cdB < -epsilon) || (cdA < -epsilon && cdB > epsilon))) return true;
+return onSegment(a, c, b) || onSegment(a, d, b) || onSegment(c, a, d) || onSegment(c, b, d);
+}
+function pointInPolygon(point, polygon) {
+let inside = false;
+for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+const a = polygon[i], b = polygon[j];
+if ((a[1] > point[1]) !== (b[1] > point[1]) &&
+point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) {
+inside = !inside;
+}
+}
+return inside;
 }
 function isHoleWithinOuterBounds(holeStroke, strokes, holeIndex) {
 const hole = getStrokeOutline(holeStroke);
@@ -281,7 +299,7 @@ if (outer.length < 3) return false;
 const box = contourBounds(outer);
 const contained = holeBox.minX > box.minX && holeBox.maxX < box.maxX &&
 holeBox.minY > box.minY && holeBox.maxY < box.maxY;
-if (!contained) return false;
+if (!contained || !pointInPolygon(hole[0], outer)) return false;
 for (let i = 0; i < hole.length; i++) {
 const a = hole[i], b = hole[(i + 1) % hole.length];
 for (let j = 0; j < outer.length; j++) {
