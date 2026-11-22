@@ -275,6 +275,64 @@ test('drawing workspace fits a narrow mobile viewport', async ({ page }) => {
 });
 
 
+test('remains stable through repeated editing across narrow mobile viewport sizes', async ({ page }) => {
+  test.setTimeout(90000);
+  await page.goto('/');
+  const viewports = [
+    {width: 320, height: 640},
+    {width: 360, height: 740},
+    {width: 412, height: 915}
+  ];
+  let offset = 0;
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    const bounds = await page.locator('#drawSvg').boundingBox();
+    expect(bounds, JSON.stringify(viewport)).toBeTruthy();
+    expect(bounds.width, JSON.stringify(viewport)).toBeGreaterThan(180);
+    await expect(page.locator('#zoomInBtn')).toBeVisible();
+    await expect(page.locator('#panLeftBtn')).toBeVisible();
+    for (let index = 0; index < 6; index++) {
+      await drawStroke(page, (offset++ % 5) * 2);
+    }
+    await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
+    const svgNodeCount = await page.locator('#drawSvg path').count();
+    expect(svgNodeCount).toBe(1);
+  }
+
+  // Keep a second glyph independent during the same long session.
+  await page.locator('#glyphGrid button').filter({hasText: /^Б$/}).click();
+  for (let index = 0; index < 6; index++) await drawStroke(page, index * 2);
+  await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
+
+  const readPersistedCounts = async () => page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('current');
+      get.onsuccess = () => resolve({
+        A: get.result?.glyphData?.['А']?.length || 0,
+        B: get.result?.glyphData?.['Б']?.length || 0
+      });
+      get.onerror = () => reject(get.error);
+      tx.oncomplete = () => db.close();
+    };
+  }));
+  await expect.poll(readPersistedCounts, {timeout: 15000}).toEqual({A: 18, B: 6});
+
+  // Repeated history navigation must not leave stale SVG nodes or mix glyphs.
+  for (let index = 0; index < 4; index++) await page.locator('#undoBtn').click();
+  await page.locator('#redoBtn').click();
+  await page.locator('#glyphGrid button').filter({hasText: /^А$/}).click();
+  await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
+  await expect.poll(readPersistedCounts, {timeout: 15000}).toEqual({A: 18, B: 3});
+  await page.locator('#glyphGrid button').filter({hasText: /^Б$/}).click();
+  await expect.poll(readPersistedCounts, {timeout: 15000}).toEqual({A: 18, B: 3});
+  const finalSvgNodes = await page.locator('#drawSvg path').count();
+  expect(finalSvgNodes).toBe(1);
+});
+
 test('contour editor assigns a hole role and preserves it in the generated font', async ({page}) => {
   await page.goto('/');
   await page.getByRole('button', {name: 'Р', exact: true}).click();
