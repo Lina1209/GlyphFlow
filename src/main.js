@@ -600,13 +600,17 @@ applyViewBox();
 drawSvg.addEventListener('pointerdown', (e) => {
 if (compoundEditMode) {
 const handle = e.target.closest?.('[data-compound-point-index]');
+drawSvg.dataset.compoundPointerDown = e.target.tagName || 'unknown';
+drawSvg.dataset.compoundHandleFound = String(Boolean(handle));
 if (handle && selectedCompoundRing) {
+drawSvg.dataset.compoundDragState = 'pointerdown-handle';
 const geometry = cloneCompoundGeometry(getCompoundGlyphGeometry(glyphData[currentChar] || [], compoundOverrides[currentChar]));
 const polygonIndex = selectedCompoundRing.polygonIndex;
 const ringIndex = selectedCompoundRing.ringIndex;
 const pointIndex = Number(handle.getAttribute('data-compound-point-index'));
 const ring = geometry[polygonIndex]?.[ringIndex];
 if (ring && ring[pointIndex]) {
+drawSvg.dataset.compoundPointIndex = String(pointIndex);
 activeCompoundDrag = {
 pointerId: e.pointerId,
 char: currentChar,
@@ -767,9 +771,12 @@ const ring = candidate[drag.polygonIndex]?.[drag.ringIndex];
 if (ring && ring[drag.pointIndex]) {
 const position = getPointerPos(e);
 ring[drag.pointIndex] = [position[0], position[1]];
-if (isValidEditableRing(ring, drag.pointIndex, drag.originalRing) &&
-isSimpleRingAfterVertexMove(ring, drag.pointIndex) &&
-isValidCompoundEdit(candidate, drag.originalGeometry)) {
+const validRing = isValidEditableRing(ring, drag.pointIndex, drag.originalRing);
+const simpleRing = validRing && isSimpleRingAfterVertexMove(ring, drag.pointIndex);
+const validTopology = simpleRing && isValidCompoundEdit(candidate, drag.originalGeometry);
+drawSvg.dataset.compoundDragState = validTopology ? 'accepted' : 'rejected';
+drawSvg.dataset.compoundValidation = JSON.stringify({validRing, simpleRing, validTopology, ringLength: ring.length, originalLength: drag.originalRing.length});
+if (validTopology) {
 compoundOverrides[drag.char] = candidate;
 selectedCompoundRing = {...selectedCompoundRing, pointIndex: drag.pointIndex};
 renderCanvas();
@@ -1040,6 +1047,7 @@ function finishCompoundDrag(commit) {
 if (!activeCompoundDrag) return;
 const drag = activeCompoundDrag;
 activeCompoundDrag = null;
+drawSvg.dataset.compoundFinishCommit = String(commit);
 if (!commit) {
 if (drag.originalOverride) compoundOverrides[drag.char] = cloneCompoundGeometry(drag.originalOverride);
 else delete compoundOverrides[drag.char];
