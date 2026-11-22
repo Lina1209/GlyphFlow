@@ -20,10 +20,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check inline module and project contracts
-        run: node scripts/check.mjs
-      - name: Install OpenType.js test dependency
-        run: npm install --no-save --no-package-lock opentype.js@1.3.4 fonteditor-core@2.6.3 perfect-freehand@1.2.0 polygon-clipping@0.15.7
+      - name: Install pinned project dependencies
+        run: npm install --no-package-lock
+      - name: Check project contracts
+        run: npm run check
+      - name: Build production PWA assets
+        run: npm run build
       - name: Generate, convert, and parse a fixture TTF
         run: node scripts/font-smoke-test.mjs
       - name: Exercise Boolean geometry edge cases
@@ -45,8 +47,10 @@ jobs:
         with:
           node-version: 22
       - name: Install browser test dependencies
-        run: npm install --no-save --no-package-lock @playwright/test@1.56.1
+        run: npm install --no-package-lock
+      - name: Build production app for browser tests
+        run: npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run real browser interaction tests
-        run: npx playwright test
+      - name: Run production browser interaction tests
+        run: npm test
