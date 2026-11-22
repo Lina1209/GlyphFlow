@@ -483,6 +483,7 @@ node.setAttribute('fill', pointIndex === selectedOutlineIndex ? '#22c55e' : '#38
 node.setAttribute('stroke', '#ffffff');
 node.setAttribute('stroke-width', '1.5');
 node.setAttribute('data-outline-index', String(pointIndex));
+if (pointIndex === selectedOutlineIndex) drawSvg.dataset.outlineRenderedPoint = point.join(',');
 node.setAttribute('role', 'slider');
 node.setAttribute('aria-label', `Вершина границы ${pointIndex + 1}`);
 node.setAttribute('pointer-events', 'all');
