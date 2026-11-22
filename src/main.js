@@ -1303,7 +1303,7 @@ Object.keys(glyphData).forEach(char => {
 const strokes = glyphData[char];
 if (!strokes || !strokes.length) return;
 
-const contours = getCompoundPathRecords(getCompoundGlyphGeometry(strokes));
+const contours = getCompoundPathRecords(getCompoundGlyphGeometry(strokes, compoundOverrides[char]));
 let minX = Infinity;
 let maxX = -Infinity;
 contours.forEach(({outline}) => outline.forEach(([x]) => {
