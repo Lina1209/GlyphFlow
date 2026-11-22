@@ -333,7 +333,7 @@ if (touchPointers.size === 1) {
 touchGestureConsumed = false;
 } else if (touchPointers.size >= 2) {
 touchGestureConsumed = true;
-if (isDrawing) finishStroke(false);
+if (isDrawing) finishStroke(false, false);
 if (panPointerId !== null) {
 try { if (drawSvg.hasPointerCapture(panPointerId)) drawSvg.releasePointerCapture(panPointerId); } catch (err) {}
 panPointerId = null;
