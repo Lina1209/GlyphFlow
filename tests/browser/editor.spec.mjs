@@ -1226,6 +1226,13 @@ test('keeps editor lifecycle bounded across repeated glyph switches, history and
 
 test('exposes an installable PWA manifest and caches the application shell', async ({ page }) => {
   await page.goto('/');
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) {
+      await new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, {once: true}));
+    }
+  });
+  await page.reload();
   const pwa = await page.evaluate(async () => {
     const manifestUrl = document.querySelector('link[rel="manifest"]')?.href;
     const manifestResponse = await fetch(manifestUrl);
