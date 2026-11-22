@@ -659,6 +659,53 @@ test('exports four nested contour levels with alternating transparent counters',
   }
   await expect(page.locator('#contourStatus')).toContainText('Уровень 3');
 
+  // Undo/Redo must restore the selected contour's actual nesting depth, not
+  // merely its rendered outline.
+  await page.locator('#undoBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="3"]'));
+  await expect(page.locator('#contourRoleSelect')).toHaveValue('outer');
+  await page.locator('#redoBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="3"]'));
+  await expect(page.locator('#contourRoleSelect')).toHaveValue('nested-hole');
+
+  // Wait until IndexedDB contains all four explicit depth values.
+  const readPersistedDepths = async () => page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('current');
+      get.onsuccess = () => {
+        const strokes = get.result?.glyphData?.['Р'] || [];
+        resolve(strokes.map(stroke => Number.isInteger(stroke.depth) ? stroke.depth : 0));
+      };
+      get.onerror = () => reject(get.error);
+      tx.oncomplete = () => db.close();
+    };
+  }));
+  await expect.poll(readPersistedDepths).toEqual([0, 1, 2, 3]);
+
+  // Reload must preserve the depth metadata as well as the visible geometry.
+  await page.reload();
+  await expect(page.locator('#currentCharLabel')).toHaveText('А');
+  await page.locator('#glyphGrid button').filter({hasText: /^Р$/}).click();
+  await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
+  await page.locator('#contourModeBtn').click();
+  for (const [index, level] of [[0, 'outer'], [1, 'hole'], [2, 'island'], [3, 'nested-hole']]) {
+    await clickContourPath(page, page.locator(`#drawSvg [data-contour-index="${index}"]`));
+    await expect(page.locator('#contourRoleSelect')).toHaveValue(level);
+  }
+
+  // Switching to another glyph and back must not lose or cross-assign depths.
+  await page.locator('#glyphGrid button').filter({hasText: /^Б$/}).click();
+  await expect(page.locator('#currentCharLabel')).toHaveText('Б');
+  await page.locator('#glyphGrid button').filter({hasText: /^Р$/}).click();
+  for (const [index, level] of [[0, 'outer'], [1, 'hole'], [2, 'island'], [3, 'nested-hole']]) {
+    await clickContourPath(page, page.locator(`#drawSvg [data-contour-index="${index}"]`));
+    await expect(page.locator('#contourRoleSelect')).toHaveValue(level);
+  }
+
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#downloadBtn').click();
   const download = await downloadPromise;
