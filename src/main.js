@@ -1111,6 +1111,8 @@ request.result.close();
 return;
 }
 settled = true;
+// Release old connections when another tab requests a schema upgrade.
+request.result.onversionchange = () => request.result.close();
 resolve(request.result);
 };
 request.onerror = () => {
