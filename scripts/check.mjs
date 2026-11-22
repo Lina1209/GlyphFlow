@@ -41,6 +41,8 @@ const requiredContracts = [
   ['explicit contour role migration', "s && s.role === 'hole' ? 'hole' : 'outer'"],
   ['compound nonzero contour fill', "setAttribute('fill-rule', 'nonzero')"],
   ['hole bounds validation', 'isHoleWithinOuterBounds(selected, strokes, selectedStrokeIndex)'],
+  ['point-in-polygon hole containment', 'pointInPolygon(hole[0], outer)'],
+  ['segment endpoint and collinear rejection', 'return onSegment(a, c, b) || onSegment(a, d, b) || onSegment(c, a, d) || onSegment(c, b, d);'],
   ['contour role editor controls', "getElementById('contourRoleSelect')"],
   ['OpenType preview MIME type', "type: 'font/otf'"],
   ['TrueType export MIME type', "type: 'font/ttf'"],
