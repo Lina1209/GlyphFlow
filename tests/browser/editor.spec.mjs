@@ -1506,7 +1506,7 @@ test('does not replace the active drawing when a saved library project is invali
         savedAt: Date.now(),
         projectSnapshot: JSON.stringify({
           version: 2,
-          glyphData: {'А': [{points:[[0,0]],size:4,thinning:0.5}]},
+          glyphData: {'А': [{points:[[0,0]],size:0,thinning:0.5}]},
           compoundOverrides: {}
         })
       }, 'font-library:invalid-saved-project');
