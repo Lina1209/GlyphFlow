@@ -1454,3 +1454,71 @@ test('exports and restores a portable font-library backup', async ({ page }) => 
   await expect(page.locator('#fontName')).toHaveValue('Portable Backup Test');
   await expect(page.locator('#drawSvg .glyph-fill')).toBeVisible();
 });
+
+
+test('rejects an invalid project snapshot in a library backup before writing any records', async ({ page }) => {
+  await page.goto('/');
+  const maliciousBackup = {
+    format: 'GlyphFlowFontLibrary',
+    version: 1,
+    fonts: [{
+      id: 'malicious',
+      name: 'Invalid project',
+      format: 'ttf',
+      fontBase64: 'AA==',
+      projectSnapshot: JSON.stringify({
+        version: 2,
+        glyphData: {
+          'А': [{
+            points: Array.from({length: 10001}, (_, index) => [index, index]),
+            size: 4,
+            thinning: 0.5
+          }]
+        },
+        compoundOverrides: {}
+      })
+    }]
+  };
+  await page.locator('#importLibraryBackupInput').setInputFiles({
+    name: 'invalid-GlyphFlow-backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(maliciousBackup))
+  });
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('слишком длинный штрих');
+});
+
+test('does not replace the active drawing when a saved library project is invalid', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readwrite');
+      tx.objectStore('projects').put({
+        id: 'invalid-saved-project',
+        name: 'Повреждённый проект',
+        format: 'ttf',
+        fileName: 'invalid.ttf',
+        blob: new Blob([new Uint8Array([0, 1, 2, 3])], {type:'font/ttf'}),
+        size: 4,
+        savedAt: Date.now(),
+        projectSnapshot: JSON.stringify({
+          version: 2,
+          glyphData: {'А': [{points:[[0,0]],size:4,thinning:0.5}]},
+          compoundOverrides: {}
+        })
+      }, 'font-library:invalid-saved-project');
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  await page.reload();
+  await drawStroke(page);
+  await expect(page.locator('#drawSvg .glyph-fill')).toBeVisible();
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#fontLibraryList article').getByRole('button', {name:'Открыть проект'}).click();
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Проект не открыт');
+  await expect(page.locator('#drawSvg .glyph-fill')).toBeVisible();
+});
