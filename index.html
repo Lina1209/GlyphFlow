@@ -56,7 +56,7 @@ class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 roun
 <!-- Контейнер холста с направляющими -->
 <div class="relative w-full max-w-[360px] aspect-square bg-white rounded-xl shadow-inner overflow-hidden cursor-crosshair select-none border-2 border-slate-600">
 <!-- Типографские линии (SVG сетка) -->
-<svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 360 360">
+<svg id="guideSvg" class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 360 360">
 <!-- Линия прописных (Cap Height) -->
 <line x1="0" y1="70" x2="360" y2="70" stroke="#cbd5e1" stroke-dasharray="4 4" stroke-width="1" />
 <text x="8" y="65" fill="#94a3b8" font-size="10">Прописные</text>
@@ -151,6 +151,7 @@ let previewFontUrl = null;
 // Элементы DOM
 const glyphGrid = document.getElementById('glyphGrid');
 const drawSvg = document.getElementById('drawSvg');
+const guideSvg = document.getElementById('guideSvg');
 const currentCharLabel = document.getElementById('currentCharLabel');
 const brushSizeInput = document.getElementById('brushSize');
 const brushThinningInput = document.getElementById('brushThinning');
@@ -249,7 +250,9 @@ viewBox.y = Math.max(-180, Math.min(540 - viewBox.size, viewBox.y));
 }
 function applyViewBox() {
 clampViewBox();
-drawSvg.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.size} ${viewBox.size}`);
+const nextViewBox = `${viewBox.x} ${viewBox.y} ${viewBox.size} ${viewBox.size}`;
+drawSvg.setAttribute('viewBox', nextViewBox);
+guideSvg.setAttribute('viewBox', nextViewBox);
 zoomLevel.textContent = `${Math.round(360 / viewBox.size * 100)}%`;
 }
 function svgPointFromClient(clientX, clientY) {
