@@ -56,7 +56,19 @@ async function clickContourPath(page, path) {
     const screen = new DOMPoint(local.x, local.y).matrixTransform(element.getScreenCTM());
     return {x: screen.x, y: screen.y};
   });
+  const hitTarget = await page.evaluate(({x, y}) => {
+    const element = document.elementFromPoint(x, y);
+    return element ? {
+      tag: element.tagName,
+      contourIndex: element.getAttribute('data-contour-index'),
+      pointerEvents: getComputedStyle(element).pointerEvents,
+      fill: getComputedStyle(element).fill,
+      stroke: getComputedStyle(element).stroke
+    } : null;
+  }, point);
   await page.mouse.click(point.x, point.y);
+  const selectedIndex = await page.locator('#drawSvg').getAttribute('data-selected-contour-index');
+  console.log('contour hit target', {requested: await path.getAttribute('data-contour-index'), hitTarget, selectedIndex});
 }
 
 test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ page }) => {
