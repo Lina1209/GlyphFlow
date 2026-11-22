@@ -16,8 +16,9 @@ const CHARS = [
 ...'0123456789!?.,-'
 ];
 
-// Хранилище штрихов для каждого символа
+// Хранилище исходных штрихов и ручных правок итоговой Boolean-геометрии.
 const glyphData = {};
+const compoundOverrides = {};
 let currentChar = 'А';
 let currentPoints = [];
 let isDrawing = false;
@@ -27,6 +28,9 @@ let nodeEditMode = false;
 let outlineEditMode = false;
 let activeNodeDrag = null;
 let activeOutlineDrag = null;
+let compoundEditMode = false;
+let activeCompoundDrag = null;
+let selectedCompoundRing = null;
 let selectedNodeIndex = null;
 let selectedOutlineIndex = null;
 let selectedStrokeIndex = null;
@@ -37,7 +41,25 @@ const touchPointers = new Map();
 let pinchStart = null;
 let touchGestureConsumed = false;
 let viewBox = { x: 0, y: 0, size: 360 };
-let history = [JSON.stringify(glyphData)];
+function serializeProjectSnapshot() {
+return JSON.stringify({version: 2, glyphData, compoundOverrides});
+}
+function restoreProjectSnapshot(snapshot) {
+const parsed = JSON.parse(snapshot);
+const restoredGlyphs = parsed && parsed.glyphData && typeof parsed.glyphData === 'object'
+? parsed.glyphData
+: parsed;
+Object.keys(glyphData).forEach(key => delete glyphData[key]);
+if (restoredGlyphs && typeof restoredGlyphs === 'object') Object.assign(glyphData, restoredGlyphs);
+Object.keys(compoundOverrides).forEach(key => delete compoundOverrides[key]);
+if (parsed && parsed.compoundOverrides && typeof parsed.compoundOverrides === 'object') {
+Object.entries(parsed.compoundOverrides).forEach(([char, geometry]) => {
+const valid = sanitizeCompoundGeometry(geometry);
+if ([...char].length === 1 && valid) compoundOverrides[char] = valid;
+});
+}
+}
+let history = [serializeProjectSnapshot()];
 let historyIndex = 0;
 let previewFontUrl = null;
 
@@ -56,6 +78,7 @@ const progressText = document.getElementById('progressText');
 const contourModeBtn = document.getElementById('contourModeBtn');
 const nodeEditModeBtn = document.getElementById('nodeEditModeBtn');
 const outlineEditModeBtn = document.getElementById('outlineEditModeBtn');
+const compoundEditModeBtn = document.getElementById('compoundEditModeBtn');
 const addTrajectoryPointBtn = document.getElementById('addTrajectoryPointBtn');
 const deleteTrajectoryPointBtn = document.getElementById('deleteTrajectoryPointBtn');
 const contourRoleSelect = document.getElementById('contourRoleSelect');
