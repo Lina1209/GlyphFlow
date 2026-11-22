@@ -1067,3 +1067,40 @@ test('exports four nested contour levels with alternating transparent counters',
   expect(result.alpha[2], JSON.stringify(result)).toBeGreaterThan(0);
   expect(result.alpha[3], JSON.stringify(result)).toBe(0);
 });
+
+
+test('edits a selected stroke centerline through draggable nodes with undo support', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  await page.locator('#nodeEditModeBtn').click();
+  await expect(page.locator('#nodeEditModeBtn')).toHaveAttribute('aria-pressed', 'true');
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  const nodes = page.locator('#drawSvg [data-node-index]');
+  await expect(nodes).toHaveCount(6);
+  const firstNode = nodes.first();
+  const before = await firstNode.evaluate(element => ({
+    x: Number(element.getAttribute('cx')),
+    y: Number(element.getAttribute('cy'))
+  }));
+  const bounds = await firstNode.boundingBox();
+  if (!bounds) throw new Error('Selected trajectory node is not visible');
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 18, bounds.y + 14, {steps: 4});
+  await page.mouse.up();
+  const after = await page.locator('#drawSvg [data-node-index="0"]').evaluate(element => ({
+    x: Number(element.getAttribute('cx')),
+    y: Number(element.getAttribute('cy'))
+  }));
+  expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeGreaterThan(5);
+  await page.locator('#undoBtn').click();
+  await page.locator('#nodeEditModeBtn').click();
+  await page.locator('#nodeEditModeBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  const restored = await page.locator('#drawSvg [data-node-index="0"]').evaluate(element => ({
+    x: Number(element.getAttribute('cx')),
+    y: Number(element.getAttribute('cy'))
+  }));
+  expect(restored.x).toBeCloseTo(before.x, 1);
+  expect(restored.y).toBeCloseTo(before.y, 1);
+});
