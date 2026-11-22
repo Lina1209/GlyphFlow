@@ -230,6 +230,7 @@ progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
 
 // Переключение активной буквы
 function selectChar(char) {
+if (activeNodeDrag) finishNodeDrag(false);
 if (isDrawing) finishStroke(false, false);
 currentChar = char;
 selectedStrokeIndex = null;
@@ -796,6 +797,7 @@ persistDraft();
 }
 function restoreHistory(index) {
 if (index < 0 || index >= history.length) return;
+if (activeNodeDrag) finishNodeDrag(false);
 Object.keys(glyphData).forEach(key => delete glyphData[key]);
 Object.assign(glyphData, JSON.parse(history[index]));
 historyIndex = index;
@@ -900,6 +902,7 @@ updateContourTools();
 renderCanvas();
 };
 nodeEditModeBtn.onclick = () => {
+if (activeNodeDrag) finishNodeDrag(false);
 nodeEditMode = !nodeEditMode;
 contourEditMode = false;
 selectedStrokeIndex = null;
