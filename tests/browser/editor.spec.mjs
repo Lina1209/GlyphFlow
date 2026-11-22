@@ -399,6 +399,30 @@ test('contour editor assigns a hole role and preserves it in the generated font'
   expect(pixels.holeFill, JSON.stringify(pixels)).toBe(0);
 });
 
+test('overlapping brush strokes merge into one compound outline and one TTF contour', async ({page}) => {
+  await page.goto('/');
+  await page.getByRole('button', {name: 'Ж', exact: true}).click();
+  const svg = page.locator('#drawSvg');
+  await drawClosedContour(page, [[90,90],[270,270]]);
+  await drawClosedContour(page, [[90,270],[270,90]]);
+  const fill = svg.locator('.glyph-fill');
+  await expect(fill).toHaveCount(1);
+  const pathData = await fill.getAttribute('d');
+  expect((pathData.match(/M/g) || []).length).toBe(1);
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const fontBytes = await readFile(await download.path());
+  const encoded = fontBytes.toString('base64');
+  const contourCount = await page.evaluate(base64 => {
+    const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+    return window.opentype.parse(bytes.buffer).charToGlyph('Ж').path.commands
+      .filter(command => command.type === 'M').length;
+  }, encoded);
+  expect(contourCount).toBe(1);
+});
+
 test('contour editor rejects a hole outside the actual outer polygon but inside its bounding box', async ({page}) => {
   await page.goto('/');
   await page.getByRole('button', {name: 'В', exact: true}).click();
