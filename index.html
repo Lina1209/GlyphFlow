@@ -45,9 +45,8 @@ class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 roun
 <div id="currentCharLabel" class="text-2xl font-bold text-indigo-400">А</div>
 </div>
 <div class="flex gap-2">
-<button id="undoBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">
-↩ Отменить штрих
-</button>
+<button id="undoBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">↩ Назад</button>
+<button id="redoBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">Вперёд ↪</button>
 <button id="clearBtn" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 px-3 py-1.5 rounded-lg text-xs font-medium transition">
 Очистить
 </button>
@@ -126,6 +125,10 @@ const glyphData = {};
 let currentChar = 'А';
 let currentPoints = [];
 let isDrawing = false;
+let activePointerId = null;
+let history = [JSON.stringify(glyphData)];
+let historyIndex = 0;
+let previewFontUrl = null;
 
 // Элементы DOM
 const glyphGrid = document.getElementById('glyphGrid');
@@ -178,6 +181,7 @@ progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
 
 // Переключение активной буквы
 function selectChar(char) {
+if (isDrawing) finishStroke(false);
 currentChar = char;
 currentCharLabel.textContent = char;
 renderGrid();
@@ -226,7 +230,8 @@ return [x, y, e.pressure || 0.5];
 
 // События рисования
 drawSvg.addEventListener('pointerdown', (e) => {
-e.target.setPointerCapture(e.pointerId);
+drawSvg.setPointerCapture(e.pointerId);
+activePointerId = e.pointerId;
 isDrawing = true;
 currentPoints = [getPointerPos(e)];
 renderCanvas();
@@ -238,33 +243,44 @@ currentPoints.push(getPointerPos(e));
 renderCanvas();
 });
 
-drawSvg.addEventListener('pointerup', () => {
+function saveHistory() {
+const snapshot = JSON.stringify(glyphData);
+if (history[historyIndex] === snapshot) return;
+history = history.slice(0, historyIndex + 1);
+history.push(snapshot);
+historyIndex = history.length - 1;
+}
+function restoreHistory(index) {
+if (index < 0 || index >= history.length) return;
+Object.keys(glyphData).forEach(key => delete glyphData[key]);
+Object.assign(glyphData, JSON.parse(history[index]));
+historyIndex = index;
+renderCanvas(); renderGrid(); updateLiveFont();
+}
+function finishStroke(commit = true) {
 if (!isDrawing) return;
 isDrawing = false;
+if (commit && currentPoints.length) {
 if (!glyphData[currentChar]) glyphData[currentChar] = [];
-glyphData[currentChar].push({
-points: currentPoints,
-size: Number(brushSizeInput.value),
-thinning: Number(brushThinningInput.value),
-});
+glyphData[currentChar].push({points: currentPoints, size: Number(brushSizeInput.value), thinning: Number(brushThinningInput.value)});
+saveHistory();
+}
 currentPoints = [];
-renderCanvas();
-renderGrid();
-updateLiveFont();
-});
+if (activePointerId !== null && drawSvg.hasPointerCapture(activePointerId)) drawSvg.releasePointerCapture(activePointerId);
+activePointerId = null;
+renderCanvas(); renderGrid(); updateLiveFont();
+}
+drawSvg.addEventListener('pointerup', () => finishStroke(true));
+drawSvg.addEventListener('pointercancel', () => finishStroke(false));
+drawSvg.addEventListener('lostpointercapture', () => { if (isDrawing) finishStroke(false); });
 
 // Кнопки управления
-document.getElementById('undoBtn').onclick = () => {
-if (glyphData[currentChar] && glyphData[currentChar].length > 0) {
-glyphData[currentChar].pop();
-renderCanvas();
-renderGrid();
-updateLiveFont();
-}
-};
+document.getElementById('undoBtn').onclick = () => restoreHistory(historyIndex - 1);
+document.getElementById('redoBtn').onclick = () => restoreHistory(historyIndex + 1);
 
 document.getElementById('clearBtn').onclick = () => {
 glyphData[currentChar] = [];
+saveHistory();
 renderCanvas();
 renderGrid();
 updateLiveFont();
@@ -273,6 +289,7 @@ updateLiveFont();
 brushSizeInput.oninput = () => sizeVal.textContent = brushSizeInput.value + 'px';
 brushThinningInput.oninput = () => thinningVal.textContent = brushThinningInput.value;
 previewInput.oninput = () => livePreviewOutput.textContent = previewInput.value;
+document.getElementById('fontName').addEventListener('change', updateLiveFont);
 
 // Генерация объекта шрифта opentype.js
 function buildOpenTypeFont() {
@@ -341,7 +358,8 @@ path: fontPath
 }));
 });
 
-const familyName = document.getElementById('fontName').value.trim() || 'MyHandwriting';
+const rawFamilyName = document.getElementById('fontName').value.trim() || 'MyHandwriting';
+const familyName = rawFamilyName.replace(/[\\{};\n\r]/g, '').slice(0, 48) || 'MyHandwriting';
 return new opentype.Font({
 familyName: familyName,
 styleName: 'Regular',
@@ -359,6 +377,8 @@ const font = buildOpenTypeFont();
 const arrayBuffer = font.toArrayBuffer();
 const blob = new Blob([arrayBuffer], { type: 'font/ttf' });
 const url = URL.createObjectURL(blob);
+if (previewFontUrl) URL.revokeObjectURL(previewFontUrl);
+previewFontUrl = url;
 
 let styleTag = document.getElementById('dynamic-font-style');
 if (!styleTag) {
@@ -374,13 +394,24 @@ console.error('Ошибка обновления шрифта:', err);
 
 // Скачивание готового .TTF файла
 document.getElementById('downloadBtn').onclick = () => {
+try {
+const count = Object.values(glyphData).filter(strokes => strokes && strokes.length).length;
+if (!count) { alert('Сначала нарисуйте хотя бы один символ.'); return; }
+if (typeof opentype === 'undefined' || !opentype.Font) { alert('Библиотека opentype.js не загрузилась. Проверьте подключение к интернету и повторите попытку.'); return; }
 const font = buildOpenTypeFont();
+const buffer = font.toArrayBuffer();
+if (!buffer || buffer.byteLength < 100) throw new Error('Получен пустой или некорректный файл шрифта.');
 font.download();
+} catch (err) {
+console.error('Ошибка экспорта TTF:', err);
+alert('Не удалось создать TTF. Проверьте данные глифов и попробуйте ещё раз.');
+}
 };
 
 // Инициализация
 renderGrid();
 renderCanvas();
+updateLiveFont();
 </script>
 </body>
 </html>
