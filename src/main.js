@@ -1073,6 +1073,27 @@ scheduleStrokePreviewRender();
 const DRAFT_DB = 'glyphflow-local';
 const DRAFT_STORE = 'projects';
 let draftWriteQueue = Promise.resolve();
+let lastDraftSavedAt = 0;
+let draftWriteConflict = false;
+const draftSyncStatus = document.getElementById('draftSyncStatus');
+const draftSyncChannel = 'BroadcastChannel' in window
+? new BroadcastChannel('glyphflow-draft-sync-v1')
+: null;
+
+function showDraftWriteConflict() {
+draftWriteConflict = true;
+if (draftSyncStatus) {
+draftSyncStatus.textContent = 'Черновик изменён в другой вкладке. Эта вкладка больше не будет перезаписывать сохранённую версию. Обновите страницу, чтобы загрузить последние изменения.';
+draftSyncStatus.classList.remove('hidden');
+}
+}
+
+if (draftSyncChannel) {
+draftSyncChannel.addEventListener('message', event => {
+const savedAt = Number(event.data?.savedAt);
+if (Number.isFinite(savedAt) && savedAt > lastDraftSavedAt) showDraftWriteConflict();
+});
+}
 
 function openDraftDB() {
 return new Promise((resolve, reject) => {
@@ -1107,13 +1128,14 @@ reject(new Error('Открытие IndexedDB заблокировано друг
 
 // Снимок создаётся сразу, а записи выполняются строго по порядку вызовов.
 function persistDraft() {
+if (draftWriteConflict) return draftWriteQueue;
 let snapshot;
 try {
 snapshot = {
 glyphData: JSON.parse(JSON.stringify(glyphData)),
 compoundOverrides: JSON.parse(JSON.stringify(compoundOverrides)),
 fontName: document.getElementById('fontName').value,
-savedAt: Date.now()
+savedAt: Math.max(Date.now(), lastDraftSavedAt + 1)
 };
 } catch (err) {
 console.warn('Не удалось подготовить черновик к сохранению:', err);
@@ -1123,19 +1145,37 @@ return draftWriteQueue;
 draftWriteQueue = draftWriteQueue.catch(() => {}).then(async () => {
 let db;
 try {
+if (draftWriteConflict) return;
 db = await openDraftDB();
 const tx = db.transaction(DRAFT_STORE, 'readwrite');
-tx.objectStore(DRAFT_STORE).put(snapshot, 'current');
+const store = tx.objectStore(DRAFT_STORE);
+const currentRequest = store.get('current');
 await new Promise((resolve, reject) => {
+let conflictDetected = false;
+currentRequest.onsuccess = () => {
+const current = currentRequest.result;
+if (current && Number(current.savedAt) > lastDraftSavedAt) {
+conflictDetected = true;
+try { tx.abort(); } catch {}
+return;
+}
+store.put(snapshot, 'current');
+};
+currentRequest.onerror = () => reject(currentRequest.error);
 tx.oncomplete = resolve;
 tx.onerror = () => reject(tx.error);
-tx.onabort = () => reject(tx.error);
+tx.onabort = () => reject(conflictDetected
+? new Error('Черновик уже сохранён в другой вкладке')
+: (tx.error || new Error('Сохранение черновика отменено')));
 });
+lastDraftSavedAt = snapshot.savedAt;
+draftSyncChannel?.postMessage({ savedAt: lastDraftSavedAt });
 } finally {
 if (db) db.close();
 }
 }).catch(err => {
-console.warn('Автосохранение недоступно:', err);
+if (err?.message === 'Черновик уже сохранён в другой вкладке') showDraftWriteConflict();
+else console.warn('Автосохранение недоступно:', err);
 });
 return draftWriteQueue;
 }
@@ -1151,6 +1191,7 @@ request.onsuccess = () => resolve(request.result);
 request.onerror = () => reject(request.error);
 });
 if (draft && draft.glyphData && typeof draft.glyphData === 'object') {
+lastDraftSavedAt = Number.isFinite(Number(draft.savedAt)) ? Number(draft.savedAt) : 0;
 restoreProjectSnapshot(JSON.stringify({
 version: 2,
 glyphData: draft.glyphData,
