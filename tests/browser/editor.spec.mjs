@@ -1124,3 +1124,58 @@ test('adds and removes trajectory points with undo and redo', async ({ page }) =
   await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
   await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial);
 });
+
+
+test('edits actual vector outline vertices with validation, undo, redo and draft persistence', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  await page.locator('#outlineEditModeBtn').click();
+  await expect(page.locator('#outlineEditModeBtn')).toHaveAttribute('aria-pressed', 'true');
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  const handles = page.locator('#drawSvg [data-outline-index]');
+  expect(await handles.count()).toBeGreaterThan(5);
+  const handle = handles.nth(Math.floor((await handles.count()) / 2));
+  const before = await handle.evaluate(element => ({
+    x: Number(element.getAttribute('cx')),
+    y: Number(element.getAttribute('cy'))
+  }));
+  const bounds = await handle.boundingBox();
+  if (!bounds) throw new Error('Vector outline handle is not visible');
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width / 2 + 8, bounds.y + bounds.height / 2 + 6, {steps: 4});
+  await page.mouse.up();
+  const changed = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
+    x: Number(element.getAttribute('cx')),
+    y: Number(element.getAttribute('cy'))
+  }));
+  expect(Math.hypot(changed.x - before.x, changed.y - before.y)).toBeGreaterThan(2);
+
+  await page.locator('#undoBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  const undone = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
+    x: Number(element.getAttribute('cx')),
+    y: Number(element.getAttribute('cy'))
+  }));
+  expect(undone.x).toBeCloseTo(before.x, 1);
+  expect(undone.y).toBeCloseTo(before.y, 1);
+
+  await page.locator('#redoBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await page.waitForTimeout(400);
+  const redone = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
+    x: Number(element.getAttribute('cx')),
+    y: Number(element.getAttribute('cy'))
+  }));
+  expect(Math.hypot(redone.x - before.x, redone.y - before.y)).toBeGreaterThan(2);
+
+  await page.reload();
+  await page.locator('#outlineEditModeBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  const restored = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
+    x: Number(element.getAttribute('cx')),
+    y: Number(element.getAttribute('cy'))
+  }));
+  expect(restored.x).toBeCloseTo(redone.x, 1);
+  expect(restored.y).toBeCloseTo(redone.y, 1);
+});
