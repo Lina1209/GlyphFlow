@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
+import { createFont } from 'fonteditor-core';
 
 const require = createRequire(import.meta.url);
 const opentype = require('opentype.js');
@@ -62,4 +63,20 @@ for (const char of ['A', 'Ё', '😀']) {
 assert.equal(parsed.charToGlyph('Ё').path.commands.filter(command => command.type === 'M').length, 2,
   'Multi-stroke glyph should retain both contours');
 
-console.log('GlyphFlow OTF smoke test passed: serialize + parse + OTTO/CFF signature + metrics + .notdef + space + BMP/supplementary Unicode + multi-contour glyph.');
+// opentype.js emits CFF/OTF. Convert it to a genuine TrueType font for the
+// product's promised .ttf export, then parse that binary independently again.
+const converted = createFont(bytes, {type: 'otf'});
+const ttfBytes = Buffer.from(converted.write({type: 'ttf', hinting: false, kerning: false}));
+assert.ok(ttfBytes.length > 100, 'OTF-to-TTF conversion returned an empty buffer');
+assert.equal(ttfBytes.toString('hex', 0, 4), '00010000', 'Expected TrueType sfnt signature');
+writeFileSync('/tmp/glyphflow-fixture.ttf', ttfBytes);
+const ttfArrayBuffer = ttfBytes.buffer.slice(ttfBytes.byteOffset, ttfBytes.byteOffset + ttfBytes.byteLength);
+const reparsedTtf = opentype.parse(ttfArrayBuffer);
+assert.equal(reparsedTtf.outlinesFormat, 'truetype', 'Converted font must use TrueType outlines');
+assert.equal(reparsedTtf.charToGlyph('A').unicode, 65);
+assert.equal(reparsedTtf.charToGlyph('Ё').unicode, 0x401);
+assert.equal(reparsedTtf.charToGlyph('😀').unicode, 0x1F600);
+assert.equal(reparsedTtf.charToGlyph('Ё').path.commands.filter(command => command.type === 'M').length, 2,
+  'TTF conversion must preserve multi-contour glyphs');
+
+console.log('GlyphFlow font pipeline passed: opentype.js OTF generation + fonteditor-core OTF-to-TTF conversion + TrueType reparse + Unicode + multi-contour glyph.');
