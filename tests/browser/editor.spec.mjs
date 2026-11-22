@@ -60,5 +60,33 @@ test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ 
   expect(bytes.byteLength).toBeGreaterThan(100);
   expect(bytes.subarray(0, 4).toString('hex')).toBe('00010000');
 
+  // Load the downloaded binary as a real browser font and verify glyph rendering.
+  const fontBase64 = bytes.toString('base64');
+  const fontRender = await page.evaluate(async base64 => {
+    const font = new FontFace('GlyphFlowBrowserSmoke', `url(data:font/ttf;base64,${base64})`);
+    await font.load();
+    document.fonts.add(font);
+    await document.fonts.load('48px GlyphFlowBrowserSmoke', 'АБ');
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 90;
+    const context = canvas.getContext('2d');
+    context.font = '48px GlyphFlowBrowserSmoke';
+    context.fillText('АБ', 8, 62);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let paintedPixels = 0;
+    for (let index = 3; index < pixels.length; index += 4) {
+      if (pixels[index] > 0) paintedPixels++;
+    }
+    return {
+      loaded: document.fonts.check('48px GlyphFlowBrowserSmoke', 'АБ'),
+      width: context.measureText('АБ').width,
+      paintedPixels
+    };
+  }, fontBase64);
+  expect(fontRender.loaded).toBe(true);
+  expect(fontRender.width).toBeGreaterThan(0);
+  expect(fontRender.paintedPixels).toBeGreaterThan(0);
+
   expect(pageErrors, 'Browser runtime should not raise uncaught exceptions').toEqual([]);
 });
