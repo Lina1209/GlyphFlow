@@ -92,8 +92,10 @@ class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 roun
     <button id="contourModeBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-xs font-medium">Выбрать контур</button>
     <label for="contourRoleSelect" class="text-xs text-slate-400">Тип:</label>
     <select id="contourRoleSelect" disabled class="min-w-0 flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-xs disabled:opacity-50">
-      <option value="outer">Внешний контур</option>
-      <option value="hole">Отверстие</option>
+      <option value="0">Внешняя область (уровень 0)</option>
+      <option value="1">Отверстие (уровень 1)</option>
+      <option value="2">Остров внутри отверстия (уровень 2)</option>
+      <option value="3">Отверстие внутри острова (уровень 3)</option>
     </select>
     <button id="applyContourRoleBtn" type="button" disabled class="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded-lg px-3 py-2 text-xs font-medium">Применить</button>
   </div>
@@ -244,6 +246,7 @@ streamline: 0.5,
 });
 }
 function getContourRole(stroke) {
+if (Number.isInteger(stroke && stroke.depth) && stroke.depth >= 0) return stroke.depth % 2 ? 'hole' : 'outer';
 return stroke && stroke.role === 'hole' ? 'hole' : 'outer';
 }
 function contourSignedArea(points) {
@@ -346,22 +349,23 @@ if (((abC > epsilon && abD < -epsilon) || (abC < -epsilon && abD > epsilon)) &&
 ((cdA > epsilon && cdB < -epsilon) || (cdA < -epsilon && cdB > epsilon))) return true;
 return onSegment(a, c, b) || onSegment(a, d, b) || onSegment(c, a, d) || onSegment(c, b, d);
 }
-function isHoleWithinOuterBounds(holeStroke, strokes, holeIndex) {
-const hole = cleanPolygonRing(getStrokeOutline(holeStroke));
-if (hole.length < 3) return false;
-const outerPolygons = strokes
-.filter((stroke, index) => index !== holeIndex && getContourRole(stroke) === 'outer')
+function isContourWithinParentDepth(candidateStroke, strokes, candidateIndex, depth) {
+if (depth === 0) return true;
+const candidate = cleanPolygonRing(getStrokeOutline(candidateStroke));
+if (candidate.length < 3) return false;
+const parentPolygons = strokes
+.filter((stroke, index) => index !== candidateIndex && getContourDepth(stroke) === depth - 1)
 .map(stroke => cleanPolygonRing(getStrokeOutline(stroke)))
 .filter(ring => ring.length >= 3)
 .map(ring => [ring]);
-if (!outerPolygons.length) return false;
-const outerUnion = polygonClipping.union(...outerPolygons);
-const outside = polygonClipping.difference([[hole]], outerUnion);
+if (!parentPolygons.length) return false;
+const parentUnion = polygonClipping.union(...parentPolygons);
+const outside = polygonClipping.difference([[candidate]], parentUnion);
 if (multiPolygonArea(outside) > 1e-4) return false;
-for (const polygon of outerUnion) {
+for (const polygon of parentUnion) {
 for (const boundary of polygon) {
-for (let i = 0; i < hole.length; i++) {
-const a = hole[i], b = hole[(i + 1) % hole.length];
+for (let i = 0; i < candidate.length; i++) {
+const a = candidate[i], b = candidate[(i + 1) % candidate.length];
 for (let j = 0; j < boundary.length; j++) {
 if (segmentsIntersect(a, b, boundary[j], boundary[(j + 1) % boundary.length])) return false;
 }
@@ -369,6 +373,9 @@ if (segmentsIntersect(a, b, boundary[j], boundary[(j + 1) % boundary.length])) r
 }
 }
 return true;
+}
+function isHoleWithinOuterBounds(holeStroke, strokes, holeIndex) {
+return isContourWithinParentDepth(holeStroke, strokes, holeIndex, 1);
 }
 function updateContourTools() {
 const strokes = glyphData[currentChar] || [];
@@ -378,8 +385,8 @@ contourModeBtn.classList.toggle('bg-amber-700', contourEditMode);
 contourRoleSelect.disabled = !contourEditMode || !selected;
 applyContourRoleBtn.disabled = !contourEditMode || !selected;
 if (selected) {
-contourRoleSelect.value = getContourRole(selected);
-contourStatus.textContent = `Выбран контур ${selectedStrokeIndex + 1}. Назначьте ему внешний тип или отверстие.`;
+contourRoleSelect.value = String(getContourDepth(selected));
+contourStatus.textContent = `Выбран контур ${selectedStrokeIndex + 1}. Уровень ${getContourDepth(selected)}: ${getContourDepth(selected) % 2 ? 'вырезание' : 'заполнение'}.`;
 } else if (contourEditMode) {
 contourStatus.textContent = 'Нажмите на контур буквы, чтобы выбрать его.';
 } else {
@@ -766,13 +773,15 @@ applyContourRoleBtn.onclick = () => {
 const strokes = glyphData[currentChar] || [];
 const selected = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
 if (!selected) return;
-const role = contourRoleSelect.value;
-if (role === 'hole' && !isHoleWithinOuterBounds(selected, strokes, selectedStrokeIndex)) {
-contourStatus.textContent = 'Отверстие должно находиться внутри внешнего контура и не пересекать его границу.';
-contourRoleSelect.value = getContourRole(selected);
+const depth = Number(contourRoleSelect.value);
+if (!Number.isInteger(depth) || depth < 0 || depth > 3) return;
+if (depth > 0 && !isContourWithinParentDepth(selected, strokes, selectedStrokeIndex, depth)) {
+contourStatus.textContent = `Контур уровня ${depth} должен целиком находиться внутри области уровня ${depth - 1} и не касаться её границы.`;
+contourRoleSelect.value = String(getContourDepth(selected));
 return;
 }
-selected.role = role;
+selected.depth = depth;
+selected.role = depth % 2 ? 'hole' : 'outer';
 saveHistory();
 renderCanvas();
 updateLiveFont();
