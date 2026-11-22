@@ -51,15 +51,15 @@ async function drawClosedContour(page, points) {
 }
 
 async function clickContourPath(page, path) {
-  const bounds = await path.boundingBox();
-  if (!bounds) throw new Error('Contour hit target has no visible bounds');
-  // SVG paths can be very thin and their 8%-length sample can land just
-  // outside the viewport after mobile layout scaling. Force the event onto
-  // the selected hit path while keeping it a real Playwright pointer action.
-  await path.click({
-    force: true,
-    position: {x: bounds.width / 2, y: bounds.height / 2}
+  const position = await path.evaluate(element => {
+    const point = element.getPointAtLength(Math.max(1, element.getTotalLength() * 0.08));
+    const bounds = element.getBBox();
+    return {x: point.x - bounds.x, y: point.y - bounds.y};
   });
+  // Force the pointer action onto the requested SVG hit path at a point on
+  // its boundary; this avoids accidentally selecting a nested path at the
+  // bounding-box center.
+  await path.click({force: true, position});
   const selectedIndex = await page.locator('#drawSvg').getAttribute('data-selected-contour-index');
   console.log('contour selection', {
     requested: await path.getAttribute('data-contour-index'),
@@ -510,6 +510,11 @@ test('two separate hole contours remain distinct in the exported TTF', async ({p
     await clickContourPath(page, contour);
     await roleSelect.selectOption('hole');
     await page.locator('#applyContourRoleBtn').click();
+    console.log('multi-hole role assignment', await page.locator('#drawSvg').evaluate(element => ({
+      selectedContourIndex: element.dataset.selectedContourIndex || null,
+      validation: element.dataset.contourContainmentDebug || null,
+      status: document.getElementById('contourStatus').textContent
+    })));
     await expect(roleSelect).toHaveValue('hole');
   }
   const holeDiagnostics = await page.locator('#drawSvg').evaluate(element => ({
