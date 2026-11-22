@@ -1231,7 +1231,7 @@ test('exposes an installable PWA manifest and caches the application shell', asy
     const manifestResponse = await fetch(manifestUrl);
     const manifest = await manifestResponse.json();
     const registration = await navigator.serviceWorker.ready;
-    const cache = await caches.open('glyphflow-shell-v1');
+    const cache = await caches.open('glyphflow-shell-v2');
     const cachedUrls = await cache.keys();
     return {
       manifestUrl,
@@ -1254,4 +1254,12 @@ test('exposes an installable PWA manifest and caches the application shell', asy
   expect(pwa.cachedUrls.some(url => url.endsWith('/index.html') || url.endsWith('/'))).toBe(true);
   expect(pwa.cachedUrls.some(url => url.endsWith('/manifest.webmanifest'))).toBe(true);
   expect(pwa.cachedUrls.some(url => url.endsWith('/icons/glyphflow.svg'))).toBe(true);
+  const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name));
+  expect(resources.filter(url => new URL(url).origin !== location.origin)).toEqual([]);
+  await page.context().setOffline(true);
+  await page.reload();
+  await expect(page.locator('#drawSvg')).toBeVisible();
+  await drawStroke(page);
+  await expect(page.locator('#progressText')).toContainText('Готово: 1');
+  await page.context().setOffline(false);
 });
