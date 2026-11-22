@@ -12,6 +12,11 @@ const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', im
 const geometryPerformance = readFileSync(new URL('../scripts/geometry-performance.mjs', import.meta.url), 'utf8');
 const pwaManifest = JSON.parse(readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));
 const serviceWorker = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+const publicManifest = readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8');
+const publicServiceWorker = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
+const publicIcon = readFileSync(new URL('../public/icons/glyphflow.svg', import.meta.url), 'utf8');
+const sourceIcon = readFileSync(new URL('../icons/glyphflow.svg', import.meta.url), 'utf8');
+const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const nestedExportContracts = [
   ['font smoke fixture includes four nested depths', "'Ы': ["],
   ['font smoke fixture reaches depth three', "thinning: 0.35, depth: 3"],
@@ -157,8 +162,15 @@ assert.ok(!html.includes('font.download()'), 'Deprecated library download helper
 assert.ok(!html.includes('Скачать .OTF'), 'The UI must provide the requested TrueType TTF export');
 assert.equal(pwaManifest.display, 'standalone', 'PWA must launch in standalone mode');
 assert.ok(pwaManifest.icons?.some(icon => icon.src === './icons/glyphflow.svg' && icon.purpose.includes('maskable')), 'PWA manifest must expose a maskable app icon');
+assert.equal(publicManifest, JSON.stringify(pwaManifest, null, 2) + '\\n', 'Vite public manifest must match the source manifest');
+assert.equal(publicServiceWorker, serviceWorker, 'Vite public service worker must match the tested source worker');
+assert.equal(publicIcon, sourceIcon, 'Vite public icon must match the source icon');
 assert.ok(serviceWorker.includes("const CACHE_NAME = CACHE_PREFIX + 'v2';"), 'Service worker must version its app-shell cache');
 assert.ok(serviceWorker.includes("new URL('manifest.webmanifest', APP_SCOPE).href"), 'Service worker must cache the manifest');
+assert.equal(packageJson.dependencies['perfect-freehand'], '1.2.0', 'Brush runtime must be pinned locally');
+assert.equal(packageJson.dependencies['fonteditor-core'], '2.6.3', 'TTF conversion runtime must be pinned locally');
+assert.equal(packageJson.dependencies['opentype.js'], '1.3.4', 'OpenType runtime must be pinned locally');
+assert.equal(packageJson.dependencies['polygon-clipping'], '0.15.7', 'Boolean geometry runtime must be pinned locally');
 assert.ok(browserTests.includes('exposes an installable PWA manifest'), 'Browser tests must cover PWA installation metadata and shell caching');
 
 console.log(`GlyphFlow checks passed: module syntax + ${requiredContracts.length} structural contracts.`);
