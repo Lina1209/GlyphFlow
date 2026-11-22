@@ -629,6 +629,47 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
 });
 
 
+test('batches dense live pointer input into one preview render per animation frame', async ({ page }) => {
+  await page.goto('/');
+  const svg = page.locator('#drawSvg');
+  const bounds = await svg.boundingBox();
+  if (!bounds) throw new Error('Drawing SVG has no visible bounds');
+  await page.evaluate(() => {
+    window.__glyphFlowPointerId = null;
+    document.querySelector('#drawSvg').addEventListener('pointerdown', event => {
+      window.__glyphFlowPointerId = event.pointerId;
+    }, {once: true});
+  });
+  await page.mouse.move(bounds.x + 45, bounds.y + 275);
+  await page.mouse.down();
+  const mutationCount = await page.evaluate(async ({left, top}) => {
+    const target = document.querySelector('#drawSvg');
+    const pointerId = window.__glyphFlowPointerId;
+    if (pointerId === null) throw new Error('Could not capture active pointer ID');
+    let mutations = 0;
+    const observer = new MutationObserver(records => { mutations += records.length; });
+    observer.observe(target, {childList: true});
+    for (let index = 0; index < 400; index++) {
+      const progress = index / 399;
+      target.dispatchEvent(new PointerEvent('pointermove', {
+        bubbles: true,
+        pointerId,
+        pointerType: 'mouse',
+        buttons: 1,
+        clientX: left + 45 + progress * 230,
+        clientY: top + 275 - Math.sin(progress * Math.PI * 6) * 90
+      }));
+    }
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    observer.disconnect();
+    return mutations;
+  }, {left: bounds.x, top: bounds.y});
+  await page.mouse.up();
+  await expect(svg.locator('path')).toHaveCount(1);
+  expect(mutationCount, '400 synchronous pointermove events should be coalesced into one preview frame').toBeLessThanOrEqual(4);
+  await expect(page.locator('#progressText')).toContainText('1 /');
+});
+
 test('migrates legacy hole roles and clamps unsupported stored contour depths', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
