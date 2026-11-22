@@ -1135,6 +1135,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   const handles = page.locator('#drawSvg [data-outline-index]');
   expect(await handles.count()).toBeGreaterThan(5);
   const handle = handles.nth(Math.floor((await handles.count()) / 2));
+  const selectedPointIndex = await handle.getAttribute('data-outline-index');
   const before = await handle.evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
@@ -1147,7 +1148,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   await page.mouse.up();
   const dragState = await page.locator('#drawSvg').getAttribute('data-outline-drag-state');
   expect(dragState).toBe('accepted');
-  const changed = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
+  const changed = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
   }));
@@ -1155,7 +1156,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
 
   await page.locator('#undoBtn').click();
   await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
-  const undone = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
+  const undone = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
   }));
@@ -1165,7 +1166,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   await page.locator('#redoBtn').click();
   await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
   await page.waitForTimeout(400);
-  const redone = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
+  const redone = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
   }));
@@ -1174,7 +1175,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   await page.reload();
   await page.locator('#outlineEditModeBtn').click();
   await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
-  const restored = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
+  const restored = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
   }));
