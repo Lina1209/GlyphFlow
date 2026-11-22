@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 
@@ -34,6 +34,7 @@ vm.runInNewContext(builderSource + '\nthis.buildOpenTypeFont = buildOpenTypeFont
 const generated = context.buildOpenTypeFont();
 const bytes = generated.toArrayBuffer();
 assert.ok(bytes instanceof ArrayBuffer && bytes.byteLength > 100, 'Font serialization returned an empty buffer');
+writeFileSync('/tmp/glyphflow-fixture.ttf', Buffer.from(bytes));
 
 const parsed = opentype.parse(bytes);
 assert.equal(parsed.unitsPerEm, 1000);
