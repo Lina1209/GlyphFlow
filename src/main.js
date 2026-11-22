@@ -349,12 +349,19 @@ nodeEditModeBtn.classList.toggle('bg-amber-700', nodeEditMode);
 nodeEditModeBtn.setAttribute('aria-pressed', String(nodeEditMode));
 outlineEditModeBtn.classList.toggle('bg-amber-700', outlineEditMode);
 outlineEditModeBtn.setAttribute('aria-pressed', String(outlineEditMode));
+compoundEditModeBtn.classList.toggle('bg-amber-700', compoundEditMode);
+compoundEditModeBtn.setAttribute('aria-pressed', String(compoundEditMode));
 const selectedPoints = selected ? (selected.points || []) : [];
 addTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length < 2;
 deleteTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length <= 2 || selectedNodeIndex === null;
-contourRoleSelect.disabled = !contourEditMode || !selected;
-applyContourRoleBtn.disabled = !contourEditMode || !selected;
-if (nodeEditMode) {
+contourRoleSelect.disabled = compoundEditMode || !contourEditMode || !selected;
+applyContourRoleBtn.disabled = compoundEditMode || !contourEditMode || !selected;
+if (compoundEditMode) {
+const selectedLabel = selectedCompoundRing
+? `Выбрано кольцо ${selectedCompoundRing.polygonIndex + 1} · ${selectedCompoundRing.ringIndex === 0 ? 'внешняя граница' : 'отверстие'}.`
+: 'Нажмите на внешнюю границу или отверстие итоговой буквы.';
+contourStatus.textContent = selectedLabel + ' Перетаскивайте узлы; изменение проверяется на самопересечения и сохранение топологии.';
+} else if (nodeEditMode) {
 contourStatus.textContent = selected
 ? `Выбран штрих ${selectedStrokeIndex + 1}. Перетаскивайте круглые узлы траектории, чтобы изменить форму.`
 : 'Нажмите на штрих, чтобы показать его узлы.';
