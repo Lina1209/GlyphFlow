@@ -61,6 +61,13 @@ const glyphData = {
     { points: [[120, 180, 0.5], [140, 180, 0.5]], size: 8, thinning: 0.3, role: 'hole' },
     { points: [[220, 180, 0.5], [240, 180, 0.5]], size: 8, thinning: 0.3, role: 'hole' }
   ],
+  // Four explicit depth levels must survive the real perfect-freehand -> OTF -> TTF pipeline.
+  'Ы': [
+    { points: [[90, 180, 0.5], [270, 180, 0.5]], size: 40, thinning: 0.35, depth: 0 },
+    { points: [[110, 180, 0.5], [250, 180, 0.5]], size: 26, thinning: 0.35, depth: 1 },
+    { points: [[130, 180, 0.5], [230, 180, 0.5]], size: 14, thinning: 0.35, depth: 2 },
+    { points: [[145, 180, 0.5], [215, 180, 0.5]], size: 6, thinning: 0.35, depth: 3 }
+  ],
   // A self-crossing figure-eight trajectory probes outline stability at crossings.
   '∞': [{
     points: [[150, 150, 0.5], [180, 105, 0.6], [225, 105, 0.6], [255, 150, 0.5], [285, 195, 0.6], [330, 195, 0.6], [360, 150, 0.5], [330, 105, 0.6], [285, 105, 0.6], [255, 150, 0.5], [225, 195, 0.6], [180, 195, 0.6], [150, 150, 0.5]],
@@ -91,7 +98,7 @@ const notdef = parsed.glyphs.get(0);
 assert.equal(notdef.name, '.notdef', 'Glyph zero must be .notdef');
 assert.equal(parsed.charToGlyph(' ').advanceWidth, 350, 'Space advance width must be preserved');
 
-for (const char of ['A', 'Ё', '😀', 'О', 'Ж', 'Р', 'Ф', '∞']) {
+for (const char of ['A', 'Ё', '😀', 'О', 'Ж', 'Р', 'Ф', 'Ы', '∞']) {
   const glyph = parsed.charToGlyph(char);
   assert.ok(glyph && glyph.index > 0, `Missing cmap entry for ${char}`);
   assert.equal(glyph.unicode, char.codePointAt(0), `Incorrect Unicode mapping for ${char}`);
@@ -141,5 +148,7 @@ assert.equal(reparsedTtf.charToGlyph('∞').path.commands.filter(command => comm
   'The self-crossing figure-eight must resolve into two non-overlapping filled lobes');
 assert.equal(reparsedTtf.charToGlyph('Ф').path.commands.filter(command => command.type === 'M').length, 3,
   'Two independent holes must survive Boolean subtraction as two inner contours');
+assert.equal(reparsedTtf.charToGlyph('Ы').path.commands.filter(command => command.type === 'M').length, 4,
+  'Four nested depth levels must survive TTF conversion as outer, hole, island and nested hole');
 
 console.log('GlyphFlow font pipeline passed: real perfect-freehand curves, closed loop, explicit hole subtraction, Boolean union of intersecting brush strokes, self-crossing trajectory, OTF-to-TTF conversion, Unicode and multi-contour preservation.');
