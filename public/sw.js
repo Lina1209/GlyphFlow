@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'glyphflow-shell-';
-const CACHE_NAME = CACHE_PREFIX + 'v1';
+const CACHE_NAME = CACHE_PREFIX + 'v2';
 const APP_SCOPE = self.registration.scope;
 const APP_SHELL = [
   new URL('./', APP_SCOPE).href,
