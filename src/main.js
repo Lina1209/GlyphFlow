@@ -1651,7 +1651,11 @@ return await new Promise((resolve, reject) => {
 const tx = db.transaction(DRAFT_STORE, mode);
 let result;
 try { result = callback(tx.objectStore(DRAFT_STORE)); }
-catch (err) { reject(err); return; }
+catch (err) {
+try { tx.abort(); } catch {}
+reject(err);
+return;
+}
 tx.oncomplete = () => resolve(result);
 tx.onerror = () => reject(tx.error);
 tx.onabort = () => reject(tx.error || new Error('Операция с библиотекой отменена'));
@@ -1678,6 +1682,11 @@ request.onerror = () => reject(request.error);
 }
 async function saveFontRecord(record) {
 await libraryTransaction('readwrite', store => store.put(record, FONT_LIBRARY_PREFIX + record.id));
+}
+async function saveFontRecords(records) {
+await libraryTransaction('readwrite', store => {
+for (const record of records) store.put(record, FONT_LIBRARY_PREFIX + record.id);
+});
 }
 function formatFontSize(bytes) {
 if (!Number.isFinite(bytes) || bytes < 0) return 'Размер неизвестен';
@@ -1863,7 +1872,7 @@ parseLibraryFontBytes(fontBuffer, item.format);
 const blob = new Blob([bytes],{type:item.format === 'otf' ? 'font/otf' : 'font/ttf'});
 preparedRecords.push({...item,blob,fontBase64:undefined,size:blob.size,id:makeLibraryId()});
 }
-for (const record of preparedRecords) await saveFontRecord(record);
+await saveFontRecords(preparedRecords);
 libraryStatus.textContent = 'Резервная копия восстановлена.';
 } catch (err) {
 libraryStatus.textContent = 'Не удалось восстановить библиотеку: ' + (err.message || 'ошибка формата');
