@@ -144,7 +144,7 @@ const requiredContracts = [
   ['OTF parsing before conversion', "createFont(otfBuffer, {type: 'otf'})"],
   ['TrueType output conversion', "converter.write({type: 'ttf', hinting: false, kerning: false})"],
   ['TrueType sfnt signature validation', 'signature[1] !== 1'],
-  ['honest TrueType download extension', "link.download = familyName + '-Regular.ttf';"],
+  ['honest TrueType download extension', 'link.download = fileName;'],
   ['download uses a user-triggered anchor', 'link.click();'],
   ['vertical ascender metric covers maximum brush extent', 'const ascender = 950;'],
   ['vertical descender metric covers maximum brush extent', 'const descender = -370;'],
@@ -158,6 +158,13 @@ const requiredContracts = [
   ['compound vertex drag lifecycle', 'function finishCompoundDrag(commit)'],
   ['TTF export uses final Boolean geometry', 'getCompoundGlyphGeometry(strokes, compoundOverrides[char])'],
   ['browser regression for final Boolean geometry editing', 'edits final Boolean compound rings with undo, redo, draft persistence and TTF export'],
+  ['font library uses IndexedDB', "const FONT_LIBRARY_PREFIX = 'font-library:';"],
+  ['font library saves generated TTF binaries', 'blob: fontFile.blob'],
+  ['font library saves editable project snapshots', 'projectSnapshot: serializeProjectSnapshot()'],
+  ['font library imports validated TTF and OTF files', 'const parsed = opentype.parse(buffer.slice(0));'],
+  ['font library supports search', "librarySearch.addEventListener('input', renderFontLibrary)"],
+  ['font library supports backup export', "format:'GlyphFlowFontLibrary'"],
+  ['font library supports backup restore', "backup.format !== 'GlyphFlowFontLibrary'"],
   ['PWA manifest linked from the app', 'rel="manifest"'],
   ['service worker registered by the app', "navigator.serviceWorker.register('./sw.js'"]
 ];
