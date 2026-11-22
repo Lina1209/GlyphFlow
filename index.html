@@ -679,7 +679,13 @@ stroke.points.every(point => Array.isArray(point) && point.length >= 2 &&
 Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1]))) &&
 Number.isFinite(Number(stroke.size)) && Number(stroke.size) > 0 &&
 Number.isFinite(Number(stroke.thinning))
-);
+).map(stroke => {
+const storedDepth = Number(stroke.depth);
+const depth = Number.isInteger(storedDepth) && storedDepth >= 0 && storedDepth <= 3
+? storedDepth
+: stroke.role === 'hole' ? 1 : 0;
+return {...stroke, depth, role: depth % 2 ? 'hole' : 'outer'};
+});
 if (validStrokes.length) restored[char] = validStrokes;
 }
 Object.assign(glyphData, restored);
