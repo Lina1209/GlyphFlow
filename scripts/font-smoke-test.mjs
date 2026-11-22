@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import { createFont } from 'fonteditor-core';
+import { getStroke } from 'perfect-freehand';
 
 const require = createRequire(import.meta.url);
 const opentype = require('opentype.js');
@@ -18,17 +19,24 @@ const rectangle = (x1, y1, x2, y2) => [
   [x1, y1], [x2, y1], [x2, y2], [x1, y2]
 ];
 const glyphData = {
-  A: [{ points: rectangle(10, 20, 40, 60), size: 12, thinning: 0.5 }],
+  // Curved multi-sample strokes exercise the actual perfect-freehand outline generator.
+  A: [{
+    points: [[18, 320, 0.5], [22, 270, 0.6], [35, 220, 0.7], [52, 170, 0.8], [72, 120, 0.7], [90, 80, 0.5]],
+    size: 18, thinning: 0.5
+  }],
   Ё: [
-    { points: rectangle(10, 20, 40, 60), size: 12, thinning: 0.5 },
-    { points: rectangle(15, 5, 22, 12), size: 8, thinning: 0.4 }
+    { points: [[100, 120, 0.4], [120, 90, 0.6], [145, 75, 0.5], [170, 90, 0.4]], size: 16, thinning: 0.4 },
+    { points: [[115, 45, 0.5], [120, 35, 0.5], [125, 45, 0.5]], size: 8, thinning: 0.4 }
   ],
-  '😀': [{ points: rectangle(5, 15, 45, 55), size: 10, thinning: 0.5 }]
+  '😀': [{
+    points: [[210, 180, 0.5], [230, 145, 0.6], [265, 130, 0.7], [300, 145, 0.6], [320, 180, 0.5], [300, 215, 0.6], [265, 230, 0.7], [230, 215, 0.6], [210, 180, 0.5]],
+    size: 14, thinning: 0.5
+  }]
 };
 const context = {
   opentype,
   glyphData,
-  getStroke: points => points,
+  getStroke,
   document: { getElementById: id => ({ value: id === 'fontName' ? 'GlyphFlow CI Fixture' : '' }) }
 };
 vm.runInNewContext(builderSource + '\nthis.buildOpenTypeFont = buildOpenTypeFont;', context);
