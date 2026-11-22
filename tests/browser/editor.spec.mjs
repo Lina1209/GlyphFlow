@@ -459,15 +459,25 @@ test('two separate hole contours remain distinct in the exported TTF', async ({p
         minX: Math.min(result.minX, point.x), minY: Math.min(result.minY, point.y),
         maxX: Math.max(result.maxX, point.x), maxY: Math.max(result.maxY, point.y)
       }), {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity});
+      const center = {x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2};
+      if (inside(center, polygon)) return center;
+      let best = null;
+      let bestClearance = -1;
       for (let yi = 1; yi < 20; yi++) {
         for (let xi = 1; xi < 20; xi++) {
           const point = {
             x: box.minX + (box.maxX - box.minX) * xi / 20,
             y: box.minY + (box.maxY - box.minY) * yi / 20
           };
-          if (inside(point, polygon)) return point;
+          if (!inside(point, polygon)) continue;
+          const clearance = Math.min(
+            point.x - box.minX, box.maxX - point.x,
+            point.y - box.minY, box.maxY - point.y
+          );
+          if (clearance > bestClearance) { best = point; bestClearance = clearance; }
         }
       }
+      if (best) return best;
       throw new Error('Could not find a point inside a counter');
     };
     const face = new FontFace('GlyphMultiHoleCheck', buffer);
