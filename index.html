@@ -204,7 +204,7 @@ progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
 
 // Переключение активной буквы
 function selectChar(char) {
-if (isDrawing) finishStroke(false);
+if (isDrawing) finishStroke(false, false);
 currentChar = char;
 currentCharLabel.textContent = char;
 renderGrid();
@@ -495,7 +495,7 @@ historyIndex = index;
 persistDraft();
 renderCanvas(); renderGrid(); updateLiveFont();
 }
-function finishStroke(commit = true) {
+function finishStroke(commit = true, releaseCapture = true) {
 if (!isDrawing) return;
 isDrawing = false;
 if (commit && currentPoints.length) {
@@ -504,7 +504,7 @@ glyphData[currentChar].push({points: currentPoints, size: Number(brushSizeInput.
 saveHistory();
 }
 currentPoints = [];
-if (activePointerId !== null && drawSvg.hasPointerCapture(activePointerId)) drawSvg.releasePointerCapture(activePointerId);
+if (releaseCapture && activePointerId !== null && drawSvg.hasPointerCapture(activePointerId)) drawSvg.releasePointerCapture(activePointerId);
 activePointerId = null;
 renderCanvas(); renderGrid(); updateLiveFont();
 }
