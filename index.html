@@ -603,7 +603,7 @@ return;
 }
 if (!isDrawing || e.pointerId !== activePointerId) return;
 currentPoints.push(getPointerPos(e));
-renderCanvas();
+scheduleStrokePreviewRender();
 });
 
 const DRAFT_DB = 'glyphflow-local';
@@ -719,8 +719,20 @@ selectedStrokeIndex = null;
 persistDraft();
 renderCanvas(); renderGrid(); updateLiveFont(); updateContourTools();
 }
+let strokeRenderFrame = null;
+function scheduleStrokePreviewRender() {
+if (strokeRenderFrame !== null) return;
+strokeRenderFrame = requestAnimationFrame(() => {
+strokeRenderFrame = null;
+if (isDrawing && currentPoints.length) renderCanvas();
+});
+}
 function finishStroke(commit = true, releaseCapture = true) {
 if (!isDrawing) return;
+if (strokeRenderFrame !== null) {
+cancelAnimationFrame(strokeRenderFrame);
+strokeRenderFrame = null;
+}
 isDrawing = false;
 if (commit && currentPoints.length) {
 if (!glyphData[currentChar]) glyphData[currentChar] = [];
