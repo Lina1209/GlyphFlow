@@ -620,9 +620,9 @@ selectedOutlineIndex = pointIndex;
 activeOutlineDrag = {pointerId: e.pointerId, strokeIndex: selectedStrokeIndex, pointIndex,
 originalOutline: outline.map(point => [...point]),
 originalOverride: Array.isArray(stroke.outlineOverride) ? stroke.outlineOverride.map(point => [...point]) : null};
+try { drawSvg.setPointerCapture(e.pointerId); } catch (err) { activeOutlineDrag = null; e.preventDefault(); return; }
 updateContourTools();
 renderCanvas();
-try { drawSvg.setPointerCapture(e.pointerId); } catch (err) { activeOutlineDrag = null; }
 e.preventDefault();
 return;
 }
