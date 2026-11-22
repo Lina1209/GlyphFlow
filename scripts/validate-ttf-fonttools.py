@@ -21,7 +21,7 @@ for char in ("A", "Ё", "😀", " "):
 assert font["hmtx"].metrics[cmap[ord(" ")]][0] == 350
 
 glyf_table = font["glyf"]
-for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("Ж", 3), ("∞", 1)):
+for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("Ж", 3), ("∞", 1), ("Р", 2)):
     glyph_name = cmap[ord(char)]
     glyph = glyf_table[glyph_name]
     assert glyph.numberOfContours == expected_contours, f"Unexpected contour count for {char}"
@@ -35,7 +35,8 @@ for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("�
         for index, point in enumerate(contour):
             next_point = contour[(index + 1) % len(contour)]
             area2 += point[0] * next_point[1] - next_point[0] * point[1]
-        assert area2 < 0, f"Contour winding is not clockwise for {char}"
+        expected_negative = not (char == "Р" and len([v for v in end_points if v < end]) == 1)
+        assert (area2 < 0) == expected_negative, f"Unexpected contour winding for {char} contour ending at {end}"
         start = end + 1
     for x, y in coordinates:
         assert isinstance(x, int) and isinstance(y, int)
