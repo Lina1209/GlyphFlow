@@ -92,10 +92,10 @@ class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 roun
     <button id="contourModeBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-xs font-medium">Выбрать контур</button>
     <label for="contourRoleSelect" class="text-xs text-slate-400">Тип:</label>
     <select id="contourRoleSelect" disabled class="min-w-0 flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-xs disabled:opacity-50">
-      <option value="0">Внешняя область (уровень 0)</option>
-      <option value="1">Отверстие (уровень 1)</option>
-      <option value="2">Остров внутри отверстия (уровень 2)</option>
-      <option value="3">Отверстие внутри острова (уровень 3)</option>
+      <option value="outer">Внешняя область (уровень 0)</option>
+      <option value="hole">Отверстие (уровень 1)</option>
+      <option value="island">Остров внутри отверстия (уровень 2)</option>
+      <option value="nested-hole">Отверстие внутри острова (уровень 3)</option>
     </select>
     <button id="applyContourRoleBtn" type="button" disabled class="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded-lg px-3 py-2 text-xs font-medium">Применить</button>
   </div>
@@ -385,7 +385,7 @@ contourModeBtn.classList.toggle('bg-amber-700', contourEditMode);
 contourRoleSelect.disabled = !contourEditMode || !selected;
 applyContourRoleBtn.disabled = !contourEditMode || !selected;
 if (selected) {
-contourRoleSelect.value = String(getContourDepth(selected));
+contourRoleSelect.value = ['outer', 'hole', 'island', 'nested-hole'][Math.min(3, getContourDepth(selected))];
 contourStatus.textContent = `Выбран контур ${selectedStrokeIndex + 1}. Уровень ${getContourDepth(selected)}: ${getContourDepth(selected) % 2 ? 'вырезание' : 'заполнение'}.`;
 } else if (contourEditMode) {
 contourStatus.textContent = 'Нажмите на контур буквы, чтобы выбрать его.';
@@ -773,8 +773,8 @@ applyContourRoleBtn.onclick = () => {
 const strokes = glyphData[currentChar] || [];
 const selected = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
 if (!selected) return;
-const depth = Number(contourRoleSelect.value);
-if (!Number.isInteger(depth) || depth < 0 || depth > 3) return;
+const depth = ({outer: 0, hole: 1, island: 2, 'nested-hole': 3})[contourRoleSelect.value];
+if (!Number.isInteger(depth)) return;
 if (depth > 0 && !isContourWithinParentDepth(selected, strokes, selectedStrokeIndex, depth)) {
 contourStatus.textContent = `Контур уровня ${depth} должен целиком находиться внутри области уровня ${depth - 1} и не касаться её границы.`;
 contourRoleSelect.value = String(getContourDepth(selected));
