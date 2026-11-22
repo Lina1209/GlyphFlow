@@ -262,6 +262,16 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
   const initialViewBox = await svg.getAttribute('viewBox');
   const session = await page.context().newCDPSession(page);
   await session.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 2});
+  await page.evaluate(() => {
+    window.__glyphFlowPointerTrace = [];
+    const target = document.querySelector('#drawSvg');
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture']) {
+      target.addEventListener(type, event => window.__glyphFlowPointerTrace.push({
+        type, pointerId: event.pointerId, pointerType: event.pointerType,
+        isPrimary: event.isPrimary, x: event.clientX, y: event.clientY
+      }));
+    }
+  });
   const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
 
@@ -289,7 +299,7 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
     touchPoints: [touch(1, 65, 220), touch(2, 235, 220)]
   });
   const zoomedViewBox = await svg.getAttribute('viewBox');
-  expect(zoomedViewBox).not.toBe(initialViewBox);
+  expect(zoomedViewBox, JSON.stringify(await page.evaluate(() => window.__glyphFlowPointerTrace))).not.toBe(initialViewBox);
   await expect(svg.locator('path')).toHaveCount(0);
 
   // Move the pair together to verify midpoint panning as well as pinch zoom.
