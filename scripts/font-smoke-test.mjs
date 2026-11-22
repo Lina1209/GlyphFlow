@@ -130,5 +130,7 @@ assert.equal(reparsedTtf.charToGlyph('Р').path.commands.filter(command => comma
   'Outer contour and explicit hole must survive TTF conversion');
 assert.equal(reparsedTtf.charToGlyph('Ж').path.commands.filter(command => command.type === 'M').length, 1,
   'Three intersecting brush strokes must be Boolean-unioned into one outline contour');
+assert.equal(reparsedTtf.charToGlyph('∞').path.commands.filter(command => command.type === 'M').length, 2,
+  'The self-crossing figure-eight must resolve into two non-overlapping filled lobes');
 
 console.log('GlyphFlow font pipeline passed: real perfect-freehand curves, closed loop, explicit hole subtraction, Boolean union of intersecting brush strokes, self-crossing trajectory, OTF-to-TTF conversion, Unicode and multi-contour preservation.');
