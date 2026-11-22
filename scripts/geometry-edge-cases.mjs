@@ -128,4 +128,18 @@ assert.equal(nestedRecords.length, 4, 'Nested topology must preserve four bounda
 assert.deepEqual(Array.from(nestedRecords, record => record.role), ['outer', 'hole', 'outer', 'hole'],
   'Nested rings must alternate outer/hole winding for TrueType non-zero fill');
 
+// Two independent counters in one glyph must both survive Boolean subtraction
+// and remain separate TrueType contour records.
+const multipleCounters = context.getCompoundGlyphGeometry([
+  {...stroke([[80, 180], [280, 180]], 36), depth: 0},
+  {...stroke([[120, 180], [140, 180]], 8, 'hole'), depth: 1},
+  {...stroke([[220, 180], [240, 180]], 8, 'hole'), depth: 1}
+]);
+assertFiniteGeometry(multipleCounters, 'two independent counters');
+const multipleCounterRecords = context.getCompoundPathRecords(multipleCounters);
+assert.equal(multipleCounterRecords.length, 3,
+  'Two separate counter regions must export as one outer contour and two holes');
+assert.deepEqual(Array.from(multipleCounterRecords, record => record.role), ['outer', 'hole', 'hole'],
+  'Both independent counters must retain hole winding');
+
 console.log('GlyphFlow geometry edge cases passed: narrow bridges, near-touching gaps, repeated samples, microscopic rejection, boundary-touching counters, and four-level nested topology.');
