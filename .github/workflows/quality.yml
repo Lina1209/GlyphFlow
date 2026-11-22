@@ -28,6 +28,8 @@ jobs:
         run: node scripts/font-smoke-test.mjs
       - name: Exercise Boolean geometry edge cases
         run: node scripts/geometry-edge-cases.mjs
+      - name: Benchmark geometry complexity and cache reuse
+        run: node scripts/geometry-performance.mjs
       - name: Install independent FontTools parser
         run: python -m pip install fonttools
       - name: Validate final TrueType fixture with FontTools
