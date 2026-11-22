@@ -35,8 +35,12 @@ for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("�
         for index, point in enumerate(contour):
             next_point = contour[(index + 1) % len(contour)]
             area2 += point[0] * next_point[1] - next_point[0] * point[1]
-        expected_negative = not (char == "Р" and len([v for v in end_points if v < end]) == 1)
-        assert (area2 < 0) == expected_negative, f"Unexpected contour winding for {char} contour ending at {end}"
+        contour_index = sum(1 for previous_end in end_points if previous_end < end)
+        expected_negative = not (char == "Р" and contour_index == 1)
+        assert (area2 < 0) == expected_negative, (
+            f"Unexpected contour winding for {char} contour {contour_index} ending at {end}: "
+            f"signed_area2={area2}, expected_negative={expected_negative}"
+        )
         start = end + 1
     for x, y in coordinates:
         assert isinstance(x, int) and isinstance(y, int)
