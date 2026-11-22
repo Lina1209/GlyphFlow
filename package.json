@@ -6,7 +6,7 @@
   "description": "Browser-based handwritten TrueType font editor",
   "scripts": {
     "dev": "vite",
-    "build": "tailwindcss -i ./src/styles.css -o ./public/styles.css --minify && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "playwright test",
     "check": "node scripts/check.mjs"
