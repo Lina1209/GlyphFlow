@@ -1290,7 +1290,7 @@ test('edits final Boolean compound rings with undo, redo, draft persistence and 
   await expect(outerRing).toBeVisible();
   await outerRing.click();
   const handles = page.locator('#drawSvg [data-compound-point-index]');
-  await expect(handles).toHaveCountGreaterThan(3);
+  expect(await handles.count()).toBeGreaterThan(3);
   const handle = page.locator('#drawSvg [data-compound-point-index="0"]');
   const beforePath = await page.locator('#drawSvg .glyph-fill').getAttribute('d');
   const bounds = await handle.boundingBox();
