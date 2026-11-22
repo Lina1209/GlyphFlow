@@ -428,11 +428,68 @@ test('two separate hole contours remain distinct in the exported TTF', async ({p
   const download = await downloadPromise;
   const bytes = await readFile(await download.path());
   const encoded = bytes.toString('base64');
-  const count = await page.evaluate(base64 => {
+  const result = await page.evaluate(async base64 => {
     const buffer = Uint8Array.from(atob(base64), character => character.charCodeAt(0)).buffer;
-    return window.opentype.parse(buffer).charToGlyph('Ф').path.commands.filter(command => command.type === 'M').length;
+    const glyph = window.opentype.parse(buffer).charToGlyph('Ф');
+    const contours = [];
+    let active = [];
+    for (const command of glyph.path.commands) {
+      if (command.type === 'M') {
+        if (active.length) contours.push(active);
+        active = [{x: command.x, y: command.y}];
+      } else if (command.type === 'Z') {
+        if (active.length) contours.push(active);
+        active = [];
+      } else if (Number.isFinite(command.x) && Number.isFinite(command.y)) {
+        active.push({x: command.x, y: command.y});
+      }
+    }
+    if (active.length) contours.push(active);
+    const inside = (point, polygon) => {
+      let result = false;
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const a = polygon[i], b = polygon[j];
+        if ((a.y > point.y) !== (b.y > point.y) &&
+          point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) result = !result;
+      }
+      return result;
+    };
+    const findInterior = polygon => {
+      const box = polygon.reduce((result, point) => ({
+        minX: Math.min(result.minX, point.x), minY: Math.min(result.minY, point.y),
+        maxX: Math.max(result.maxX, point.x), maxY: Math.max(result.maxY, point.y)
+      }), {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity});
+      for (let yi = 1; yi < 20; yi++) {
+        for (let xi = 1; xi < 20; xi++) {
+          const point = {
+            x: box.minX + (box.maxX - box.minX) * xi / 20,
+            y: box.minY + (box.maxY - box.minY) * yi / 20
+          };
+          if (inside(point, polygon)) return point;
+        }
+      }
+      throw new Error('Could not find a point inside a counter');
+    };
+    const face = new FontFace('GlyphMultiHoleCheck', buffer);
+    await face.load();
+    document.fonts.add(face);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1200;
+    const context = canvas.getContext('2d');
+    context.font = '1000px GlyphMultiHoleCheck';
+    context.fillStyle = '#000';
+    context.fillText('Ф', 0, 950);
+    const samples = contours.slice(1).map(polygon => findInterior(polygon));
+    return {
+      contourCount: contours.length,
+      holesInsideOuter: samples.every(point => inside(point, contours[0])),
+      holeAlphas: samples.map(point => context.getImageData(Math.round(point.x), Math.round(950 - point.y), 1, 1).data[3])
+    };
   }, encoded);
-  expect(count).toBe(3);
+  expect(result.contourCount).toBe(3);
+  expect(result.holesInsideOuter).toBe(true);
+  expect(result.holeAlphas).toEqual([0, 0]);
 });
 
 test('overlapping brush strokes merge into one compound outline and one TTF contour', async ({page}) => {
