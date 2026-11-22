@@ -376,9 +376,10 @@ contourStatus.textContent = 'Старые и новые штрихи счита�
 function renderCanvas() {
 drawSvg.innerHTML = '';
 const strokes = glyphData[currentChar] || [];
+const compoundGeometry = getCompoundGlyphGeometry(strokes, compoundOverrides[currentChar]);
 let fillRecords = [];
 try {
-fillRecords = getCompoundPathRecords(getCompoundGlyphGeometry(strokes));
+fillRecords = getCompoundPathRecords(compoundGeometry);
 } catch (err) {
 console.error('Ошибка объединения контуров глифа:', err);
 if (contourStatus) contourStatus.textContent = 'Не удалось объединить контуры. Проверьте геометрию штрихов.';
@@ -392,7 +393,44 @@ fillPath.setAttribute('class', 'glyph-fill');
 fillPath.setAttribute('pointer-events', 'none');
 drawSvg.appendChild(fillPath);
 }
-if (contourEditMode || nodeEditMode || outlineEditMode) {
+if (compoundEditMode) {
+fillRecords.forEach(record => {
+const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+hitPath.setAttribute('d', getSvgPathFromStroke(record.outline));
+hitPath.setAttribute('fill', 'transparent');
+hitPath.setAttribute('fill-rule', 'nonzero');
+hitPath.setAttribute('pointer-events', 'all');
+hitPath.setAttribute('data-compound-polygon-index', String(record.polygonIndex));
+hitPath.setAttribute('data-compound-ring-index', String(record.ringIndex));
+if (selectedCompoundRing &&
+selectedCompoundRing.polygonIndex === record.polygonIndex &&
+selectedCompoundRing.ringIndex === record.ringIndex) {
+hitPath.setAttribute('stroke', '#f59e0b');
+hitPath.setAttribute('stroke-width', '2');
+}
+drawSvg.appendChild(hitPath);
+});
+if (selectedCompoundRing) {
+const selectedRing = compoundGeometry[selectedCompoundRing.polygonIndex]?.[selectedCompoundRing.ringIndex] || [];
+const step = Math.max(1, Math.ceil(selectedRing.length / 48));
+selectedRing.forEach((point, pointIndex) => {
+if (pointIndex % step !== 0 && pointIndex !== selectedRing.length - 1) return;
+const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+node.setAttribute('cx', String(point[0]));
+node.setAttribute('cy', String(point[1]));
+node.setAttribute('r', '4.5');
+node.setAttribute('fill', pointIndex === selectedCompoundRing.pointIndex ? '#22c55e' : '#38bdf8');
+node.setAttribute('stroke', '#ffffff');
+node.setAttribute('stroke-width', '1.5');
+node.setAttribute('data-compound-point-index', String(pointIndex));
+node.setAttribute('role', 'slider');
+node.setAttribute('aria-label', `Вершина итоговой формы ${pointIndex + 1}`);
+node.setAttribute('pointer-events', 'all');
+drawSvg.appendChild(node);
+});
+}
+}
+if (!compoundEditMode && (contourEditMode || nodeEditMode || outlineEditMode)) {
 strokes.forEach((stroke, index) => {
 const outline = orientSvgContour(getStrokeOutline(stroke), getContourRole(stroke));
 if (outline.length < 3) return;
