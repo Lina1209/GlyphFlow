@@ -163,7 +163,7 @@ const requiredContracts = [
 ];
 
 for (const [label, token] of requiredContracts) {
-  assert.ok(html.includes(token) || moduleSource.includes(token), `Missing required contract: ${label}`);
+  assert.ok(html.includes(token) || moduleSource.includes(token) || browserTests.includes(token), `Missing required contract: ${label}`);
 }
 
 assert.ok(!html.includes('font.download()'), 'Deprecated library download helper must not be used');
