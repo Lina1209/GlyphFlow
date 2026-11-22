@@ -1456,6 +1456,39 @@ test('exports and restores a portable font-library backup', async ({ page }) => 
 });
 
 
+test('rejects a malformed imported font file without adding it to the library', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#importFontInput').setInputFiles({
+    name: 'broken-font.ttf',
+    mimeType: 'font/ttf',
+    buffer: Buffer.from([0, 1, 2, 3, 4, 5, 6, 7])
+  });
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось импортировать');
+});
+
+test('rejects a malformed font binary in a library backup before writing any records', async ({ page }) => {
+  await page.goto('/');
+  const backup = {
+    format: 'GlyphFlowFontLibrary',
+    version: 1,
+    fonts: [{
+      id: 'broken-font',
+      name: 'Broken font',
+      format: 'ttf',
+      fontBase64: Buffer.from([0, 1, 2, 3, 4, 5, 6, 7]).toString('base64'),
+      projectSnapshot: null
+    }]
+  };
+  await page.locator('#importLibraryBackupInput').setInputFiles({
+    name: 'broken-font-backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(backup))
+  });
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось восстановить библиотеку');
+});
+
 test('rejects an invalid project snapshot in a library backup before writing any records', async ({ page }) => {
   await page.goto('/');
   const maliciousBackup = {
