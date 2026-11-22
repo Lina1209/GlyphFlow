@@ -91,6 +91,7 @@ class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 roun
   <div class="flex flex-wrap items-center gap-2">
     <button id="contourModeBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-xs font-medium">Выбрать контур</button>
     <button id="nodeEditModeBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-xs font-medium" aria-pressed="false">Редактировать узлы</button>
+    <button id="outlineEditModeBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-xs font-medium" aria-pressed="false">Редактировать границу</button>
     <button id="addTrajectoryPointBtn" type="button" disabled class="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded-lg px-3 py-2 text-xs font-medium">Добавить точку</button>
     <button id="deleteTrajectoryPointBtn" type="button" disabled class="bg-rose-900 hover:bg-rose-800 disabled:opacity-40 rounded-lg px-3 py-2 text-xs font-medium">Удалить точку</button>
     <label for="contourRoleSelect" class="text-xs text-slate-400">Тип:</label>
@@ -162,8 +163,11 @@ let isDrawing = false;
 let activePointerId = null;
 let contourEditMode = false;
 let nodeEditMode = false;
+let outlineEditMode = false;
 let activeNodeDrag = null;
+let activeOutlineDrag = null;
 let selectedNodeIndex = null;
+let selectedOutlineIndex = null;
 let selectedStrokeIndex = null;
 let panPointerId = null;
 let panStart = null;
@@ -190,6 +194,7 @@ const livePreviewOutput = document.getElementById('livePreviewOutput');
 const progressText = document.getElementById('progressText');
 const contourModeBtn = document.getElementById('contourModeBtn');
 const nodeEditModeBtn = document.getElementById('nodeEditModeBtn');
+const outlineEditModeBtn = document.getElementById('outlineEditModeBtn');
 const addTrajectoryPointBtn = document.getElementById('addTrajectoryPointBtn');
 const deleteTrajectoryPointBtn = document.getElementById('deleteTrajectoryPointBtn');
 const contourRoleSelect = document.getElementById('contourRoleSelect');
@@ -236,10 +241,12 @@ progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
 // Переключение активной буквы
 function selectChar(char) {
 if (activeNodeDrag) finishNodeDrag(false);
+if (activeOutlineDrag) finishOutlineDrag(false);
 if (isDrawing) finishStroke(false, false);
 currentChar = char;
 selectedStrokeIndex = null;
 selectedNodeIndex = null;
+selectedOutlineIndex = null;
 updateContourTools();
 currentCharLabel.textContent = char;
 renderGrid();
@@ -248,7 +255,12 @@ renderCanvas();
 
 const glyphGeometryCache = new WeakMap();
 function getStrokeOutline(stroke) {
-if (!stroke || !Array.isArray(stroke.points) || !stroke.points.length) return [];
+if (!stroke) return [];
+if (Array.isArray(stroke.outlineOverride) && stroke.outlineOverride.length >= 3) {
+const override = cleanPolygonRing(stroke.outlineOverride);
+if (override.length >= 3) return override;
+}
+if (!Array.isArray(stroke.points) || !stroke.points.length) return [];
 return getStroke(stroke.points, {
 size: Number(stroke.size) || 16,
 thinning: Number.isFinite(Number(stroke.thinning)) ? Number(stroke.thinning) : 0.6,
@@ -396,6 +408,8 @@ contourModeBtn.textContent = contourEditMode ? 'Завершить выбор' :
 contourModeBtn.classList.toggle('bg-amber-700', contourEditMode);
 nodeEditModeBtn.classList.toggle('bg-amber-700', nodeEditMode);
 nodeEditModeBtn.setAttribute('aria-pressed', String(nodeEditMode));
+outlineEditModeBtn.classList.toggle('bg-amber-700', outlineEditMode);
+outlineEditModeBtn.setAttribute('aria-pressed', String(outlineEditMode));
 const selectedPoints = selected ? (selected.points || []) : [];
 addTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length < 2;
 deleteTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length <= 2 || selectedNodeIndex === null;
@@ -405,6 +419,10 @@ if (nodeEditMode) {
 contourStatus.textContent = selected
 ? `Выбран штрих ${selectedStrokeIndex + 1}. Перетаскивайте круглые узлы траектории, чтобы изменить форму.`
 : 'Нажмите на штрих, чтобы показать его узлы.';
+} else if (outlineEditMode) {
+contourStatus.textContent = selected
+? `Выбран штрих ${selectedStrokeIndex + 1}. Перетаскивайте вершины границы; составная геометрия пересчитывается.`
+: 'Нажмите на штрих, чтобы показать вершины его границы.';
 } else if (selected) {
 contourRoleSelect.value = ['outer', 'hole', 'island', 'nested-hole'][Math.min(3, getContourDepth(selected))];
 contourStatus.textContent = `Выбран контур ${selectedStrokeIndex + 1}. Уровень ${getContourDepth(selected)}: ${getContourDepth(selected) % 2 ? 'вырезание' : 'заполнение'}.`;
@@ -435,7 +453,7 @@ fillPath.setAttribute('class', 'glyph-fill');
 fillPath.setAttribute('pointer-events', 'none');
 drawSvg.appendChild(fillPath);
 }
-if (contourEditMode || nodeEditMode) {
+if (contourEditMode || nodeEditMode || outlineEditMode) {
 strokes.forEach((stroke, index) => {
 const outline = orientSvgContour(getStrokeOutline(stroke), getContourRole(stroke));
 if (outline.length < 3) return;
@@ -450,6 +468,25 @@ hitPath.setAttribute('stroke', '#f59e0b');
 hitPath.setAttribute('stroke-width', '2');
 }
 drawSvg.appendChild(hitPath);
+});
+}
+if (outlineEditMode && selectedStrokeIndex !== null && strokes[selectedStrokeIndex]) {
+const outlinePoints = getStrokeOutline(strokes[selectedStrokeIndex]);
+const outlineStep = Math.max(1, Math.ceil(outlinePoints.length / 48));
+outlinePoints.forEach((point, pointIndex) => {
+if (pointIndex % outlineStep !== 0 && pointIndex !== outlinePoints.length - 1) return;
+const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+node.setAttribute('cx', String(point[0]));
+node.setAttribute('cy', String(point[1]));
+node.setAttribute('r', '4.5');
+node.setAttribute('fill', pointIndex === selectedOutlineIndex ? '#22c55e' : '#38bdf8');
+node.setAttribute('stroke', '#ffffff');
+node.setAttribute('stroke-width', '1.5');
+node.setAttribute('data-outline-index', String(pointIndex));
+node.setAttribute('role', 'slider');
+node.setAttribute('aria-label', `Вершина границы ${pointIndex + 1}`);
+node.setAttribute('pointer-events', 'all');
+drawSvg.appendChild(node);
 });
 }
 if (nodeEditMode && selectedStrokeIndex !== null && strokes[selectedStrokeIndex]) {
@@ -572,6 +609,34 @@ viewBox.y = anchorY - nextRatioY * nextSize;
 applyViewBox();
 }
 drawSvg.addEventListener('pointerdown', (e) => {
+if (outlineEditMode) {
+const vertex = e.target.closest?.('[data-outline-index]');
+if (vertex && selectedStrokeIndex !== null) {
+const stroke = (glyphData[currentChar] || [])[selectedStrokeIndex];
+const pointIndex = Number(vertex.getAttribute('data-outline-index'));
+const outline = stroke ? getStrokeOutline(stroke) : [];
+if (outline[pointIndex]) {
+selectedOutlineIndex = pointIndex;
+activeOutlineDrag = {pointerId: e.pointerId, strokeIndex: selectedStrokeIndex, pointIndex,
+originalOutline: outline.map(point => [...point]),
+originalOverride: Array.isArray(stroke.outlineOverride) ? stroke.outlineOverride.map(point => [...point]) : null};
+updateContourTools();
+renderCanvas();
+try { drawSvg.setPointerCapture(e.pointerId); } catch (err) { activeOutlineDrag = null; }
+e.preventDefault();
+return;
+}
+}
+const hit = e.target.closest?.('[data-contour-index]');
+if (hit) {
+selectedStrokeIndex = Number(hit.getAttribute('data-contour-index'));
+selectedOutlineIndex = null;
+updateContourTools();
+renderCanvas();
+}
+e.preventDefault();
+return;
+}
 if (nodeEditMode) {
 const node = e.target.closest?.('[data-node-index]');
 if (node && selectedStrokeIndex !== null) {
@@ -583,7 +648,8 @@ activeNodeDrag = {
 pointerId: e.pointerId,
 strokeIndex: selectedStrokeIndex,
 pointIndex,
-originalPoint: [...stroke.points[pointIndex]]
+originalPoint: [...stroke.points[pointIndex]],
+originalOutlineOverride: Array.isArray(stroke.outlineOverride) ? stroke.outlineOverride.map(point => [...point]) : null
 };
 updateContourTools();
 renderCanvas();
@@ -659,9 +725,25 @@ drawSvg.addEventListener('pointermove', (e) => {
 if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) {
 const stroke = (glyphData[currentChar] || [])[activeNodeDrag.strokeIndex];
 if (stroke && stroke.points && stroke.points[activeNodeDrag.pointIndex]) {
+delete stroke.outlineOverride;
 stroke.points[activeNodeDrag.pointIndex] = getPointerPos(e);
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
 renderCanvas();
+}
+e.preventDefault();
+return;
+}
+if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) {
+const stroke = (glyphData[currentChar] || [])[activeOutlineDrag.strokeIndex];
+if (stroke) {
+const candidate = (stroke.outlineOverride || activeOutlineDrag.originalOutline).map(point => [...point]);
+const position = getPointerPos(e);
+candidate[activeOutlineDrag.pointIndex] = [position[0], position[1]];
+if (isValidEditableRing(candidate)) {
+stroke.outlineOverride = candidate;
+if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
+renderCanvas();
+}
 }
 e.preventDefault();
 return;
@@ -815,6 +897,7 @@ persistDraft();
 function restoreHistory(index) {
 if (index < 0 || index >= history.length) return;
 if (activeNodeDrag) finishNodeDrag(false);
+if (activeOutlineDrag) finishOutlineDrag(false);
 Object.keys(glyphData).forEach(key => delete glyphData[key]);
 Object.assign(glyphData, JSON.parse(history[index]));
 historyIndex = index;
@@ -857,6 +940,38 @@ return true;
 }
 return false;
 }
+function isValidEditableRing(points) {
+const ring = cleanPolygonRing(points);
+if (ring.length < 3 || Math.abs(contourSignedArea(ring)) <= 1e-3) return false;
+for (let i = 0; i < ring.length; i++) {
+const a = ring[i], b = ring[(i + 1) % ring.length];
+for (let j = i + 1; j < ring.length; j++) {
+if (j === (i + 1) % ring.length || (j + 1) % ring.length === i) continue;
+if (segmentsIntersect(a, b, ring[j], ring[(j + 1) % ring.length])) return false;
+}
+}
+return true;
+}
+function finishOutlineDrag(commit) {
+if (!activeOutlineDrag) return;
+const drag = activeOutlineDrag;
+activeOutlineDrag = null;
+const stroke = (glyphData[currentChar] || [])[drag.strokeIndex];
+if (!stroke) return;
+if (!commit) {
+if (drag.originalOverride) stroke.outlineOverride = drag.originalOverride;
+else delete stroke.outlineOverride;
+}
+const finalOutline = getStrokeOutline(stroke);
+const changed = commit && finalOutline.length === drag.originalOutline.length &&
+finalOutline.some((point, index) => Math.abs(point[0] - drag.originalOutline[index][0]) > 1e-6 ||
+Math.abs(point[1] - drag.originalOutline[index][1]) > 1e-6);
+if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
+if (changed) saveHistory();
+renderCanvas();
+updateLiveFont();
+updateContourTools();
+}
 function finishNodeDrag(commit) {
 if (!activeNodeDrag) return;
 const drag = activeNodeDrag;
@@ -864,6 +979,8 @@ activeNodeDrag = null;
 const stroke = (glyphData[currentChar] || [])[drag.strokeIndex];
 if (!commit && stroke && stroke.points && stroke.points[drag.pointIndex]) {
 stroke.points[drag.pointIndex] = drag.originalPoint;
+if (drag.originalOutlineOverride) stroke.outlineOverride = drag.originalOutlineOverride;
+else delete stroke.outlineOverride;
 }
 const finalPoint = stroke && stroke.points && stroke.points[drag.pointIndex];
 const changed = Boolean(finalPoint && (Math.abs(finalPoint[0] - drag.originalPoint[0]) > 1e-6 || Math.abs(finalPoint[1] - drag.originalPoint[1]) > 1e-6));
@@ -874,10 +991,8 @@ updateLiveFont();
 updateContourTools();
 }
 drawSvg.addEventListener('pointerup', (e) => {
-if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) {
-finishNodeDrag(true);
-return;
-}
+if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(true); return; }
+if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(true); return; }
 if (finishTouchPointer(e, false)) {
 if (e.pointerId === activePointerId && isDrawing) finishStroke(true);
 return;
@@ -886,10 +1001,8 @@ if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return
 if (e.pointerId === activePointerId) finishStroke(true);
 });
 drawSvg.addEventListener('pointercancel', (e) => {
-if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) {
-finishNodeDrag(false);
-return;
-}
+if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(false); return; }
+if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(false); return; }
 if (finishTouchPointer(e, true)) {
 if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
 return;
@@ -898,10 +1011,8 @@ if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return
 if (e.pointerId === activePointerId) finishStroke(false);
 });
 drawSvg.addEventListener('lostpointercapture', (e) => {
-if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) {
-finishNodeDrag(false);
-return;
-}
+if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(false); return; }
+if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(false); return; }
 if (finishTouchPointer(e, true)) {
 if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
 return;
@@ -909,24 +1020,40 @@ return;
 if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; }
 if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
 });
-
 // Кнопки управления
 document.getElementById('undoBtn').onclick = () => restoreHistory(historyIndex - 1);
 document.getElementById('redoBtn').onclick = () => restoreHistory(historyIndex + 1);
 contourModeBtn.onclick = () => {
 contourEditMode = !contourEditMode;
 nodeEditMode = false;
+outlineEditMode = false;
 selectedStrokeIndex = null;
 selectedNodeIndex = null;
+selectedOutlineIndex = null;
 updateContourTools();
 renderCanvas();
 };
 nodeEditModeBtn.onclick = () => {
 if (activeNodeDrag) finishNodeDrag(false);
+if (activeOutlineDrag) finishOutlineDrag(false);
 nodeEditMode = !nodeEditMode;
+outlineEditMode = false;
 contourEditMode = false;
 selectedStrokeIndex = null;
 selectedNodeIndex = null;
+selectedOutlineIndex = null;
+updateContourTools();
+renderCanvas();
+};
+outlineEditModeBtn.onclick = () => {
+if (activeNodeDrag) finishNodeDrag(false);
+if (activeOutlineDrag) finishOutlineDrag(false);
+outlineEditMode = !outlineEditMode;
+nodeEditMode = false;
+contourEditMode = false;
+selectedStrokeIndex = null;
+selectedNodeIndex = null;
+selectedOutlineIndex = null;
 updateContourTools();
 renderCanvas();
 };
@@ -944,6 +1071,7 @@ const midpoint = [(left[0] + right[0]) / 2, (left[1] + right[1]) / 2];
 if (Number.isFinite(left[2]) && Number.isFinite(right[2])) midpoint.push((left[2] + right[2]) / 2);
 else if (Number.isFinite(left[2])) midpoint.push(left[2]);
 else if (Number.isFinite(right[2])) midpoint.push(right[2]);
+delete stroke.outlineOverride;
 stroke.points.splice(insertAt, 0, midpoint);
 selectedNodeIndex = insertAt;
 glyphGeometryCache.delete(strokes);
@@ -956,6 +1084,7 @@ deleteTrajectoryPointBtn.onclick = () => {
 const strokes = glyphData[currentChar] || [];
 const stroke = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
 if (!nodeEditMode || !stroke || !Array.isArray(stroke.points) || stroke.points.length <= 2 || selectedNodeIndex === null) return;
+delete stroke.outlineOverride;
 stroke.points.splice(selectedNodeIndex, 1);
 selectedNodeIndex = Math.min(selectedNodeIndex, stroke.points.length - 1);
 glyphGeometryCache.delete(strokes);
