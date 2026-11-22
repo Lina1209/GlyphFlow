@@ -1712,7 +1712,12 @@ actions.appendChild(makeLibraryButton('Скачать', 'rounded-md bg-indigo-60
 if (record.projectSnapshot) actions.appendChild(makeLibraryButton('Открыть проект', 'rounded-md bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-xs', async () => {
 if (!confirm('Открыть этот проект? Текущая работа останется в автосохранении, но станет активным документом редактора.')) return;
 await persistDraft();
+try {
 restoreProjectSnapshot(record.projectSnapshot);
+} catch (err) {
+libraryStatus.textContent = 'Проект не открыт: ' + (err.message || 'проверка данных не пройдена') + ' Текущая работа сохранена.';
+return;
+}
 document.getElementById('fontName').value = record.name || 'MyHandwriting';
 history = [serializeProjectSnapshot()];
 historyIndex = 0;
