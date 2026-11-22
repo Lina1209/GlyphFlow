@@ -1340,3 +1340,55 @@ test('edits final Boolean compound rings with undo, redo, draft persistence and 
   expect(exported.contourCount).toBeGreaterThan(0);
   expect(exported.commandCount).toBeGreaterThan(5);
 });
+
+
+test('saves generated fonts and editable projects in the local font library', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  await page.locator('#fontName').fill('GlyphFlow Library Test');
+  await page.locator('#saveToLibraryBtn').click();
+  const card = page.locator('#fontLibraryList article').first();
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('GlyphFlow Library Test');
+  await expect(card).toContainText('проект можно продолжить редактировать');
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+
+  await page.reload();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+  const restoredCard = page.locator('#fontLibraryList article').first();
+  await expect(restoredCard).toContainText('GlyphFlow Library Test');
+
+  // The library entry contains a restorable project as well as its TTF binary.
+  await restoredCard.getByRole('button', {name:'Открыть проект'}).click();
+  await expect(page.locator('#fontName')).toHaveValue('GlyphFlow Library Test');
+  await expect(page.locator('#drawSvg .glyph-fill')).toBeVisible();
+
+  const downloadPromise = page.waitForEvent('download');
+  await restoredCard.getByRole('button', {name:'Скачать'}).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.ttf$/i);
+  const filePath = await download.path();
+  expect((await readFile(filePath)).subarray(0,4).toString('hex')).toBe('00010000');
+});
+
+test('imports a valid font file into the local font library and supports removal', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const filePath = await download.path();
+  const bytes = await readFile(filePath);
+  await page.locator('#importFontInput').setInputFiles({
+    name:'Imported-GlyphFlow.ttf',
+    mimeType:'font/ttf',
+    buffer:bytes
+  });
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+  const card = page.locator('#fontLibraryList article').first();
+  await expect(card).toContainText('Imported-GlyphFlow');
+  await expect(card).toContainText('импортированный файл');
+  await card.getByRole('button',{name:'Удалить'}).click();
+  page.once('dialog', dialog => dialog.accept());
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+});
