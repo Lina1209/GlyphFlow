@@ -549,6 +549,23 @@ hitPath.setAttribute('stroke', '#f59e0b');
 hitPath.setAttribute('stroke-width', '2');
 }
 drawSvg.appendChild(hitPath);
+const selectorPoint = outline.reduce((best, point) => !best || point[0] > best[0] ? point : best, null);
+if (selectorPoint) {
+const selectorHandle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+selectorHandle.setAttribute('cx', String(selectorPoint[0]));
+selectorHandle.setAttribute('cy', String(selectorPoint[1]));
+selectorHandle.setAttribute('r', '8');
+selectorHandle.setAttribute('fill', '#f59e0b');
+selectorHandle.setAttribute('stroke', '#ffffff');
+selectorHandle.setAttribute('stroke-width', '1.5');
+selectorHandle.setAttribute('opacity', '0.9');
+selectorHandle.setAttribute('pointer-events', 'all');
+selectorHandle.setAttribute('data-contour-index', String(index));
+selectorHandle.setAttribute('class', 'contour-select-handle');
+selectorHandle.setAttribute('role', 'button');
+selectorHandle.setAttribute('aria-label', `Выбрать контур ${index + 1}`);
+drawSvg.appendChild(selectorHandle);
+}
 });
 }
 if (outlineEditMode && selectedStrokeIndex !== null && strokes[selectedStrokeIndex]) {
