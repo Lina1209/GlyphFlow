@@ -739,7 +739,7 @@ if (stroke) {
 const candidate = (stroke.outlineOverride || activeOutlineDrag.originalOutline).map(point => [...point]);
 const position = getPointerPos(e);
 candidate[activeOutlineDrag.pointIndex] = [position[0], position[1]];
-if (isValidEditableRing(candidate, activeOutlineDrag.pointIndex)) {
+if (isValidEditableRing(candidate, activeOutlineDrag.pointIndex, activeOutlineDrag.originalOutline)) {
 stroke.outlineOverride = candidate;
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
 renderCanvas();
@@ -940,19 +940,27 @@ return true;
 }
 return false;
 }
-function isValidEditableRing(points, changedVertexIndex = null) {
+function isValidEditableRing(points, changedVertexIndex = null, originalPoints = null) {
 const ring = cleanPolygonRing(points);
+const original = Array.isArray(originalPoints) ? cleanPolygonRing(originalPoints) : null;
 if (ring.length < 3 || ring.length !== points.length || Math.abs(contourSignedArea(ring)) <= 1e-3) return false;
-// The source ring was already valid; moving one vertex can only introduce
-// intersections on its two adjacent edges. Check those edges in O(n), not O(n²).
+if (original && (original.length !== ring.length ||
+Math.sign(contourSignedArea(original)) !== Math.sign(contourSignedArea(ring)))) return false;
+// Moving one vertex can only introduce intersections on its two adjacent
+// edges. Existing intersections in imported brush outlines are tolerated;
+// only newly introduced intersections are rejected.
 const edgeIndices = changedVertexIndex === null
 ? ring.map((_, index) => index)
 : [(changedVertexIndex - 1 + ring.length) % ring.length, changedVertexIndex % ring.length];
 for (const i of edgeIndices) {
 const a = ring[i], b = ring[(i + 1) % ring.length];
+const oldA = original && original[i], oldB = original && original[(i + 1) % ring.length];
 for (let j = 0; j < ring.length; j++) {
 if (j === i || j === (i + 1) % ring.length || (j + 1) % ring.length === i) continue;
-if (segmentsIntersect(a, b, ring[j], ring[(j + 1) % ring.length])) return false;
+const c = ring[j], d = ring[(j + 1) % ring.length];
+if (!segmentsIntersect(a, b, c, d)) continue;
+if (original && segmentsIntersect(oldA, oldB, original[j], original[(j + 1) % original.length])) continue;
+return false;
 }
 }
 return true;
