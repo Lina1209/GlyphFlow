@@ -230,7 +230,13 @@ return [x, y, e.pressure || 0.5];
 
 // События рисования
 drawSvg.addEventListener('pointerdown', (e) => {
+if (!e.isPrimary || isDrawing) return;
+try {
 drawSvg.setPointerCapture(e.pointerId);
+} catch (err) {
+console.warn('Не удалось захватить указатель:', err);
+return;
+}
 activePointerId = e.pointerId;
 isDrawing = true;
 currentPoints = [getPointerPos(e)];
@@ -238,7 +244,7 @@ renderCanvas();
 });
 
 drawSvg.addEventListener('pointermove', (e) => {
-if (!isDrawing) return;
+if (!isDrawing || e.pointerId !== activePointerId) return;
 currentPoints.push(getPointerPos(e));
 renderCanvas();
 });
@@ -336,12 +342,25 @@ const ascender = 800;
 const descender = -200;
 const baselineY = 270;
 const scale = 3.2;
+const sideBearing = 50;
+
+const notdefPath = new opentype.Path();
+notdefPath.moveTo(50, 0);
+notdefPath.lineTo(450, 0);
+notdefPath.lineTo(450, 700);
+notdefPath.lineTo(50, 700);
+notdefPath.close();
+notdefPath.moveTo(100, 50);
+notdefPath.lineTo(100, 650);
+notdefPath.lineTo(400, 650);
+notdefPath.lineTo(400, 50);
+notdefPath.close();
 
 const notdefGlyph = new opentype.Glyph({
 name: '.notdef',
 unicode: 0,
 advanceWidth: 500,
-path: new opentype.Path()
+path: notdefPath
 });
 
 const spaceGlyph = new opentype.Glyph({
@@ -355,31 +374,43 @@ const glyphs = [notdefGlyph, spaceGlyph];
 
 Object.keys(glyphData).forEach(char => {
 const strokes = glyphData[char];
-if (!strokes || strokes.length === 0) return;
+if (!strokes || !strokes.length) return;
 
-const fontPath = new opentype.Path();
+const contours = [];
 let minX = Infinity;
 let maxX = -Infinity;
 
 strokes.forEach(s => {
+if (!s || !Array.isArray(s.points) || s.points.length < 1) return;
 const outline = getStroke(s.points, {
-size: s.size,
-thinning: s.thinning,
+size: Number(s.size) || 16,
+thinning: Number.isFinite(Number(s.thinning)) ? Number(s.thinning) : 0.6,
 smoothing: 0.5,
 streamline: 0.5,
 });
+if (!Array.isArray(outline) || outline.length < 3) return;
 
-if (outline.length < 3) return;
+const valid = outline.every(point =>
+Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1])
+);
+if (!valid) return;
 
-const mapped = outline.map(([x, y]) => {
-if (x < minX) minX = x;
-if (x > maxX) maxX = x;
-return {
-x: x * scale,
-y: (baselineY - y) * scale
-};
+outline.forEach(([x]) => {
+minX = Math.min(minX, x);
+maxX = Math.max(maxX, x);
+});
+contours.push(outline);
 });
 
+if (!contours.length || !Number.isFinite(minX) || !Number.isFinite(maxX)) return;
+
+const fontPath = new opentype.Path();
+const xOffset = sideBearing - minX * scale;
+contours.forEach(outline => {
+const mapped = outline.map(([x, y]) => ({
+x: x * scale + xOffset,
+y: (baselineY - y) * scale
+}));
 fontPath.moveTo(mapped[0].x, mapped[0].y);
 for (let i = 1; i < mapped.length; i++) {
 fontPath.lineTo(mapped[i].x, mapped[i].y);
@@ -387,11 +418,12 @@ fontPath.lineTo(mapped[i].x, mapped[i].y);
 fontPath.close();
 });
 
-const advanceWidth = maxX > 0 ? Math.round((maxX + 20) * scale) : 550;
+const glyphWidth = Math.max(1, (maxX - minX) * scale);
+const advanceWidth = Math.ceil(glyphWidth + sideBearing * 2);
 glyphs.push(new opentype.Glyph({
 name: 'uni' + char.charCodeAt(0).toString(16).toUpperCase(),
 unicode: char.charCodeAt(0),
-advanceWidth: advanceWidth,
+advanceWidth,
 path: fontPath
 }));
 });
@@ -399,12 +431,12 @@ path: fontPath
 const rawFamilyName = document.getElementById('fontName').value.trim() || 'MyHandwriting';
 const familyName = rawFamilyName.replace(/[\\{};\n\r]/g, '').slice(0, 48) || 'MyHandwriting';
 return new opentype.Font({
-familyName: familyName,
+familyName,
 styleName: 'Regular',
-unitsPerEm: unitsPerEm,
-ascender: ascender,
-descender: descender,
-glyphs: glyphs
+unitsPerEm,
+ascender,
+descender,
+glyphs
 });
 }
 
