@@ -57,6 +57,37 @@ async function clickContourPath(page, path) {
   await selectorHandle.click();
 }
 
+
+test('prevents a second tab from overwriting a newer saved draft', async ({ page, context }) => {
+  await page.goto('/');
+  const secondTab = await context.newPage();
+  await secondTab.goto('/');
+  await drawStroke(page);
+  await expect(secondTab.locator('#draftSyncStatus')).toContainText('Черновик изменён в другой вкладке');
+  await drawStroke(secondTab, 24);
+  await secondTab.reload();
+  await expect(secondTab.locator('#drawSvg .glyph-fill')).toBeVisible();
+  const savedPointCount = await secondTab.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('glyphflow-local', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction('projects', 'readonly');
+        const request = tx.objectStore('projects').get('current');
+        request.onsuccess = () => {
+          const data = request.result?.glyphData || {};
+          resolve(Object.values(data).reduce((sum, glyph) => sum + (Array.isArray(glyph?.strokes) ? glyph.strokes.length : 0), 0));
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } finally { db.close(); }
+  });
+  expect(savedPointCount).toBe(1);
+});
+
 test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
