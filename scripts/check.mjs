@@ -10,6 +10,22 @@ assert.ok(start >= 0 && end > start, 'Expected one inline ES module');
 assert.equal(html.indexOf(openTag, start + openTag.length), -1, 'Expected exactly one inline ES module');
 const moduleSource = html.slice(start + openTag.length, end);
 
+const fontSmoke = readFileSync(new URL('../scripts/font-smoke-test.mjs', import.meta.url), 'utf8');
+const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', import.meta.url), 'utf8');
+const nestedExportContracts = [
+  ['font smoke fixture includes four nested depths', "'Ы': ["],
+  ['font smoke fixture reaches depth three', "thinning: 0.35, depth: 3"],
+  ['font smoke validates nested glyph cmap', "['A', 'Ё', '😀', 'О', 'Ж', 'Р', 'Ф', 'Ы', '∞']"],
+  ['font smoke validates four exported contours', "charToGlyph('Ы').path.commands.filter(command => command.type === 'M').length, 4"],
+  ['browser test exports nested counters', "exports four nested contour levels with alternating transparent counters"],
+  ['browser test checks filled island pixels', 'expect(result.alpha[2], JSON.stringify(result)).toBeGreaterThan(0)'],
+  ['browser test checks nested transparent counter', 'expect(result.alpha[3], JSON.stringify(result)).toBe(0)']
+];
+for (const [label, token] of nestedExportContracts) {
+  assert.ok(fontSmoke.includes(token) || browserTests.includes(token), `Missing nested TTF export test: ${label}`);
+}
+
+
 const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
   input: moduleSource,
   encoding: 'utf8'
