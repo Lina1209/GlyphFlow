@@ -354,6 +354,7 @@ outlineEditModeBtn.classList.toggle('bg-amber-700', outlineEditMode);
 outlineEditModeBtn.setAttribute('aria-pressed', String(outlineEditMode));
 compoundEditModeBtn.classList.toggle('bg-amber-700', compoundEditMode);
 compoundEditModeBtn.setAttribute('aria-pressed', String(compoundEditMode));
+compoundEditModeBtn.textContent = compoundEditMode ? 'Завершить правку' : 'Итоговая форма';
 const selectedPoints = selected ? (selected.points || []) : [];
 addTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length < 2;
 deleteTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length <= 2 || selectedNodeIndex === null;
@@ -386,9 +387,10 @@ contourStatus.textContent = 'Старые и новые штрихи счита�
 function renderCanvas() {
 drawSvg.innerHTML = '';
 const strokes = glyphData[currentChar] || [];
-const compoundGeometry = getCompoundGlyphGeometry(strokes, compoundOverrides[currentChar]);
+let compoundGeometry = [];
 let fillRecords = [];
 try {
+compoundGeometry = getCompoundGlyphGeometry(strokes, compoundOverrides[currentChar]);
 fillRecords = getCompoundPathRecords(compoundGeometry);
 } catch (err) {
 console.error('Ошибка объединения контуров глифа:', err);
