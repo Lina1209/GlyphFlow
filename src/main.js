@@ -294,11 +294,16 @@ function isValidCompoundEdit(candidate, original) {
 if (!Array.isArray(candidate) || !candidate.length) return false;
 try {
 const normalized = polygonClipping.union(candidate);
-return normalized.length > 0 &&
-compoundTopologySignature(normalized) === compoundTopologySignature(original) &&
-Number.isFinite(multiPolygonArea(normalized)) &&
-multiPolygonArea(normalized) > 1e-3;
+const normalizedSignature = compoundTopologySignature(normalized);
+const originalSignature = compoundTopologySignature(original);
+const area = multiPolygonArea(normalized);
+const valid = normalized.length > 0 && normalizedSignature === originalSignature &&
+Number.isFinite(area) && area > 1e-3;
+if (typeof drawSvg !== 'undefined') drawSvg.dataset.compoundTopologyDebug =
+JSON.stringify({normalizedSignature, originalSignature, area, polygonCount: normalized.length});
+return valid;
 } catch (err) {
+if (typeof drawSvg !== 'undefined') drawSvg.dataset.compoundTopologyDebug = String(err && err.message || err);
 return false;
 }
 }
