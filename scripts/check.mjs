@@ -39,8 +39,8 @@ const requiredContracts = [
   ['TrueType sfnt signature validation', 'signature[1] !== 1'],
   ['honest TrueType download extension', "link.download = familyName + '-Regular.ttf';"],
   ['download uses a user-triggered anchor', 'link.click();'],
-  ['vertical ascender metric covers canvas top', 'const ascender = 900;'],
-  ['vertical descender metric covers canvas bottom', 'const descender = -300;'],
+  ['vertical ascender metric covers maximum brush extent', 'const ascender = 950;'],
+  ['vertical descender metric covers maximum brush extent', 'const descender = -370;'],
   ['full Unicode code point mapping', 'char.codePointAt(0)'],
   ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"]
 ];
