@@ -21,7 +21,7 @@ for char in ("A", "Ё", "😀", " "):
 assert font["hmtx"].metrics[cmap[ord(" ")]][0] == 350
 
 glyf_table = font["glyf"]
-for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1)):
+for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("Ж", 3), ("∞", 1)):
     glyph_name = cmap[ord(char)]
     glyph = glyf_table[glyph_name]
     assert glyph.numberOfContours == expected_contours, f"Unexpected contour count for {char}"
@@ -40,4 +40,4 @@ for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1)):
     for x, y in coordinates:
         assert isinstance(x, int) and isinstance(y, int)
 
-print("FontTools validation passed: independent TrueType TTF parse + glyf/loca + metrics + cmap + hmtx + contour counts + clockwise winding.")
+for char in ("О", "∞"):\n    glyph_name = cmap[ord(char)]\n    glyph = glyf_table[glyph_name]\n    assert glyph.numberOfContours >= 1, f"Closed/self-crossing glyph {char} lost its outline"\n\nprint("FontTools validation passed: independent TrueType TTF parse + glyf/loca + metrics + cmap + hmtx + curved/closed/intersecting/self-crossing glyph contours + clockwise winding.")
