@@ -306,9 +306,18 @@ test('contour editor assigns a hole role and preserves it in the generated font'
   await page.locator('#downloadBtn').click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.ttf$/i);
+  const samplePoints = await page.evaluate(() => {
+    const outer = document.querySelector('[data-contour-index="0"]').getBBox();
+    const hole = document.querySelector('[data-contour-index="1"]').getBBox();
+    const sample = box => ({
+      x: 50 + ((box.x + box.width / 2) - outer.x) * 3.2,
+      y: 950 - (270 - (box.y + box.height * 0.1)) * 3.2
+    });
+    return {outer: sample(outer), hole: sample(hole)};
+  });
   const fontBytes = await readFile(await download.path());
   const encoded = fontBytes.toString('base64');
-  const pixels = await page.evaluate(async base64 => {
+  const pixels = await page.evaluate(async ({base64, points}) => {
     const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
     const face = new FontFace('GlyphHoleCheck', bytes.buffer);
     await face.load();
@@ -320,13 +329,11 @@ test('contour editor assigns a hole role and preserves it in the generated font'
     context.font = '1000px GlyphHoleCheck';
     context.fillStyle = '#000';
     context.fillText('Р', 0, 950);
-    return {
-      outerFill: context.getImageData(492, 278, 1, 1).data[3],
-      holeFill: context.getImageData(492, 550, 1, 1).data[3]
-    };
-  }, encoded);
-  expect(pixels.outerFill).toBeGreaterThan(0);
-  expect(pixels.holeFill).toBe(0);
+    const read = point => context.getImageData(Math.round(point.x), Math.round(point.y), 1, 1).data[3];
+    return {outerFill: read(points.outer), holeFill: read(points.hole), points};
+  }, {base64: encoded, points: samplePoints});
+  expect(pixels.outerFill, JSON.stringify(pixels)).toBeGreaterThan(0);
+  expect(pixels.holeFill, JSON.stringify(pixels)).toBe(0);
 });
 
 test('two-finger touch gesture zooms and pans without committing a glyph', async ({ page }) => {
