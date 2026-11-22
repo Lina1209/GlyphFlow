@@ -49,8 +49,8 @@ assert.equal(Buffer.from(bytes).toString('ascii', 0, 4), 'OTTO', 'Expected OpenT
 const parsed = opentype.parse(bytes);
 assert.equal(parsed.outlinesFormat, 'cff', 'opentype.js should identify CFF outlines');
 assert.equal(parsed.unitsPerEm, 1000);
-assert.equal(parsed.ascender, 900);
-assert.equal(parsed.descender, -300);
+assert.equal(parsed.ascender, 950);
+assert.equal(parsed.descender, -370);
 
 const notdef = parsed.glyphs.get(0);
 assert.equal(notdef.name, '.notdef', 'Glyph zero must be .notdef');
