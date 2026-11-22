@@ -1409,13 +1409,11 @@ console.error('Ошибка обновления шрифта:', err);
 }
 }
 
-// opentype.js строит промежуточный CFF/OTF; fonteditor-core конвертирует его в настоящий TrueType .TTF.
-document.getElementById('downloadBtn').onclick = () => {
-let downloadUrl;
-try {
+// Создание проверенного бинарного TrueType-шрифта.
+function createTrueTypeFontBlob() {
 const count = Object.values(glyphData).filter(strokes => strokes && strokes.length).length;
-if (!count) { alert('Сначала нарисуйте хотя бы один символ.'); return; }
-if (typeof opentype === 'undefined' || !opentype.Font) { alert('Библиотека opentype.js не загрузилась. Проверьте подключение к интернету и повторите попытку.'); return; }
+if (!count) throw new Error('Сначала нарисуйте хотя бы один символ.');
+if (typeof opentype === 'undefined' || !opentype.Font) throw new Error('Библиотека opentype.js не загрузилась.');
 const font = buildOpenTypeFont();
 const otfBuffer = font.toArrayBuffer();
 if (!otfBuffer || otfBuffer.byteLength < 100) throw new Error('Получен пустой промежуточный OTF.');
@@ -1429,25 +1427,230 @@ const signature = new Uint8Array(ttfBuffer, 0, 4);
 if (signature[0] !== 0 || signature[1] !== 1 || signature[2] !== 0 || signature[3] !== 0) {
 throw new Error('Результат не имеет сигнатуру TrueType.');
 }
-const familyName = (font.getEnglishName('fontFamily') || 'GlyphFlow')
+const familyName = (font.getEnglishName('fontFamily') || document.getElementById('fontName').value || 'GlyphFlow')
 .replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'GlyphFlow';
-const blob = new Blob([ttfBuffer], {type: 'font/ttf'});
-downloadUrl = URL.createObjectURL(blob);
+return {blob: new Blob([ttfBuffer], {type: 'font/ttf'}), fileName: familyName + '-Regular.ttf', familyName};
+}
+function triggerFontDownload(blob, fileName) {
+const url = URL.createObjectURL(blob);
 const link = document.createElement('a');
-link.href = downloadUrl;
-link.download = familyName + '-Regular.ttf';
+link.href = url;
+link.download = fileName;
 document.body.appendChild(link);
 link.click();
 link.remove();
-const completedDownloadUrl = downloadUrl;
-window.setTimeout(() => URL.revokeObjectURL(completedDownloadUrl), 1500);
-downloadUrl = null;
+window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+document.getElementById('downloadBtn').onclick = () => {
+try {
+const fontFile = createTrueTypeFontBlob();
+triggerFontDownload(fontFile.blob, fontFile.fileName);
 } catch (err) {
-if (downloadUrl) URL.revokeObjectURL(downloadUrl);
 console.error('Ошибка экспорта TTF:', err);
-alert('Не удалось создать TTF. Проверьте данные глифов и попробуйте ещё раз.');
+alert(err.message || 'Не удалось создать TTF. Проверьте данные глифов и попробуйте ещё раз.');
 }
 };
+
+// Локальная библиотека хранит бинарные файлы и, для созданных в редакторе шрифтов,
+// исходный проект. Используется тот же IndexedDB store, что и автосохранение.
+const FONT_LIBRARY_PREFIX = 'font-library:';
+const libraryList = document.getElementById('fontLibraryList');
+const librarySearch = document.getElementById('fontLibrarySearch');
+const libraryStatus = document.getElementById('fontLibraryStatus');
+const importFontInput = document.getElementById('importFontInput');
+function makeLibraryId() {
+return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+async function libraryTransaction(mode, callback) {
+const db = await openDraftDB();
+try {
+return await new Promise((resolve, reject) => {
+const tx = db.transaction(DRAFT_STORE, mode);
+let result;
+try { result = callback(tx.objectStore(DRAFT_STORE)); }
+catch (err) { reject(err); return; }
+tx.oncomplete = () => resolve(result);
+tx.onerror = () => reject(tx.error);
+tx.onabort = () => reject(tx.error || new Error('Операция с библиотекой отменена'));
+});
+} finally { db.close(); }
+}
+async function getFontLibraryRecords() {
+const db = await openDraftDB();
+try {
+return await new Promise((resolve, reject) => {
+const tx = db.transaction(DRAFT_STORE, 'readonly');
+const store = tx.objectStore(DRAFT_STORE);
+const request = store.openCursor();
+const records = [];
+request.onsuccess = () => {
+const cursor = request.result;
+if (!cursor) return resolve(records.sort((a,b) => (b.savedAt || 0) - (a.savedAt || 0)));
+if (typeof cursor.key === 'string' && cursor.key.startsWith(FONT_LIBRARY_PREFIX)) records.push(cursor.value);
+cursor.continue();
+};
+request.onerror = () => reject(request.error);
+});
+} finally { db.close(); }
+}
+async function saveFontRecord(record) {
+await libraryTransaction('readwrite', store => store.put(record, FONT_LIBRARY_PREFIX + record.id));
+}
+function formatFontSize(bytes) {
+if (!Number.isFinite(bytes) || bytes < 0) return 'Размер неизвестен';
+return bytes < 1024 * 1024 ? Math.max(1, Math.round(bytes / 1024)) + ' КБ' : (bytes / (1024 * 1024)).toFixed(2) + ' МБ';
+}
+function makeLibraryButton(label, className, onClick) {
+const button = document.createElement('button');
+button.type = 'button';
+button.textContent = label;
+button.className = className;
+button.addEventListener('click', onClick);
+return button;
+}
+async function downloadLibraryRecord(record) {
+triggerFontDownload(record.blob, record.fileName || (record.name + '.' + (record.format || 'ttf')));
+}
+async function renderFontLibrary() {
+if (!libraryList) return;
+libraryList.replaceChildren();
+try {
+const records = await getFontLibraryRecords();
+const query = (librarySearch?.value || '').trim().toLocaleLowerCase();
+const filtered = records.filter(record => (record.name || '').toLocaleLowerCase().includes(query));
+const countLabel = document.getElementById('fontLibraryCount');
+if (countLabel) countLabel.textContent = String(records.length);
+if (!filtered.length) {
+const empty = document.createElement('p');
+empty.className = 'text-sm text-slate-400 py-5 text-center';
+empty.textContent = records.length ? 'По запросу ничего не найдено.' : 'Пока библиотека пуста. Сохраните созданный шрифт или импортируйте TTF/OTF.';
+libraryList.appendChild(empty);
+return;
+}
+filtered.forEach(record => {
+const card = document.createElement('article');
+card.className = 'rounded-lg border border-slate-700 bg-slate-900/70 p-3 flex flex-col gap-2';
+const top = document.createElement('div');
+top.className = 'flex items-start justify-between gap-3';
+const details = document.createElement('div');
+details.className = 'min-w-0';
+const name = document.createElement('h3');
+name.className = 'font-semibold text-slate-100 break-words';
+name.textContent = record.name || 'Без названия';
+const meta = document.createElement('p');
+meta.className = 'text-xs text-slate-400 mt-1';
+meta.textContent = (record.format || 'TTF').toUpperCase() + ' · ' + formatFontSize(record.size) + ' · ' + (record.projectSnapshot ? 'проект можно продолжить редактировать' : 'импортированный файл');
+details.append(name, meta);
+const date = document.createElement('span');
+date.className = 'text-[11px] text-slate-500 shrink-0';
+date.textContent = record.savedAt ? new Date(record.savedAt).toLocaleDateString() : '';
+top.append(details, date);
+const actions = document.createElement('div');
+actions.className = 'flex flex-wrap gap-2';
+actions.appendChild(makeLibraryButton('Скачать', 'rounded-md bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-xs font-medium', () => downloadLibraryRecord(record)));
+if (record.projectSnapshot) actions.appendChild(makeLibraryButton('Открыть проект', 'rounded-md bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-xs', async () => {
+if (!confirm('Открыть этот проект? Текущая работа останется в автосохранении, но станет активным документом редактора.')) return;
+await persistDraft();
+restoreProjectSnapshot(record.projectSnapshot);
+document.getElementById('fontName').value = record.name || 'MyHandwriting';
+history = [serializeProjectSnapshot()];
+historyIndex = 0;
+selectedStrokeIndex = null;
+selectedCompoundRing = null;
+persistDraft();
+renderGrid(); renderCanvas(); updateLiveFont(); updateContourTools();
+document.getElementById('editorTop')?.scrollIntoView({behavior:'smooth',block:'start'});
+libraryStatus.textContent = 'Открыт проект «' + (record.name || 'Без названия') + '».';
+}));
+actions.appendChild(makeLibraryButton('Удалить', 'rounded-md bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-3 py-1.5 text-xs', async () => {
+if (!confirm('Удалить «' + (record.name || 'Без названия') + '» из библиотеки?')) return;
+await libraryTransaction('readwrite', store => store.delete(FONT_LIBRARY_PREFIX + record.id));
+libraryStatus.textContent = 'Шрифт удалён из библиотеки.';
+await renderFontLibrary();
+}));
+card.append(top, actions);
+libraryList.appendChild(card);
+});
+} catch (err) {
+console.error('Не удалось прочитать библиотеку шрифтов:', err);
+libraryStatus.textContent = 'Не удалось открыть библиотеку: ' + (err.message || 'ошибка хранилища');
+}
+}
+document.getElementById('saveToLibraryBtn').addEventListener('click', async () => {
+try {
+const fontFile = createTrueTypeFontBlob();
+const name = (document.getElementById('fontName').value || fontFile.familyName || 'MyHandwriting').trim().slice(0, 64);
+const record = {
+id: makeLibraryId(), name, format: 'ttf', fileName: name.replace(/[^\p{L}\p{N}._-]+/gu, '_') + '.ttf',
+blob: fontFile.blob, size: fontFile.blob.size, savedAt: Date.now(),
+projectSnapshot: serializeProjectSnapshot()
+};
+await saveFontRecord(record);
+libraryStatus.textContent = '«' + name + '» сохранён в библиотеку вместе с редактируемым проектом.';
+await renderFontLibrary();
+} catch (err) {
+console.error('Не удалось сохранить шрифт:', err);
+libraryStatus.textContent = 'Не удалось сохранить: ' + (err.name === 'QuotaExceededError' ? 'недостаточно места в хранилище устройства.' : (err.message || 'ошибка IndexedDB'));
+}
+});
+importFontInput.addEventListener('change', async () => {
+const files = [...(importFontInput.files || [])];
+for (const file of files) {
+try {
+const buffer = await file.arrayBuffer();
+const parsed = opentype.parse(buffer.slice(0));
+const name = parsed.names?.fontFamily?.en || file.name.replace(/\.(ttf|otf)$/i, '');
+const format = /\.otf$/i.test(file.name) ? 'otf' : 'ttf';
+const record = {id:makeLibraryId(),name:String(name).slice(0,64),format,fileName:file.name,blob:file.slice(0,file.size),size:file.size,savedAt:Date.now(),projectSnapshot:null};
+await saveFontRecord(record);
+libraryStatus.textContent = 'Импортирован: ' + record.name;
+} catch (err) {
+console.warn('Ошибка импорта шрифта:', err);
+libraryStatus.textContent = 'Не удалось импортировать «' + file.name + '»: файл повреждён или формат не поддерживается.';
+}
+}
+importFontInput.value = '';
+await renderFontLibrary();
+});
+librarySearch.addEventListener('input', renderFontLibrary);
+document.getElementById('exportFontLibraryBtn').addEventListener('click', async () => {
+try {
+const records = await getFontLibraryRecords();
+const payload = [];
+for (const record of records) {
+const bytes = new Uint8Array(await record.blob.arrayBuffer());
+let binary = '';
+for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+payload.push({...record, blob:undefined, fontBase64:btoa(binary)});
+}
+const backup = new Blob([JSON.stringify({format:'GlyphFlowFontLibrary',version:1,exportedAt:new Date().toISOString(),fonts:payload})],{type:'application/json'});
+triggerFontDownload(backup,'GlyphFlow-font-library-backup.json');
+libraryStatus.textContent = 'Резервная копия библиотеки подготовлена.';
+} catch (err) {
+libraryStatus.textContent = 'Не удалось создать резервную копию: ' + (err.message || 'ошибка');
+}
+});
+document.getElementById('importLibraryBackupInput').addEventListener('change', async event => {
+const file = event.target.files?.[0];
+if (!file) return;
+try {
+const backup = JSON.parse(await file.text());
+if (backup.format !== 'GlyphFlowFontLibrary' || !Array.isArray(backup.fonts)) throw new Error('Это не резервная копия GlyphFlow.');
+for (const item of backup.fonts) {
+if (!item || typeof item.fontBase64 !== 'string' || !item.name) continue;
+const binary = atob(item.fontBase64);
+const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+const blob = new Blob([bytes],{type:item.format === 'otf' ? 'font/otf' : 'font/ttf'});
+await saveFontRecord({...item,blob,fontBase64:undefined,size:blob.size,id:makeLibraryId()});
+}
+libraryStatus.textContent = 'Резервная копия восстановлена.';
+} catch (err) {
+libraryStatus.textContent = 'Не удалось восстановить библиотеку: ' + (err.message || 'ошибка формата');
+}
+event.target.value = '';
+await renderFontLibrary();
+});
+await renderFontLibrary();
 
 // Инициализация
 await restoreDraft();
