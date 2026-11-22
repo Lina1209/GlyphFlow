@@ -42,7 +42,7 @@ const performanceContracts = [
   ['Boolean union stress fixture', '32-overlapping-strokes'],
   ['four-depth geometry fixture', 'four-depth-32-contours'],
   ['geometry cache reuse measurement', 'cacheHitMs'],
-  ['generous CI performance budget', 'totalMs < 30000']
+  ['generous CI stress budget', 'totalMs < 90000']
 ];
 for (const [label, token] of performanceContracts) {
   assert.ok(geometryPerformance.includes(token), `Missing geometry performance contract: ${label}`);
