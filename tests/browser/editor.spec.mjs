@@ -691,25 +691,37 @@ test('exports four nested contour levels with alternating transparent counters',
       }
       return result;
     };
-    const bounds = contours[0].reduce((box, point) => ({
+    const bounds = contours.flat().reduce((box, point) => ({
       minX: Math.min(box.minX, point.x), minY: Math.min(box.minY, point.y),
       maxX: Math.max(box.maxX, point.x), maxY: Math.max(box.maxY, point.y)
     }), {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity});
-    const patterns = [[true,false,false,false], [true,true,false,false],
-      [true,true,true,false], [true,true,true,true]];
-    const samples = patterns.map(pattern => {
-      for (let yi = 1; yi < 100; yi++) {
-        for (let xi = 1; xi < 100; xi++) {
+    const distanceToSegment = (point, a, b) => {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const lengthSquared = dx * dx + dy * dy;
+      const t = lengthSquared ? Math.max(0, Math.min(1,
+        ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared)) : 0;
+      return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
+    };
+    const clearanceFromAllContours = point => Math.min(...contours.flatMap(contour =>
+      contour.map((a, index) => distanceToSegment(point, a, contour[(index + 1) % contour.length]))
+    ));
+    const samples = [1, 2, 3, 4].map(targetDepth => {
+      let best = null;
+      let bestClearance = -1;
+      for (let yi = 1; yi < 200; yi++) {
+        for (let xi = 1; xi < 200; xi++) {
           const point = {
-            x: bounds.minX + (bounds.maxX - bounds.minX) * xi / 100,
-            y: bounds.minY + (bounds.maxY - bounds.minY) * yi / 100
+            x: bounds.minX + (bounds.maxX - bounds.minX) * xi / 200,
+            y: bounds.minY + (bounds.maxY - bounds.minY) * yi / 200
           };
-          if (contours.map(contour => inside(point, contour)).every((value, index) => value === pattern[index])) {
-            return point;
-          }
+          const depth = contours.reduce((count, contour) => count + (inside(point, contour) ? 1 : 0), 0);
+          if (depth !== targetDepth) continue;
+          const clearance = clearanceFromAllContours(point);
+          if (clearance > bestClearance) { best = point; bestClearance = clearance; }
         }
       }
-      throw new Error('Could not find a stable sample for nested fill pattern ' + pattern.join(','));
+      if (!best) throw new Error('Could not find an interior sample at nesting depth ' + targetDepth);
+      return best;
     });
     const face = new FontFace('GlyphFlowNestedDepthCheck', buffer);
     await face.load();
