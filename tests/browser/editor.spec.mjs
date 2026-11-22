@@ -206,7 +206,9 @@ test('canvas zoom, pan and coordinate mapping stay stable', async ({ page }) => 
 
   await page.locator('#zoomResetBtn').click();
   await expect(svg).toHaveAttribute('viewBox', '0 0 360 360');
-  await page.mouse.move(180, 180);
+  const wheelBounds = await svg.boundingBox();
+  if (!wheelBounds) throw new Error('Drawing SVG has no visible bounds');
+  await page.mouse.move(wheelBounds.x + wheelBounds.width / 2, wheelBounds.y + wheelBounds.height / 2);
   await page.mouse.wheel(0, -120);
   await expect(page.locator('#zoomLevel')).not.toHaveText('100%');
 
