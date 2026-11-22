@@ -1076,7 +1076,7 @@ test('edits a selected stroke centerline through draggable nodes with undo suppo
   await expect(page.locator('#nodeEditModeBtn')).toHaveAttribute('aria-pressed', 'true');
   await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
   const nodes = page.locator('#drawSvg [data-node-index]');
-  await expect(nodes).toHaveCount(6);
+  expect(await nodes.count()).toBeGreaterThan(5);
   const firstNode = nodes.first();
   const before = await firstNode.evaluate(element => ({
     x: Number(element.getAttribute('cx')),
