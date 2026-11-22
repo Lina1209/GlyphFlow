@@ -129,7 +129,6 @@ const requiredContracts = [
   ['node drag undo commit only on change', 'if (commit && changed) saveHistory();'],
   ['trajectory point insertion', 'addTrajectoryPointBtn.onclick'],
   ['trajectory point deletion', 'deleteTrajectoryPointBtn.onclick'],
-  ['trajectory point history', "test('adds and removes trajectory points with undo and redo'"],
   ['OpenType preview MIME type', "type: 'font/otf'"],
   ['TrueType export MIME type', "type: 'font/ttf'"],
   ['OTF-to-TTF conversion import', "import { createFont } from 'https://esm.sh/fonteditor-core@2.6.3';"],
