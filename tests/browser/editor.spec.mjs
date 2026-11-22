@@ -1359,6 +1359,7 @@ test('saves generated fonts and editable projects in the local font library', as
   await expect(restoredCard).toContainText('GlyphFlow Library Test');
 
   // The library entry contains a restorable project as well as its TTF binary.
+  page.once('dialog', dialog => dialog.accept());
   await restoredCard.getByRole('button', {name:'Открыть проект'}).click();
   await expect(page.locator('#fontName')).toHaveValue('GlyphFlow Library Test');
   await expect(page.locator('#drawSvg .glyph-fill')).toBeVisible();
