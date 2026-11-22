@@ -1660,6 +1660,12 @@ const importFontInput = document.getElementById('importFontInput');
 function makeLibraryId() {
 return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
+function describeStorageError(err, fallback = 'ошибка IndexedDB') {
+if (err?.name === 'QuotaExceededError') return 'недостаточно места в хранилище устройства.';
+if (err?.name === 'SecurityError') return 'браузер запретил доступ к локальному хранилищу.';
+return err?.message || fallback;
+}
+
 async function libraryTransaction(mode, callback) {
 const db = await openDraftDB();
 try {
@@ -1834,7 +1840,7 @@ await saveFontRecord(record);
 libraryStatus.textContent = 'Импортирован: ' + record.name;
 } catch (err) {
 console.warn('Ошибка импорта шрифта:', err);
-libraryStatus.textContent = 'Не удалось импортировать «' + file.name + '»: ' + (err.message || 'файл повреждён или формат не поддерживается.');
+libraryStatus.textContent = 'Не удалось импортировать «' + file.name + '»: ' + describeStorageError(err, 'файл повреждён или формат не поддерживается.');
 }
 }
 importFontInput.value = '';
@@ -1891,7 +1897,7 @@ preparedRecords.push({...item,blob,fontBase64:undefined,size:blob.size,id:makeLi
 await saveFontRecords(preparedRecords);
 libraryStatus.textContent = 'Резервная копия восстановлена.';
 } catch (err) {
-libraryStatus.textContent = 'Не удалось восстановить библиотеку: ' + (err.message || 'ошибка формата');
+libraryStatus.textContent = 'Не удалось восстановить библиотеку: ' + describeStorageError(err, 'ошибка формата');
 }
 event.target.value = '';
 await renderFontLibrary();
