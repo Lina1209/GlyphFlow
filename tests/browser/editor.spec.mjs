@@ -506,6 +506,7 @@ test('two separate hole contours remain distinct in the exported TTF', async ({p
   }
   const holeDiagnostics = await page.locator('#drawSvg').evaluate(element => ({
     pathMoveCount: (element.querySelector('.glyph-fill')?.getAttribute('d')?.match(/M/g) || []).length,
+    selectedContourIndex: element.dataset.selectedContourIndex || null,
     validation: element.dataset.contourContainmentDebug || null
   }));
   const storedHoleDepths = await page.evaluate(() => new Promise((resolve, reject) => {
@@ -948,6 +949,7 @@ test('exports four nested contour levels with alternating transparent counters',
     await selector.selectOption(level);
     await page.locator('#applyContourRoleBtn').click();
     console.log('nested contour assignment', level, await page.locator('#drawSvg').evaluate(element => ({
+      selectedContourIndex: element.dataset.selectedContourIndex || null,
       validation: element.dataset.contourContainmentDebug || null,
       status: document.getElementById('contourStatus').textContent
     })));
