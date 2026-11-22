@@ -126,8 +126,10 @@ progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
 function selectChar(char) {
 if (activeNodeDrag) finishNodeDrag(false);
 if (activeOutlineDrag) finishOutlineDrag(false);
+if (activeCompoundDrag) finishCompoundDrag(false);
 if (isDrawing) finishStroke(false, false);
 currentChar = char;
+selectedCompoundRing = null;
 selectedStrokeIndex = null;
 selectedNodeIndex = null;
 selectedOutlineIndex = null;
@@ -758,6 +760,7 @@ let snapshot;
 try {
 snapshot = {
 glyphData: JSON.parse(JSON.stringify(glyphData)),
+compoundOverrides: JSON.parse(JSON.stringify(compoundOverrides)),
 fontName: document.getElementById('fontName').value,
 savedAt: Date.now()
 };
@@ -816,10 +819,17 @@ return {...stroke, depth, role: depth % 2 ? 'hole' : 'outer'};
 if (validStrokes.length) restored[char] = validStrokes;
 }
 Object.assign(glyphData, restored);
+Object.keys(compoundOverrides).forEach(key => delete compoundOverrides[key]);
+if (draft.compoundOverrides && typeof draft.compoundOverrides === 'object') {
+Object.entries(draft.compoundOverrides).forEach(([char, geometry]) => {
+const valid = sanitizeCompoundGeometry(geometry);
+if ([...char].length === 1 && valid) compoundOverrides[char] = valid;
+});
+}
 if (typeof draft.fontName === 'string' && draft.fontName.trim()) {
 document.getElementById('fontName').value = draft.fontName.slice(0, 48);
 }
-history = [JSON.stringify(glyphData)];
+history = [serializeProjectSnapshot()];
 historyIndex = 0;
 }
 } catch (err) {
@@ -850,7 +860,7 @@ historyIndex = Math.max(0, historyIndex - firstRetained);
 }
 function saveHistory() {
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
-const snapshot = JSON.stringify(glyphData);
+const snapshot = serializeProjectSnapshot();
 if (history[historyIndex] === snapshot) return;
 history = history.slice(0, historyIndex + 1);
 history.push(snapshot);
@@ -862,10 +872,11 @@ function restoreHistory(index) {
 if (index < 0 || index >= history.length) return;
 if (activeNodeDrag) finishNodeDrag(false);
 if (activeOutlineDrag) finishOutlineDrag(false);
-Object.keys(glyphData).forEach(key => delete glyphData[key]);
-Object.assign(glyphData, JSON.parse(history[index]));
+if (activeCompoundDrag) finishCompoundDrag(false);
+restoreProjectSnapshot(history[index]);
 historyIndex = index;
 selectedStrokeIndex = null;
+selectedCompoundRing = null;
 persistDraft();
 renderCanvas(); renderGrid(); updateLiveFont(); updateContourTools();
 }
