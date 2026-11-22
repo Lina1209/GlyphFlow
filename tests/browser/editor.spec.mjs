@@ -1222,3 +1222,36 @@ test('keeps editor lifecycle bounded across repeated glyph switches, history and
   const restoredNodes = await page.locator('#drawSvg').evaluate(svg => svg.childElementCount);
   expect(restoredNodes).toBeLessThan(5);
 });
+
+
+test('exposes an installable PWA manifest and caches the application shell', async ({ page }) => {
+  await page.goto('/');
+  const pwa = await page.evaluate(async () => {
+    const manifestUrl = document.querySelector('link[rel="manifest"]')?.href;
+    const manifestResponse = await fetch(manifestUrl);
+    const manifest = await manifestResponse.json();
+    const registration = await navigator.serviceWorker.ready;
+    const cache = await caches.open('glyphflow-shell-v1');
+    const cachedUrls = await cache.keys();
+    return {
+      manifestUrl,
+      manifestOk: manifestResponse.ok,
+      name: manifest.name,
+      display: manifest.display,
+      scope: manifest.scope,
+      icon: manifest.icons?.[0],
+      workerActive: Boolean(registration.active),
+      cachedUrls: cachedUrls.map(request => new URL(request.url).pathname)
+    };
+  });
+  expect(pwa.manifestOk).toBe(true);
+  expect(pwa.name).toContain('GlyphFlow');
+  expect(pwa.display).toBe('standalone');
+  expect(pwa.scope).toBe('./');
+  expect(pwa.icon?.type).toBe('image/svg+xml');
+  expect(pwa.icon?.purpose).toContain('maskable');
+  expect(pwa.workerActive).toBe(true);
+  expect(pwa.cachedUrls.some(url => url.endsWith('/index.html') || url.endsWith('/'))).toBe(true);
+  expect(pwa.cachedUrls.some(url => url.endsWith('/manifest.webmanifest'))).toBe(true);
+  expect(pwa.cachedUrls.some(url => url.endsWith('/icons/glyphflow.svg'))).toBe(true);
+});
