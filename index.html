@@ -251,38 +251,92 @@ renderCanvas();
 
 const DRAFT_DB = 'glyphflow-local';
 const DRAFT_STORE = 'projects';
+let draftWriteQueue = Promise.resolve();
+
 function openDraftDB() {
 return new Promise((resolve, reject) => {
 if (!('indexedDB' in window)) return reject(new Error('IndexedDB недоступен'));
 const request = indexedDB.open(DRAFT_DB, 1);
-request.onupgradeneeded = () => request.result.createObjectStore(DRAFT_STORE);
+request.onupgradeneeded = () => {
+if (!request.result.objectStoreNames.contains(DRAFT_STORE)) {
+request.result.createObjectStore(DRAFT_STORE);
+}
+};
+request.onsuccess = () => resolve(request.result);
+request.onerror = () => reject(request.error);
+request.onblocked = () => reject(new Error('Открытие IndexedDB заблокировано другой вкладкой'));
+});
+}
+
+// Снимок создаётся сразу, а записи выполняются строго по порядку вызовов.
+function persistDraft() {
+let snapshot;
+try {
+snapshot = {
+glyphData: JSON.parse(JSON.stringify(glyphData)),
+fontName: document.getElementById('fontName').value,
+savedAt: Date.now()
+};
+} catch (err) {
+console.warn('Не удалось подготовить черновик к сохранению:', err);
+return draftWriteQueue;
+}
+
+draftWriteQueue = draftWriteQueue.catch(() => {}).then(async () => {
+let db;
+try {
+db = await openDraftDB();
+const tx = db.transaction(DRAFT_STORE, 'readwrite');
+tx.objectStore(DRAFT_STORE).put(snapshot, 'current');
+await new Promise((resolve, reject) => {
+tx.oncomplete = resolve;
+tx.onerror = () => reject(tx.error);
+tx.onabort = () => reject(tx.error);
+});
+} finally {
+if (db) db.close();
+}
+}).catch(err => {
+console.warn('Автосохранение недоступно:', err);
+});
+return draftWriteQueue;
+}
+
+async function restoreDraft() {
+let db;
+try {
+db = await openDraftDB();
+const tx = db.transaction(DRAFT_STORE, 'readonly');
+const request = tx.objectStore(DRAFT_STORE).get('current');
+const draft = await new Promise((resolve, reject) => {
 request.onsuccess = () => resolve(request.result);
 request.onerror = () => reject(request.error);
 });
-}
-async function persistDraft() {
-try {
-const db = await openDraftDB();
-const tx = db.transaction(DRAFT_STORE, 'readwrite');
-tx.objectStore(DRAFT_STORE).put({glyphData, fontName: document.getElementById('fontName').value, savedAt: Date.now()}, 'current');
-await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error); });
-db.close();
-} catch (err) { console.warn('Автосохранение недоступно:', err); }
-}
-async function restoreDraft() {
-try {
-const db = await openDraftDB();
-const tx = db.transaction(DRAFT_STORE, 'readonly');
-const request = tx.objectStore(DRAFT_STORE).get('current');
-const draft = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-db.close();
 if (draft && draft.glyphData && typeof draft.glyphData === 'object') {
-Object.assign(glyphData, draft.glyphData);
-if (draft.fontName) document.getElementById('fontName').value = String(draft.fontName).slice(0, 48);
+const restored = {};
+for (const [char, strokes] of Object.entries(draft.glyphData)) {
+if ([...char].length !== 1 || !Array.isArray(strokes)) continue;
+const validStrokes = strokes.filter(stroke =>
+stroke && Array.isArray(stroke.points) && stroke.points.length > 0 &&
+stroke.points.every(point => Array.isArray(point) && point.length >= 2 &&
+Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1]))) &&
+Number.isFinite(Number(stroke.size)) && Number(stroke.size) > 0 &&
+Number.isFinite(Number(stroke.thinning))
+);
+if (validStrokes.length) restored[char] = validStrokes;
+}
+Object.assign(glyphData, restored);
+if (typeof draft.fontName === 'string' && draft.fontName.trim()) {
+document.getElementById('fontName').value = draft.fontName.slice(0, 48);
+}
 history = [JSON.stringify(glyphData)];
 historyIndex = 0;
 }
-} catch (err) { console.warn('Не удалось восстановить черновик:', err); }
+} catch (err) {
+console.warn('Не удалось восстановить черновик:', err);
+} finally {
+if (db) db.close();
+}
 }
 function saveHistory() {
 const snapshot = JSON.stringify(glyphData);
@@ -324,7 +378,6 @@ document.getElementById('redoBtn').onclick = () => restoreHistory(historyIndex +
 document.getElementById('clearBtn').onclick = () => {
 glyphData[currentChar] = [];
 saveHistory();
-persistDraft();
 renderCanvas();
 renderGrid();
 updateLiveFont();
