@@ -3,14 +3,18 @@ import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const modules = [...html.matchAll(/<script\\s+type=["']module["']\\s*>([\\s\\S]*?)<\\/script>/gi)];
-assert.equal(modules.length, 1, 'Expected exactly one inline ES module');
+const openTag = '<script type="module">';
+const start = html.indexOf(openTag);
+const end = html.indexOf('</script>', start + openTag.length);
+assert.ok(start >= 0 && end > start, 'Expected one inline ES module');
+assert.equal(html.indexOf(openTag, start + openTag.length), -1, 'Expected exactly one inline ES module');
+const moduleSource = html.slice(start + openTag.length, end);
 
 const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
-  input: modules[0][1],
+  input: moduleSource,
   encoding: 'utf8'
 });
-assert.equal(syntax.status, 0, `Inline module syntax check failed:\\n${syntax.stderr || syntax.stdout}`);
+assert.equal(syntax.status, 0, `Inline module syntax check failed:\n${syntax.stderr || syntax.stdout}`);
 
 const requiredContracts = [
   ['primary pointer guard', 'if (!e.isPrimary || isDrawing) return;'],
