@@ -8,7 +8,7 @@ font = TTFont(str(font_path), recalcBBoxes=True, recalcTimestamp=False)
 required_tables = {"head", "hhea", "maxp", "cmap", "glyf", "loca", "hmtx", "name", "post"}
 assert required_tables.issubset(font.keys()), f"Missing TrueType tables: {required_tables - set(font.keys())}"
 assert "CFF " not in font.keys(), "Final .ttf must not contain CFF outlines"
-assert font.sfntVersion == "\\x00\\x01\\x00\\x00", "Expected TrueType sfnt signature"
+assert font.sfntVersion == "\x00\x01\x00\x00", "Expected TrueType sfnt signature"
 
 assert font["head"].unitsPerEm == 1000
 assert font["hhea"].ascent == 900
