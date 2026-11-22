@@ -10,7 +10,8 @@ assert.ok(!html.includes('https://cdn.') && !html.includes('https://esm.sh'), 'H
 const fontSmoke = readFileSync(new URL('../scripts/font-smoke-test.mjs', import.meta.url), 'utf8');
 const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', import.meta.url), 'utf8');
 const geometryPerformance = readFileSync(new URL('../scripts/geometry-performance.mjs', import.meta.url), 'utf8');
-const pwaManifest = JSON.parse(readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));
+const sourceManifest = readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8');
+const pwaManifest = JSON.parse(sourceManifest);
 const serviceWorker = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const publicManifest = readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8');
 const publicServiceWorker = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
@@ -162,7 +163,7 @@ assert.ok(!html.includes('font.download()'), 'Deprecated library download helper
 assert.ok(!html.includes('Скачать .OTF'), 'The UI must provide the requested TrueType TTF export');
 assert.equal(pwaManifest.display, 'standalone', 'PWA must launch in standalone mode');
 assert.ok(pwaManifest.icons?.some(icon => icon.src === './icons/glyphflow.svg' && icon.purpose.includes('maskable')), 'PWA manifest must expose a maskable app icon');
-assert.equal(publicManifest, JSON.stringify(pwaManifest, null, 2) + '\\n', 'Vite public manifest must match the source manifest');
+assert.equal(publicManifest, sourceManifest, 'Vite public manifest must match the source manifest');
 assert.equal(publicServiceWorker, serviceWorker, 'Vite public service worker must match the tested source worker');
 assert.equal(publicIcon, sourceIcon, 'Vite public icon must match the source icon');
 assert.ok(serviceWorker.includes("const CACHE_NAME = CACHE_PREFIX + 'v2';"), 'Service worker must version its app-shell cache');
