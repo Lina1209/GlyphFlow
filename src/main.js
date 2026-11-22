@@ -200,7 +200,7 @@ const depth = Number(contour && contour.depth);
 const ring = cleanPolygonRing(contour && contour.ring);
 if (!Number.isInteger(depth) || depth < 0 || ring.length < 3) return;
 if (!levels.has(depth)) levels.set(depth, []);
-levels.get(depth).push([ring]);
+levels.get(depth).push([[ring]]);
 });
 let result = [];
 [...levels.keys()].sort((a, b) => a - b).forEach(depth => {
@@ -229,7 +229,7 @@ return rings;
 });
 if (candidate.some(polygon => !polygon)) return null;
 try {
-const normalized = polygonClipping.union(...candidate);
+const normalized = polygonClipping.union(candidate);
 if (!normalized.length || compoundTopologySignature(normalized) !== compoundTopologySignature(candidate)) return null;
 if (!Number.isFinite(multiPolygonArea(normalized)) || multiPolygonArea(normalized) <= 1e-3) return null;
 return candidate;
@@ -304,7 +304,7 @@ try {
 // Our editor stores rings without duplicated closing vertices. polygon-clipping
 // requires closed rings; normalize the API boundary without changing editable data.
 const closedCandidate = closePolygonClippingRings(candidate);
-const normalized = polygonClipping.union(...closedCandidate);
+const normalized = polygonClipping.union(closedCandidate);
 const normalizedSignature = compoundTopologySignature(normalized);
 const originalSignature = compoundTopologySignature(original);
 const area = multiPolygonArea(normalized);
@@ -339,7 +339,7 @@ const parentPolygons = strokes
 .filter((stroke, index) => index !== candidateIndex && getContourDepth(stroke) === depth - 1)
 .map(stroke => cleanPolygonRing(getStrokeOutline(stroke)))
 .filter(ring => ring.length >= 3)
-.map(ring => [ring]);
+.map(ring => [[ring]]);
 if (!parentPolygons.length) return false;
 const parentUnion = polygonClipping.union(...parentPolygons);
 const outside = polygonClipping.difference([[candidate]], parentUnion);
