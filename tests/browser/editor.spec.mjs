@@ -1155,7 +1155,9 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   const finishChanged = await page.locator('#drawSvg').getAttribute('data-outline-finish-changed');
   const finishPoint = await page.locator('#drawSvg').getAttribute('data-outline-finish-point');
   const lostCapture = await page.locator('#drawSvg').getAttribute('data-outline-lost-capture');
-  console.log('outline drag diagnostics', {dragState, lastPointer, storedPoint, storedLength, renderedPoint, finishCommit, finishChanged, finishPoint, lostCapture, selectedPointIndex, before});
+  const finalHandlePoint = await page.locator('#drawSvg').getAttribute('data-outline-final-handle-point');
+  const selectedAfterRender = await page.locator('#drawSvg').getAttribute('data-outline-selected-after-render');
+  console.log('outline drag diagnostics', {dragState, lastPointer, storedPoint, storedLength, renderedPoint, finishCommit, finishChanged, finishPoint, finalHandlePoint, selectedAfterRender, lostCapture, selectedPointIndex, before});
   expect(dragState).toBe('accepted');
   const changed = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
