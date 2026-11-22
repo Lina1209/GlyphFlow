@@ -399,6 +399,32 @@ test('contour editor assigns a hole role and preserves it in the generated font'
   expect(pixels.holeFill, JSON.stringify(pixels)).toBe(0);
 });
 
+test('contour editor rejects a hole outside the actual outer polygon but inside its bounding box', async ({page}) => {
+  await page.goto('/');
+  await page.getByRole('button', {name: 'В', exact: true}).click();
+  await page.locator('#brushSize').evaluate(element => {
+    element.value = '36';
+    element.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  await drawClosedContour(page, [[80,80],[280,280]]);
+  await page.locator('#brushSize').evaluate(element => {
+    element.value = '8';
+    element.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  // This short stroke is inside the outer contour's bounding box, but well
+  // outside the actual diagonal capsule polygon.
+  await drawClosedContour(page, [[80,280],[92,280]]);
+  await page.locator('#contourModeBtn').click();
+  const outsideContour = page.locator('[data-contour-index="1"]');
+  await expect(outsideContour).toBeVisible();
+  await clickContourPath(page, outsideContour);
+  const roleSelect = page.locator('#contourRoleSelect');
+  await roleSelect.selectOption('hole');
+  await page.locator('#applyContourRoleBtn').click();
+  await expect(page.locator('#contourStatus')).toContainText('Отверстие должно находиться внутри внешнего контура');
+  await expect(roleSelect).toHaveValue('outer');
+});
+
 test('two-finger touch gesture zooms and pans without committing a glyph', async ({ page }) => {
   await page.setViewportSize({width: 390, height: 844});
   await page.goto('/');
