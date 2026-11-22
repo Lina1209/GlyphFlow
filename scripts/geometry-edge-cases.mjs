@@ -120,8 +120,8 @@ const nested = context.buildNestedContourGeometry([
   { depth: 3, ring: rect(43, 43, 57, 57) }
 ]);
 assertFiniteGeometry(nested, 'four-level nested topology');
-assert.equal(nested.length, 1, 'Nested island remains connected to outer component as one polygon');
-assert.ok(Math.abs(area(nested) - 7304) < 1e-5,
+assert.equal(nested.length, 2, 'An island inside a counter is represented as a separate filled component');
+assert.ok(Math.abs(area(nested) - 7104) < 1e-5,
   'Nested fill must alternate add/subtract at every depth');
 const nestedRecords = context.getCompoundPathRecords(nested);
 assert.equal(nestedRecords.length, 4, 'Nested topology must preserve four boundary rings');
