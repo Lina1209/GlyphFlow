@@ -143,6 +143,10 @@ let isDrawing = false;
 let activePointerId = null;
 let panPointerId = null;
 let panStart = null;
+// Отдельное состояние контактных указателей для двухпальцевого жеста.
+const touchPointers = new Map();
+let pinchStart = null;
+let touchGestureConsumed = false;
 let viewBox = { x: 0, y: 0, size: 360 };
 let history = [JSON.stringify(glyphData)];
 let historyIndex = 0;
@@ -296,8 +300,55 @@ return [point.x, point.y, e.pressure || 0.5];
 }
 
 // События рисования и перетаскивания холста мышью (Alt + перетаскивание или средняя кнопка).
+function touchDistance(a, b) {
+return Math.hypot(a.x - b.x, a.y - b.y);
+}
+function updatePinchView() {
+if (touchPointers.size < 2 || !pinchStart) return;
+const points = [...touchPointers.values()];
+const first = points[0];
+const second = points[1];
+const midpoint = {x: (first.x + second.x) / 2, y: (first.y + second.y) / 2};
+const distance = Math.max(1, touchDistance(first, second));
+const rect = drawSvg.getBoundingClientRect();
+const nextSize = Math.max(MIN_VIEW_SIZE, Math.min(MAX_VIEW_SIZE,
+pinchStart.viewBox.size * pinchStart.distance / distance));
+const ratioX = (pinchStart.midpoint.x - rect.left) / Math.max(1, rect.width);
+const ratioY = (pinchStart.midpoint.y - rect.top) / Math.max(1, rect.height);
+const anchorX = pinchStart.viewBox.x + ratioX * pinchStart.viewBox.size;
+const anchorY = pinchStart.viewBox.y + ratioY * pinchStart.viewBox.size;
+const nextRatioX = (midpoint.x - rect.left) / Math.max(1, rect.width);
+const nextRatioY = (midpoint.y - rect.top) / Math.max(1, rect.height);
+viewBox.size = nextSize;
+viewBox.x = anchorX - nextRatioX * nextSize;
+viewBox.y = anchorY - nextRatioY * nextSize;
+applyViewBox();
+}
 drawSvg.addEventListener('pointerdown', (e) => {
-if (e.button === 1 || e.button === 2 || e.altKey) {
+if (e.pointerType === 'touch') {
+e.preventDefault();
+touchPointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+try { drawSvg.setPointerCapture(e.pointerId); } catch (err) {}
+if (touchPointers.size === 1) {
+touchGestureConsumed = false;
+} else if (touchPointers.size >= 2) {
+touchGestureConsumed = true;
+if (isDrawing) finishStroke(false);
+if (panPointerId !== null) {
+try { if (drawSvg.hasPointerCapture(panPointerId)) drawSvg.releasePointerCapture(panPointerId); } catch (err) {}
+panPointerId = null;
+panStart = null;
+}
+const points = [...touchPointers.values()];
+pinchStart = {
+distance: Math.max(1, touchDistance(points[0], points[1])),
+midpoint: {x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2},
+viewBox: {...viewBox}
+};
+}
+if (touchGestureConsumed) return;
+}
+if (e.button === 1 || e.button === 2 || (e.altKey && e.pointerType !== 'touch')) {
 e.preventDefault();
 panPointerId = e.pointerId;
 panStart = {clientX: e.clientX, clientY: e.clientY, x: viewBox.x, y: viewBox.y};
@@ -306,7 +357,7 @@ return;
 }
 if (e.button !== 0 || !e.isPrimary || isDrawing || panPointerId !== null) return;
 try {
-drawSvg.setPointerCapture(e.pointerId);
+if (e.pointerType !== 'touch') drawSvg.setPointerCapture(e.pointerId);
 } catch (err) {
 console.warn('Не удалось захватить указатель:', err);
 return;
@@ -318,6 +369,14 @@ renderCanvas();
 });
 
 drawSvg.addEventListener('pointermove', (e) => {
+if (e.pointerType === 'touch' && touchPointers.has(e.pointerId)) {
+touchPointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+if (touchPointers.size >= 2 && pinchStart) {
+updatePinchView();
+return;
+}
+if (touchGestureConsumed) return;
+}
 if (e.pointerId === panPointerId && panStart) {
 const rect = drawSvg.getBoundingClientRect();
 const factor = viewBox.size / Math.max(1, rect.width);
@@ -449,15 +508,37 @@ if (activePointerId !== null && drawSvg.hasPointerCapture(activePointerId)) draw
 activePointerId = null;
 renderCanvas(); renderGrid(); updateLiveFont();
 }
+function finishTouchPointer(e, cancelled = false) {
+if (e.pointerType === 'touch' && touchPointers.has(e.pointerId)) {
+touchPointers.delete(e.pointerId);
+if (touchPointers.size < 2) pinchStart = null;
+if (touchPointers.size === 0) touchGestureConsumed = false;
+if (cancelled && isDrawing && e.pointerId === activePointerId) finishStroke(false);
+return true;
+}
+return false;
+}
 drawSvg.addEventListener('pointerup', (e) => {
+if (finishTouchPointer(e, false)) {
+if (e.pointerId === activePointerId && isDrawing) finishStroke(true);
+return;
+}
 if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return; }
 if (e.pointerId === activePointerId) finishStroke(true);
 });
 drawSvg.addEventListener('pointercancel', (e) => {
+if (finishTouchPointer(e, true)) {
+if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
+return;
+}
 if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return; }
 if (e.pointerId === activePointerId) finishStroke(false);
 });
 drawSvg.addEventListener('lostpointercapture', (e) => {
+if (finishTouchPointer(e, true)) {
+if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
+return;
+}
 if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; }
 if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
 });
