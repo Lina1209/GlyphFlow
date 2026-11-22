@@ -1805,3 +1805,12 @@ test('closes an existing IndexedDB connection so a schema upgrade can proceed', 
   expect(result.upgradeStarted).toBe(true);
   expect(result.error).toBeNull();
 });
+
+
+test('recovers a stroke after an immediate page reload without an artificial wait', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  await page.reload();
+  await expect(page.locator('#drawSvg path.glyph-fill')).toBeVisible();
+  await expect(page.locator('#progressText')).toContainText('1 /');
+});
