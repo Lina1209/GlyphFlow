@@ -21,6 +21,7 @@ const requiredContracts = [
   ['SVG coordinate transform', 'point.matrixTransform(drawSvg.getScreenCTM().inverse())'],
   ['bounded canvas zoom', 'const MIN_VIEW_SIZE = 120;'],
   ['canvas viewBox zoom control', "getElementById('zoomInBtn')"],
+  ['typographic guides follow canvas zoom', 'guideSvg.setAttribute(\'viewBox\', nextViewBox);'],
   ['canvas directional pan controls', "getElementById('panLeftBtn')"],
   ['wheel zoom handler', "addEventListener('wheel'"],
   ['mouse pan gesture', 'panStart = {clientX: e.clientX, clientY: e.clientY, x: viewBox.x, y: viewBox.y};'],
