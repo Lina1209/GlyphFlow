@@ -716,7 +716,8 @@ test('cancels a pending animation-frame preview without leaving a ghost stroke',
   expect(storedCount).toBe(0);
 });
 
-test('keeps Blob URLs bounded during repeated edits and export stress', async ({ page }) => {
+test('bounds undo memory and Blob URLs during repeated edit/export stress', async ({ page }) => {
+  test.setTimeout(90000);
   await page.addInitScript(() => {
     const active = new Set();
     const create = URL.createObjectURL.bind(URL);
@@ -735,7 +736,7 @@ test('keeps Blob URLs bounded during repeated edits and export stress', async ({
     });
   });
   await page.goto('/');
-  for (let index = 0; index < 18; index++) {
+  for (let index = 0; index < 42; index++) {
     await drawStroke(page, index * 4);
     const active = await page.evaluate(() => window.__glyphFlowActiveBlobUrls);
     expect(active, 'superseded live-font URLs should be revoked after every edit').toBeLessThanOrEqual(1);
@@ -753,13 +754,14 @@ test('keeps Blob URLs bounded during repeated edits and export stress', async ({
       tx.oncomplete = () => db.close();
     };
   }));
-  await expect.poll(readStrokeCount).toBe(18);
+  await expect.poll(readStrokeCount).toBe(42);
 
-  // History navigation must continue to work after many sequential saves.
-  await page.locator('#undoBtn').click();
-  await expect.poll(readStrokeCount).toBe(17);
+  // The undo stack retains the newest 40 full-project snapshots (39 undo steps).
+  // Older snapshots must be discarded rather than growing memory indefinitely.
+  for (let index = 0; index < 41; index++) await page.locator('#undoBtn').click();
+  await expect.poll(readStrokeCount).toBe(3);
   await page.locator('#redoBtn').click();
-  await expect.poll(readStrokeCount).toBe(18);
+  await expect.poll(readStrokeCount).toBe(4);
 
   for (let index = 0; index < 2; index++) {
     const downloadPromise = page.waitForEvent('download');
@@ -772,7 +774,7 @@ test('keeps Blob URLs bounded during repeated edits and export stress', async ({
   expect(activeAfterDownloads, 'temporary export URLs should be revoked after download').toBeLessThanOrEqual(1);
 
   await page.reload();
-  await expect.poll(readStrokeCount).toBe(18);
+  await expect.poll(readStrokeCount).toBe(4);
   await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
 });
 
