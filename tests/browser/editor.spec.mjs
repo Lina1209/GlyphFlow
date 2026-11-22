@@ -1145,6 +1145,8 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   await page.mouse.down();
   await page.mouse.move(bounds.x + bounds.width / 2 + 3, bounds.y + bounds.height / 2 + 2, {steps: 3});
   await page.mouse.up();
+  const dragState = await page.locator('#drawSvg').getAttribute('data-outline-drag-state');
+  expect(dragState).toBe('accepted');
   const changed = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
