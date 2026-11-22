@@ -548,7 +548,7 @@ test('contour editor rejects a hole outside the actual outer polygon but inside 
   const roleSelect = page.locator('#contourRoleSelect');
   await roleSelect.selectOption('hole');
   await page.locator('#applyContourRoleBtn').click();
-  await expect(page.locator('#contourStatus')).toContainText('Отверстие должно находиться внутри внешнего контура');
+  await expect(page.locator('#contourStatus')).toContainText('Контур уровня 1 должен целиком находиться внутри области уровня 0');
   await expect(roleSelect).toHaveValue('outer');
 });
 
@@ -657,5 +657,5 @@ test('assigns four nested contour levels through the editor', async ({ page }) =
     await expect(selector).toHaveValue(level);
   }
   await expect(page.locator('#drawSvg .glyph-fill')).toHaveCount(1);
-  await expect(page.locator('#contourStatus')).toContainText('уровень 3');
+  await expect(page.locator('#contourStatus')).toContainText('Уровень 3');
 });
