@@ -291,6 +291,7 @@ if (index < 0 || index >= history.length) return;
 Object.keys(glyphData).forEach(key => delete glyphData[key]);
 Object.assign(glyphData, JSON.parse(history[index]));
 historyIndex = index;
+persistDraft();
 renderCanvas(); renderGrid(); updateLiveFont();
 }
 function finishStroke(commit = true) {
