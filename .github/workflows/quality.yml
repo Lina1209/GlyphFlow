@@ -25,6 +25,10 @@ jobs:
           node-version: 22
       - name: Install pinned project dependencies
         run: npm install --no-package-lock
+      - name: Report dependency security advisories
+        run: |
+          npm audit --no-package-lock --json > npm-audit-report.json || true
+          node -e "const report = require('./npm-audit-report.json'); for (const [name, item] of Object.entries(report.vulnerabilities || {})) console.log(name + ': ' + item.severity + ', direct=' + item.isDirect + ', fixAvailable=' + JSON.stringify(item.fixAvailable)); console.log('Totals:', JSON.stringify(report.metadata?.vulnerabilities || {}))"
       - name: Check project contracts
         run: npm run check
       - name: Build production PWA assets
