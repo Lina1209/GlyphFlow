@@ -1121,9 +1121,12 @@ document.getElementById('undoBtn').onclick = () => restoreHistory(historyIndex -
 document.getElementById('redoBtn').onclick = () => restoreHistory(historyIndex + 1);
 contourModeBtn.onclick = () => {
 if (activeOutlineDrag) finishOutlineDrag(false);
+if (activeCompoundDrag) finishCompoundDrag(false);
 contourEditMode = !contourEditMode;
 nodeEditMode = false;
 outlineEditMode = false;
+compoundEditMode = false;
+selectedCompoundRing = null;
 selectedStrokeIndex = null;
 selectedNodeIndex = null;
 selectedOutlineIndex = null;
@@ -1133,9 +1136,12 @@ renderCanvas();
 nodeEditModeBtn.onclick = () => {
 if (activeNodeDrag) finishNodeDrag(false);
 if (activeOutlineDrag) finishOutlineDrag(false);
+if (activeCompoundDrag) finishCompoundDrag(false);
 nodeEditMode = !nodeEditMode;
 outlineEditMode = false;
 contourEditMode = false;
+compoundEditMode = false;
+selectedCompoundRing = null;
 selectedStrokeIndex = null;
 selectedNodeIndex = null;
 selectedOutlineIndex = null;
@@ -1145,12 +1151,30 @@ renderCanvas();
 outlineEditModeBtn.onclick = () => {
 if (activeNodeDrag) finishNodeDrag(false);
 if (activeOutlineDrag) finishOutlineDrag(false);
+if (activeCompoundDrag) finishCompoundDrag(false);
 outlineEditMode = !outlineEditMode;
 nodeEditMode = false;
 contourEditMode = false;
+compoundEditMode = false;
+selectedCompoundRing = null;
 selectedStrokeIndex = null;
 selectedNodeIndex = null;
 selectedOutlineIndex = null;
+updateContourTools();
+renderCanvas();
+};
+compoundEditModeBtn.onclick = () => {
+if (activeNodeDrag) finishNodeDrag(false);
+if (activeOutlineDrag) finishOutlineDrag(false);
+if (activeCompoundDrag) finishCompoundDrag(false);
+compoundEditMode = !compoundEditMode;
+contourEditMode = false;
+nodeEditMode = false;
+outlineEditMode = false;
+selectedStrokeIndex = null;
+selectedNodeIndex = null;
+selectedOutlineIndex = null;
+selectedCompoundRing = null;
 updateContourTools();
 renderCanvas();
 };
