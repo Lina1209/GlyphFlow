@@ -52,29 +52,9 @@ async function drawClosedContour(page, points) {
 
 async function clickContourPath(page, path) {
   const targetIndex = await path.getAttribute('data-contour-index');
-  const diagnostics = await path.evaluate(element => {
-    const length = element.getTotalLength();
-    const bounds = element.getBBox();
-    const rect = element.getBoundingClientRect();
-    const ratios = [0.08, 0.25, 0.5, 0.75, 0.92];
-    const samples = ratios.map(ratio => {
-      const local = element.getPointAtLength(Math.max(1, length * ratio));
-      const x = rect.left + (local.x - bounds.x) / Math.max(1, bounds.width) * rect.width;
-      const y = rect.top + (local.y - bounds.y) / Math.max(1, bounds.height) * rect.height;
-      const hit = document.elementFromPoint(x, y);
-      return {x, y, ratio, hitTag: hit?.tagName ?? null, hitIndex: hit?.getAttribute('data-contour-index') ?? null};
-    });
-    return {
-      bounds: {x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height},
-      rect: {x: rect.x, y: rect.y, width: rect.width, height: rect.height},
-      samples
-    };
-  });
-  const point = diagnostics.samples.find(sample => sample.hitIndex === targetIndex);
-  if (!point) throw new Error(`Contour ${targetIndex} has no reachable SVG hit point: ${JSON.stringify(diagnostics)}`);
-  await page.mouse.click(point.x, point.y);
-  const selectedIndex = await page.locator('#drawSvg').getAttribute('data-selected-contour-index');
-  console.log('contour selection', {requested: targetIndex, selectedIndex, ratio: point.ratio});
+  const selectorHandle = page.locator(`#drawSvg .contour-select-handle[data-contour-index="${targetIndex}"]`);
+  await expect(selectorHandle).toBeVisible();
+  await selectorHandle.click();
 }
 
 test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ page }) => {
@@ -937,11 +917,11 @@ test('migrates legacy hole roles and clamps unsupported stored contour depths', 
 
   await page.reload();
   await page.locator('#contourModeBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   await expect(page.locator('#contourRoleSelect')).toHaveValue('hole');
 
   await page.locator('#glyphGrid button').filter({hasText: /^Б$/}).click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   await expect(page.locator('#contourRoleSelect')).toHaveValue('outer');
 });
 
@@ -965,7 +945,7 @@ test('exports four nested contour levels with alternating transparent counters',
     [3, 'nested-hole']
   ];
   for (const [index, level] of assignments) {
-    const contour = page.locator(`#drawSvg [data-contour-index="${index}"]`);
+    const contour = page.locator(`#drawSvg path[data-contour-index="${index}"]`);
     await clickContourPath(page, contour);
     const selector = page.locator('#contourRoleSelect');
     await expect(selector).toBeEnabled();
@@ -983,10 +963,10 @@ test('exports four nested contour levels with alternating transparent counters',
   // Undo/Redo must restore the selected contour's actual nesting depth, not
   // merely its rendered outline.
   await page.locator('#undoBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="3"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="3"]'));
   await expect(page.locator('#contourRoleSelect')).toHaveValue('outer');
   await page.locator('#redoBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="3"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="3"]'));
   await expect(page.locator('#contourRoleSelect')).toHaveValue('nested-hole');
 
   // Wait until IndexedDB contains all four explicit depth values.
@@ -1014,7 +994,7 @@ test('exports four nested contour levels with alternating transparent counters',
   await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
   await page.locator('#contourModeBtn').click();
   for (const [index, level] of [[0, 'outer'], [1, 'hole'], [2, 'island'], [3, 'nested-hole']]) {
-    await clickContourPath(page, page.locator(`#drawSvg [data-contour-index="${index}"]`));
+    await clickContourPath(page, page.locator(`#drawSvg path[data-contour-index="${index}"]`));
     await expect(page.locator('#contourRoleSelect')).toHaveValue(level);
   }
 
@@ -1023,7 +1003,7 @@ test('exports four nested contour levels with alternating transparent counters',
   await expect(page.locator('#currentCharLabel')).toHaveText('Б');
   await page.locator('#glyphGrid button').filter({hasText: /^Р$/}).click();
   for (const [index, level] of [[0, 'outer'], [1, 'hole'], [2, 'island'], [3, 'nested-hole']]) {
-    await clickContourPath(page, page.locator(`#drawSvg [data-contour-index="${index}"]`));
+    await clickContourPath(page, page.locator(`#drawSvg path[data-contour-index="${index}"]`));
     await expect(page.locator('#contourRoleSelect')).toHaveValue(level);
   }
 
@@ -1120,7 +1100,7 @@ test('edits a selected stroke centerline through draggable nodes with undo suppo
   await drawStroke(page);
   await page.locator('#nodeEditModeBtn').click();
   await expect(page.locator('#nodeEditModeBtn')).toHaveAttribute('aria-pressed', 'true');
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   const nodes = page.locator('#drawSvg [data-node-index]');
   expect(await nodes.count()).toBeGreaterThan(5);
   const firstNode = nodes.first();
@@ -1142,7 +1122,7 @@ test('edits a selected stroke centerline through draggable nodes with undo suppo
   await page.locator('#undoBtn').click();
   await page.locator('#nodeEditModeBtn').click();
   await page.locator('#nodeEditModeBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   const restored = await page.locator('#drawSvg [data-node-index="0"]').evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
@@ -1156,7 +1136,7 @@ test('adds and removes trajectory points with undo and redo', async ({ page }) =
   await page.goto('/');
   await drawStroke(page);
   await page.locator('#nodeEditModeBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   const initial = await page.locator('#drawSvg [data-node-index]').count();
   await page.locator('#drawSvg [data-node-index]').first().click();
   await page.locator('#addTrajectoryPointBtn').click();
@@ -1164,10 +1144,10 @@ test('adds and removes trajectory points with undo and redo', async ({ page }) =
   await page.locator('#deleteTrajectoryPointBtn').click();
   await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial);
   await page.locator('#undoBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial + 1);
   await page.locator('#redoBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial);
 });
 
@@ -1177,7 +1157,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   await drawStroke(page);
   await page.locator('#outlineEditModeBtn').click();
   await expect(page.locator('#outlineEditModeBtn')).toHaveAttribute('aria-pressed', 'true');
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   const handles = page.locator('#drawSvg [data-outline-index]');
   expect(await handles.count()).toBeGreaterThan(5);
   const handle = handles.nth(Math.floor((await handles.count()) / 2));
@@ -1200,7 +1180,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   expect(Math.hypot(changed.x - before.x, changed.y - before.y)).toBeGreaterThan(0.5);
 
   await page.locator('#undoBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   const undone = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
@@ -1209,7 +1189,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   expect(undone.y).toBeCloseTo(before.y, 1);
 
   await page.locator('#redoBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   await page.waitForTimeout(400);
   const redone = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
@@ -1219,7 +1199,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
 
   await page.reload();
   await page.locator('#outlineEditModeBtn').click();
-  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await clickContourPath(page, page.locator('#drawSvg path[data-contour-index="0"]'));
   const restored = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
