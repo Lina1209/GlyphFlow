@@ -19,7 +19,7 @@
 class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500" />
 <button id="downloadBtn"
 class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 rounded-lg text-sm transition flex items-center gap-2 shadow-lg shadow-indigo-500/20">
-<span>Скачать .OTF</span>
+<span>Скачать .TTF</span>
 </button>
 </div>
 </header>
@@ -111,6 +111,7 @@ placeholder="Введите текст для проверки...">ПРИВЕТ<
 <script type="module">
 // Импортируем библиотеку каллиграфической кисти perfect-freehand
 import { getStroke } from 'https://esm.sh/perfect-freehand@1.2.0';
+import { createFont } from 'https://esm.sh/fonteditor-core@2.6.3';
 
 // Набор символов для старта (Кириллица + Латиница + Цифры)
 const CHARS = [
@@ -531,7 +532,7 @@ console.error('Ошибка обновления шрифта:', err);
 }
 }
 
-// Скачивание OpenType/CFF файла .OTF
+// opentype.js строит промежуточный CFF/OTF; fonteditor-core конвертирует его в настоящий TrueType .TTF.
 document.getElementById('downloadBtn').onclick = () => {
 let downloadUrl;
 try {
@@ -539,15 +540,25 @@ const count = Object.values(glyphData).filter(strokes => strokes && strokes.leng
 if (!count) { alert('Сначала нарисуйте хотя бы один символ.'); return; }
 if (typeof opentype === 'undefined' || !opentype.Font) { alert('Библиотека opentype.js не загрузилась. Проверьте подключение к интернету и повторите попытку.'); return; }
 const font = buildOpenTypeFont();
-const buffer = font.toArrayBuffer();
-if (!buffer || buffer.byteLength < 100) throw new Error('Получен пустой или некорректный файл шрифта.');
+const otfBuffer = font.toArrayBuffer();
+if (!otfBuffer || otfBuffer.byteLength < 100) throw new Error('Получен пустой промежуточный OTF.');
+const converter = createFont(otfBuffer, {type: 'otf'});
+const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: false});
+const ttfBuffer = rawTtf instanceof ArrayBuffer
+? rawTtf
+: rawTtf.buffer.slice(rawTtf.byteOffset, rawTtf.byteOffset + rawTtf.byteLength);
+if (!ttfBuffer || ttfBuffer.byteLength < 100) throw new Error('Конвертер вернул пустой TTF.');
+const signature = new Uint8Array(ttfBuffer, 0, 4);
+if (signature[0] !== 0 || signature[1] !== 1 || signature[2] !== 0 || signature[3] !== 0) {
+throw new Error('Результат не имеет сигнатуру TrueType.');
+}
 const familyName = (font.getEnglishName('fontFamily') || 'GlyphFlow')
 .replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'GlyphFlow';
-const blob = new Blob([buffer], {type: 'font/otf'});
+const blob = new Blob([ttfBuffer], {type: 'font/ttf'});
 downloadUrl = URL.createObjectURL(blob);
 const link = document.createElement('a');
 link.href = downloadUrl;
-link.download = familyName + '-Regular.otf';
+link.download = familyName + '-Regular.ttf';
 document.body.appendChild(link);
 link.click();
 link.remove();
@@ -555,8 +566,8 @@ window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
 downloadUrl = null;
 } catch (err) {
 if (downloadUrl) URL.revokeObjectURL(downloadUrl);
-console.error('Ошибка экспорта OTF:', err);
-alert('Не удалось создать OTF. Проверьте данные глифов и попробуйте ещё раз.');
+console.error('Ошибка экспорта TTF:', err);
+alert('Не удалось создать TTF. Проверьте данные глифов и попробуйте ещё раз.');
 }
 };
 
