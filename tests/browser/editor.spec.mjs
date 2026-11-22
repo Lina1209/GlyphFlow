@@ -1151,12 +1151,17 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   const storedPoint = await page.locator('#drawSvg').getAttribute('data-outline-stored-point');
   const storedLength = await page.locator('#drawSvg').getAttribute('data-outline-stored-length');
   const renderedPoint = await page.locator('#drawSvg').getAttribute('data-outline-rendered-point');
-  console.log('outline drag diagnostics', {dragState, lastPointer, storedPoint, storedLength, renderedPoint, selectedPointIndex, before});
+  const finishCommit = await page.locator('#drawSvg').getAttribute('data-outline-finish-commit');
+  const finishChanged = await page.locator('#drawSvg').getAttribute('data-outline-finish-changed');
+  const finishPoint = await page.locator('#drawSvg').getAttribute('data-outline-finish-point');
+  const lostCapture = await page.locator('#drawSvg').getAttribute('data-outline-lost-capture');
+  console.log('outline drag diagnostics', {dragState, lastPointer, storedPoint, storedLength, renderedPoint, finishCommit, finishChanged, finishPoint, lostCapture, selectedPointIndex, before});
   expect(dragState).toBe('accepted');
   const changed = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
   }));
+  console.log('outline handle after drag', {changed, before, matches: await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).count()});
   console.log('outline handle after drag', {changed, before, matches: await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).count()});
   expect(Math.hypot(changed.x - before.x, changed.y - before.y)).toBeGreaterThan(0.5);
 
