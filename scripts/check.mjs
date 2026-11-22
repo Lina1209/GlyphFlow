@@ -46,6 +46,7 @@ const requiredContracts = [
   ['alternating even-depth fill', 'if (depth % 2 === 0)'],
   ['nested counter subtraction', 'polygonClipping.difference(result, levelUnion)'],
   ['nested topology pipeline', 'buildNestedContourGeometry(contours)'],
+  ['microscopic geometry tolerance', 'Math.abs(contourSignedArea(ring)) > 1e-3'],
   ['compound geometry export', 'getCompoundPathRecords(getCompoundGlyphGeometry(strokes))'],
   ['cached glyph Boolean geometry', 'const glyphGeometryCache = new WeakMap();'],
   ['nested parent-depth validation', 'isContourWithinParentDepth(selected, strokes, selectedStrokeIndex, depth)'],
