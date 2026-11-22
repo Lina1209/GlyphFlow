@@ -315,8 +315,10 @@ const ring = cleanPolygonRing(polygon[ringIndex]);
 const originalRing = cleanPolygonRing(originalPolygon[ringIndex]);
 if (ring.length < 3 || ring.length !== originalRing.length ||
 Math.sign(contourSignedArea(ring)) !== Math.sign(contourSignedArea(originalRing))) {
-return reject(JSON.stringify({reason: 'invalid-ring-or-winding', ringLength: ring.length,
-originalRingLength: originalRing.length, rawRingLength: polygon[ringIndex].length,
+return reject(JSON.stringify({reason: 'invalid-ring-or-winding', polygonIndex, ringIndex,
+ringLength: ring.length, originalRingLength: originalRing.length,
+rawRingLength: polygon[ringIndex]?.length ?? null,
+originalRawRingLength: originalPolygon[ringIndex]?.length ?? null,
 area: contourSignedArea(ring), originalArea: contourSignedArea(originalRing)}));
 }
 for (let i = 0; i < ring.length; i++) {
@@ -386,9 +388,10 @@ if (depth === 0) return true;
 const candidate = cleanPolygonRing(getStrokeOutline(candidateStroke));
 if (candidate.length < 3) return false;
 const parentRings = strokes
-.filter((stroke, index) => index !== candidateIndex && getContourDepth(stroke) === depth - 1)
-.map(stroke => cleanPolygonRing(getStrokeOutline(stroke)))
-.filter(ring => ring.length >= 3);
+.map((stroke, index) => ({stroke, index, depth: getContourDepth(stroke)}))
+.filter(item => item.index !== candidateIndex && item.depth === depth - 1)
+.map(item => ({...item, ring: cleanPolygonRing(getStrokeOutline(item.stroke))}))
+.filter(item => item.ring.length >= 3);
 if (!parentRings.length) return false;
 // A contour at depth N must fit inside one complete contour at depth N-1.
 // Checking the actual polygon vertices and every edge avoids bounding-box
@@ -402,7 +405,8 @@ point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !i
 }
 return inside;
 };
-const diagnostics = parentRings.map((parent, parentIndex) => {
+const diagnostics = parentRings.map((item, parentIndex) => {
+const parent = item.ring;
 const insideCount = candidate.filter(point => pointInsideRing(point, parent)).length;
 let intersections = 0;
 for (let i = 0; i < candidate.length; i++) {
@@ -411,7 +415,8 @@ for (let j = 0; j < parent.length; j++) {
 if (segmentsIntersect(a, b, parent[j], parent[(j + 1) % parent.length])) intersections++;
 }
 }
-return {parentIndex, insideCount, candidateCount: candidate.length, intersections};
+return {parentIndex, parentStrokeIndex: item.index, parentDepth: item.depth,
+candidateCount: candidate.length, insideCount, intersections};
 });
 if (typeof drawSvg !== 'undefined') drawSvg.dataset.contourContainmentDebug = JSON.stringify(diagnostics);
 return diagnostics.some(item => item.insideCount === item.candidateCount && item.intersections === 0);
@@ -526,6 +531,11 @@ const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 hitPath.setAttribute('d', getSvgPathFromStroke(outline));
 hitPath.setAttribute('fill', 'transparent');
 hitPath.setAttribute('fill-rule', 'nonzero');
+// Give thin/tapered counters a forgiving hit target so selecting one contour
+// cannot accidentally keep the previously selected contour active.
+hitPath.setAttribute('stroke', 'transparent');
+hitPath.setAttribute('stroke-width', '10');
+hitPath.setAttribute('stroke-linejoin', 'round');
 hitPath.setAttribute('pointer-events', 'all');
 hitPath.setAttribute('data-contour-index', String(index));
 if (index === selectedStrokeIndex) {
@@ -790,6 +800,7 @@ if (contourEditMode) {
 const hit = e.target.closest?.('[data-contour-index]');
 if (hit) {
 selectedStrokeIndex = Number(hit.getAttribute('data-contour-index'));
+drawSvg.dataset.selectedContourIndex = String(selectedStrokeIndex);
 updateContourTools();
 renderCanvas();
 }
