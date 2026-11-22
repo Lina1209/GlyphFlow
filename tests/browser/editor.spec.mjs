@@ -333,10 +333,33 @@ test('contour editor assigns a hole role and preserves it in the generated font'
       minX: Math.min(box.minX, point.x), minY: Math.min(box.minY, point.y),
       maxX: Math.max(box.maxX, point.x), maxY: Math.max(box.maxY, point.y)
     }), {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity});
-    const sample = box => ({
-      x: (box.minX + box.maxX) / 2,
-      y: 950 - (box.maxY - (box.maxY - box.minY) * 0.1)
-    });
+    const inside = (point, polygon) => {
+      let result = false;
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const a = polygon[i], b = polygon[j];
+        if ((a.y > point.y) !== (b.y > point.y) &&
+          point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) result = !result;
+      }
+      return result;
+    };
+    const findInterior = polygon => {
+      const box = bounds(polygon);
+      const candidates = [];
+      for (let yi = 1; yi < 20; yi++) {
+        for (let xi = 1; xi < 20; xi++) {
+          const point = {
+            x: box.minX + (box.maxX - box.minX) * xi / 20,
+            y: box.minY + (box.maxY - box.minY) * yi / 20
+          };
+          if (inside(point, polygon)) candidates.push(point);
+        }
+      }
+      if (!candidates.length) throw new Error('Could not find an interior sample point');
+      return candidates.sort((a, b) =>
+        Math.abs(a.x - (box.minX + box.maxX) / 2) + Math.abs(a.y - (box.minY + box.maxY) / 2) -
+        (Math.abs(b.x - (box.minX + box.maxX) / 2) + Math.abs(b.y - (box.minY + box.maxY) / 2))
+      )[0];
+    };
     const face = new FontFace('GlyphHoleCheck', bytes.buffer);
     await face.load();
     document.fonts.add(face);
@@ -347,9 +370,24 @@ test('contour editor assigns a hole role and preserves it in the generated font'
     context.font = '1000px GlyphHoleCheck';
     context.fillStyle = '#000';
     context.fillText('Р', 0, 950);
-    const points = {outer: sample(bounds(contours[0])), hole: sample(bounds(contours[1]))};
+    const outerPoint = findInterior(contours[0]);
+    const holePoint = findInterior(contours[1]);
+    const points = {
+      outer: {x: outerPoint.x, y: 950 - outerPoint.y},
+      hole: {x: holePoint.x, y: 950 - holePoint.y}
+    };
     const read = point => context.getImageData(Math.round(point.x), Math.round(point.y), 1, 1).data[3];
-    return {outerFill: read(points.outer), holeFill: read(points.hole), points, contourCount: contours.length};
+    return {
+      outerFill: read(points.outer),
+      holeFill: read(points.hole),
+      points,
+      contourCount: contours.length,
+      holeInsideOuter: inside(holePoint, contours[0]),
+      signedAreas: contours.map(polygon => polygon.reduce((area, point, index) => {
+        const next = polygon[(index + 1) % polygon.length];
+        return area + point.x * next.y - next.x * point.y;
+      }, 0))
+    };
   }, encoded);
   expect(pixels.outerFill, JSON.stringify(pixels)).toBeGreaterThan(0);
   expect(pixels.holeFill, JSON.stringify(pixels)).toBe(0);
