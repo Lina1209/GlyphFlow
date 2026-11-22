@@ -44,20 +44,114 @@ let viewBox = { x: 0, y: 0, size: 360 };
 function serializeProjectSnapshot() {
 return JSON.stringify({version: 2, glyphData, compoundOverrides});
 }
-function restoreProjectSnapshot(snapshot) {
-const parsed = JSON.parse(snapshot);
-const restoredGlyphs = parsed && parsed.glyphData && typeof parsed.glyphData === 'object'
+const MAX_STROKE_POINTS = 10000;
+const MAX_STROKES_PER_GLYPH = 256;
+const MAX_PROJECT_POINTS = 200000;
+const MAX_PROJECT_SNAPSHOT_CHARS = 25 * 1024 * 1024;
+const MAX_COMPOUND_VERTICES = 50000;
+
+function sanitizeProjectModel(parsed) {
+if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+throw new Error('Структура проекта повреждена.');
+}
+const sourceGlyphs = parsed.glyphData && typeof parsed.glyphData === 'object'
 ? parsed.glyphData
 : parsed;
-Object.keys(glyphData).forEach(key => delete glyphData[key]);
-if (restoredGlyphs && typeof restoredGlyphs === 'object') Object.assign(glyphData, restoredGlyphs);
-Object.keys(compoundOverrides).forEach(key => delete compoundOverrides[key]);
-if (parsed && parsed.compoundOverrides && typeof parsed.compoundOverrides === 'object') {
-Object.entries(parsed.compoundOverrides).forEach(([char, geometry]) => {
-const valid = sanitizeCompoundGeometry(geometry);
-if ([...char].length === 1 && valid) compoundOverrides[char] = valid;
-});
+if (!sourceGlyphs || typeof sourceGlyphs !== 'object' || Array.isArray(sourceGlyphs)) {
+throw new Error('В проекте отсутствуют данные символов.');
 }
+const cleanGlyphs = Object.create(null);
+let totalPoints = 0;
+for (const char of CHARS) {
+const strokes = sourceGlyphs[char];
+if (strokes === undefined) continue;
+if (!Array.isArray(strokes) || strokes.length > MAX_STROKES_PER_GLYPH) {
+throw new Error('Слишком много штрихов или повреждён список символа «' + char + '».');
+}
+const cleanStrokes = [];
+for (const stroke of strokes) {
+if (!stroke || typeof stroke !== 'object' || !Array.isArray(stroke.points) ||
+stroke.points.length < 1 || stroke.points.length > MAX_STROKE_POINTS) {
+throw new Error('Обнаружен повреждённый или слишком длинный штрих символа «' + char + '».');
+}
+totalPoints += stroke.points.length;
+if (totalPoints > MAX_PROJECT_POINTS) {
+throw new Error('Проект превышает безопасный лимит точек. Разделите работу на несколько проектов.');
+}
+const points = stroke.points.map(point => {
+if (!Array.isArray(point) || point.length < 2 ||
+!Number.isFinite(Number(point[0])) || !Number.isFinite(Number(point[1])) ||
+Math.abs(Number(point[0])) > 1000000 || Math.abs(Number(point[1])) > 1000000) {
+throw new Error('В проекте найдены некорректные координаты.');
+}
+return [Number(point[0]), Number(point[1])];
+});
+const size = Number(stroke.size);
+const thinning = Number(stroke.thinning);
+if (!Number.isFinite(size) || size <= 0 || size > 1000 ||
+!Number.isFinite(thinning) || thinning < -1 || thinning > 1) {
+throw new Error('В проекте найдены недопустимые параметры кисти.');
+}
+const storedDepth = Number(stroke.depth);
+const depth = Number.isInteger(storedDepth) && storedDepth >= 0 && storedDepth <= 3
+? storedDepth
+: stroke.role === 'hole' ? 1 : 0;
+const cleanStroke = {...stroke, points, size, thinning, depth, role: depth % 2 ? 'hole' : 'outer'};
+if (stroke.outlineOverride !== undefined) {
+if (!Array.isArray(stroke.outlineOverride) ||
+stroke.outlineOverride.length > MAX_STROKE_POINTS ||
+stroke.outlineOverride.some(point => !Array.isArray(point) || point.length < 2 ||
+!Number.isFinite(Number(point[0])) || !Number.isFinite(Number(point[1])))) {
+throw new Error('В проекте найден повреждённый контур штриха.');
+}
+cleanStroke.outlineOverride = stroke.outlineOverride.map(point => [Number(point[0]), Number(point[1])]);
+}
+cleanStrokes.push(cleanStroke);
+}
+if (cleanStrokes.length) cleanGlyphs[char] = cleanStrokes;
+}
+const cleanOverrides = Object.create(null);
+const sourceOverrides = parsed.glyphData ? parsed.compoundOverrides : null;
+if (sourceOverrides !== undefined && sourceOverrides !== null &&
+(typeof sourceOverrides !== 'object' || Array.isArray(sourceOverrides))) {
+throw new Error('Структура составных контуров повреждена.');
+}
+let compoundVertices = 0;
+for (const char of CHARS) {
+const geometry = sourceOverrides?.[char];
+if (geometry === undefined) continue;
+if (!Array.isArray(geometry)) throw new Error('Повреждён составной контур символа «' + char + '».');
+for (const polygon of geometry) {
+if (!Array.isArray(polygon)) throw new Error('Повреждён составной контур символа «' + char + '».');
+for (const ring of polygon) {
+if (!Array.isArray(ring) || ring.length < 3 || ring.length > MAX_STROKE_POINTS ||
+ring.some(point => !Array.isArray(point) || point.length < 2 ||
+!Number.isFinite(Number(point[0])) || !Number.isFinite(Number(point[1])))) {
+throw new Error('Повреждена геометрия символа «' + char + '».');
+}
+compoundVertices += ring.length;
+if (compoundVertices > MAX_COMPOUND_VERTICES) {
+throw new Error('Составная геометрия проекта превышает безопасный лимит.');
+}
+}
+}
+const valid = sanitizeCompoundGeometry(geometry);
+if (!valid) throw new Error('Не удалось проверить составной контур символа «' + char + '».');
+cleanOverrides[char] = valid;
+}
+return {glyphData: cleanGlyphs, compoundOverrides: cleanOverrides};
+}
+
+function restoreProjectSnapshot(snapshot) {
+if (typeof snapshot !== 'string' || snapshot.length > MAX_PROJECT_SNAPSHOT_CHARS) {
+throw new Error('Размер проекта превышает безопасный лимит или снимок повреждён.');
+}
+const parsed = JSON.parse(snapshot);
+const clean = sanitizeProjectModel(parsed);
+Object.keys(glyphData).forEach(key => delete glyphData[key]);
+Object.entries(clean.glyphData).forEach(([char, strokes]) => { glyphData[char] = strokes; });
+Object.keys(compoundOverrides).forEach(key => delete compoundOverrides[key]);
+Object.entries(clean.compoundOverrides).forEach(([char, geometry]) => { compoundOverrides[char] = geometry; });
 }
 let history = [serializeProjectSnapshot()];
 let historyIndex = 0;
@@ -1019,32 +1113,11 @@ request.onsuccess = () => resolve(request.result);
 request.onerror = () => reject(request.error);
 });
 if (draft && draft.glyphData && typeof draft.glyphData === 'object') {
-const restored = {};
-for (const [char, strokes] of Object.entries(draft.glyphData)) {
-if ([...char].length !== 1 || !Array.isArray(strokes)) continue;
-const validStrokes = strokes.filter(stroke =>
-stroke && Array.isArray(stroke.points) && stroke.points.length > 0 &&
-stroke.points.every(point => Array.isArray(point) && point.length >= 2 &&
-Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1]))) &&
-Number.isFinite(Number(stroke.size)) && Number(stroke.size) > 0 &&
-Number.isFinite(Number(stroke.thinning))
-).map(stroke => {
-const storedDepth = Number(stroke.depth);
-const depth = Number.isInteger(storedDepth) && storedDepth >= 0 && storedDepth <= 3
-? storedDepth
-: stroke.role === 'hole' ? 1 : 0;
-return {...stroke, depth, role: depth % 2 ? 'hole' : 'outer'};
-});
-if (validStrokes.length) restored[char] = validStrokes;
-}
-Object.assign(glyphData, restored);
-Object.keys(compoundOverrides).forEach(key => delete compoundOverrides[key]);
-if (draft.compoundOverrides && typeof draft.compoundOverrides === 'object') {
-Object.entries(draft.compoundOverrides).forEach(([char, geometry]) => {
-const valid = sanitizeCompoundGeometry(geometry);
-if ([...char].length === 1 && valid) compoundOverrides[char] = valid;
-});
-}
+restoreProjectSnapshot(JSON.stringify({
+version: 2,
+glyphData: draft.glyphData,
+compoundOverrides: draft.compoundOverrides || {}
+}));
 if (typeof draft.fontName === 'string' && draft.fontName.trim()) {
 document.getElementById('fontName').value = draft.fontName.slice(0, 48);
 }
@@ -1722,15 +1795,29 @@ document.getElementById('importLibraryBackupInput').addEventListener('change', a
 const file = event.target.files?.[0];
 if (!file) return;
 try {
+if (file.size > 40 * 1024 * 1024) throw new Error('Резервная копия превышает лимит 40 МБ.');
 const backup = JSON.parse(await file.text());
-if (backup.format !== 'GlyphFlowFontLibrary' || !Array.isArray(backup.fonts)) throw new Error('Это не резервная копия GlyphFlow.');
+if (backup.format !== 'GlyphFlowFontLibrary' || backup.version !== 1 ||
+!Array.isArray(backup.fonts) || backup.fonts.length > 500) {
+throw new Error('Это не поддерживаемая резервная копия GlyphFlow.');
+}
+const preparedRecords = [];
 for (const item of backup.fonts) {
-if (!item || typeof item.fontBase64 !== 'string' || !item.name) continue;
+if (!item || typeof item.fontBase64 !== 'string' || typeof item.name !== 'string' || !item.name.trim()) {
+throw new Error('В резервной копии найден некорректный файл шрифта.');
+}
+if (item.projectSnapshot !== null && item.projectSnapshot !== undefined) {
+if (typeof item.projectSnapshot !== 'string') throw new Error('Снимок проекта в резервной копии повреждён.');
+const parsedSnapshot = JSON.parse(item.projectSnapshot);
+sanitizeProjectModel(parsedSnapshot);
+}
 const binary = atob(item.fontBase64);
 const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw new Error('Размер файла шрифта вне допустимых пределов.');
 const blob = new Blob([bytes],{type:item.format === 'otf' ? 'font/otf' : 'font/ttf'});
-await saveFontRecord({...item,blob,fontBase64:undefined,size:blob.size,id:makeLibraryId()});
+preparedRecords.push({...item,blob,fontBase64:undefined,size:blob.size,id:makeLibraryId()});
 }
+for (const record of preparedRecords) await saveFontRecord(record);
 libraryStatus.textContent = 'Резервная копия восстановлена.';
 } catch (err) {
 libraryStatus.textContent = 'Не удалось восстановить библиотеку: ' + (err.message || 'ошибка формата');
