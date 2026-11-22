@@ -1781,20 +1781,35 @@ console.error('Не удалось сохранить шрифт:', err);
 libraryStatus.textContent = 'Не удалось сохранить: ' + (err.name === 'QuotaExceededError' ? 'недостаточно места в хранилище устройства.' : (err.message || 'ошибка IndexedDB'));
 }
 });
+const MAX_IMPORTED_FONT_BYTES = 20 * 1024 * 1024;
+function parseLibraryFontBytes(bytes, format) {
+if (!['ttf', 'otf'].includes(format)) throw new Error('Поддерживаются только файлы TTF и OTF.');
+if (!(bytes instanceof ArrayBuffer) || bytes.byteLength < 12 || bytes.byteLength > MAX_IMPORTED_FONT_BYTES) {
+throw new Error('Размер файла шрифта вне допустимых пределов.');
+}
+const parsed = opentype.parse(bytes.slice(0));
+if (!parsed || !parsed.glyphs || !Number.isFinite(parsed.glyphs.length) || parsed.glyphs.length < 1) {
+throw new Error('Файл не содержит корректную таблицу глифов.');
+}
+return parsed;
+}
 importFontInput.addEventListener('change', async () => {
 const files = [...(importFontInput.files || [])];
 for (const file of files) {
 try {
+const extension = /\\.(ttf|otf)$/i.exec(file.name)?.[1]?.toLowerCase();
+if (!extension) throw new Error('Поддерживаются только файлы TTF и OTF.');
+if (file.size > MAX_IMPORTED_FONT_BYTES) throw new Error('Файл шрифта превышает лимит 20 МБ.');
+const format = extension;
 const buffer = await file.arrayBuffer();
-const parsed = opentype.parse(buffer.slice(0));
-const name = parsed.names?.fontFamily?.en || file.name.replace(/\.(ttf|otf)$/i, '');
-const format = /\.otf$/i.test(file.name) ? 'otf' : 'ttf';
+const parsed = parseLibraryFontBytes(buffer, format);
+const name = parsed.names?.fontFamily?.en || file.name.replace(/\\.(ttf|otf)$/i, '');
 const record = {id:makeLibraryId(),name:String(name).slice(0,64),format,fileName:file.name,blob:file.slice(0,file.size),size:file.size,savedAt:Date.now(),projectSnapshot:null};
 await saveFontRecord(record);
 libraryStatus.textContent = 'Импортирован: ' + record.name;
 } catch (err) {
 console.warn('Ошибка импорта шрифта:', err);
-libraryStatus.textContent = 'Не удалось импортировать «' + file.name + '»: файл повреждён или формат не поддерживается.';
+libraryStatus.textContent = 'Не удалось импортировать «' + file.name + '»: ' + (err.message || 'файл повреждён или формат не поддерживается.');
 }
 }
 importFontInput.value = '';
@@ -1838,9 +1853,13 @@ if (typeof item.projectSnapshot !== 'string') throw new Error('Снимок пр
 const parsedSnapshot = JSON.parse(item.projectSnapshot);
 sanitizeProjectModel(parsedSnapshot);
 }
+if (!['ttf', 'otf'].includes(item.format)) throw new Error('В резервной копии указан неподдерживаемый формат шрифта.');
+if (item.fontBase64.length > Math.ceil(MAX_IMPORTED_FONT_BYTES / 3) * 4) throw new Error('Размер файла шрифта вне допустимых пределов.');
 const binary = atob(item.fontBase64);
 const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
-if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw new Error('Размер файла шрифта вне допустимых пределов.');
+if (!bytes.length || bytes.byteLength > MAX_IMPORTED_FONT_BYTES) throw new Error('Размер файла шрифта вне допустимых пределов.');
+const fontBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+parseLibraryFontBytes(fontBuffer, item.format);
 const blob = new Blob([bytes],{type:item.format === 'otf' ? 'font/otf' : 'font/ttf'});
 preparedRecords.push({...item,blob,fontBase64:undefined,size:blob.size,id:makeLibraryId()});
 }
