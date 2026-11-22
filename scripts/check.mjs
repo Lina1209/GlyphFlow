@@ -135,7 +135,7 @@ const requiredContracts = [
   ['outline self-intersection guard', 'function isValidEditableRing(points, changedVertexIndex = null, originalPoints = null)'],
   ['centerline node handles', "setAttribute('data-node-index', String(pointIndex))"],
   ['centerline node dragging', 'activeNodeDrag.pointIndex'],
-  ['node drag undo commit only on change', 'if (commit && changed) saveHistory();'],
+  ['node drag undo commit only on change', 'if (commit && changed) {\ninvalidateCompoundOverride();\nsaveHistory();'],
   ['trajectory point insertion', 'addTrajectoryPointBtn.onclick'],
   ['trajectory point deletion', 'deleteTrajectoryPointBtn.onclick'],
   ['OpenType preview MIME type', "type: 'font/otf'"],
