@@ -13,6 +13,8 @@ const moduleSource = html.slice(start + openTag.length, end);
 const fontSmoke = readFileSync(new URL('../scripts/font-smoke-test.mjs', import.meta.url), 'utf8');
 const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', import.meta.url), 'utf8');
 const geometryPerformance = readFileSync(new URL('../scripts/geometry-performance.mjs', import.meta.url), 'utf8');
+const pwaManifest = JSON.parse(readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));
+const serviceWorker = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const nestedExportContracts = [
   ['font smoke fixture includes four nested depths', "'Ы': ["],
   ['font smoke fixture reaches depth three', "thinning: 0.35, depth: 3"],
@@ -144,7 +146,10 @@ const requiredContracts = [
   ['vertical ascender metric covers maximum brush extent', 'const ascender = 950;'],
   ['vertical descender metric covers maximum brush extent', 'const descender = -370;'],
   ['full Unicode code point mapping', 'char.codePointAt(0)'],
-  ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"]
+  ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"],
+  ['nearest outline handle hit testing', 'candidateHandles.reduce((best, handle) =>'],
+  ['PWA manifest linked from the app', 'rel="manifest"'],
+  ['service worker registered by the app', "navigator.serviceWorker.register('./sw.js'"]
 ];
 
 for (const [label, token] of requiredContracts) {
@@ -153,6 +158,11 @@ for (const [label, token] of requiredContracts) {
 
 assert.ok(!html.includes('font.download()'), 'Deprecated library download helper must not be used');
 assert.ok(!html.includes('Скачать .OTF'), 'The UI must provide the requested TrueType TTF export');
+assert.equal(pwaManifest.display, 'standalone', 'PWA must launch in standalone mode');
+assert.ok(pwaManifest.icons?.some(icon => icon.src === './icons/glyphflow.svg' && icon.purpose.includes('maskable')), 'PWA manifest must expose a maskable app icon');
+assert.ok(serviceWorker.includes("const CACHE_NAME = CACHE_PREFIX + 'v1';"), 'Service worker must version its app-shell cache');
+assert.ok(serviceWorker.includes("new URL('manifest.webmanifest', APP_SCOPE).href"), 'Service worker must cache the manifest');
+assert.ok(browserTests.includes('exposes an installable PWA manifest'), 'Browser tests must cover PWA installation metadata and shell caching');
 
 console.log(`GlyphFlow checks passed: module syntax + ${requiredContracts.length} structural contracts.`);
 console.log('Note: these checks do not replace browser, touch-device, or independent TTF validation.');
