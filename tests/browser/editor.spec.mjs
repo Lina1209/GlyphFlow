@@ -1144,7 +1144,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   if (!bounds) throw new Error('Vector outline handle is not visible');
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   await page.mouse.down();
-  await page.mouse.move(bounds.x + bounds.width / 2 + 3, bounds.y + bounds.height / 2 + 2, {steps: 3});
+  await page.mouse.move(bounds.x + bounds.width / 2 + 12, bounds.y + bounds.height / 2 + 10, {steps: 6});
   await page.mouse.up();
   const dragState = await page.locator('#drawSvg').getAttribute('data-outline-drag-state');
   expect(dragState).toBe('accepted');
