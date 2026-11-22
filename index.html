@@ -87,6 +87,19 @@ class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 roun
   </div>
 </div>
 
+<div class="w-full max-w-[360px] mt-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3">
+  <div class="flex flex-wrap items-center gap-2">
+    <button id="contourModeBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-xs font-medium">Выбрать контур</button>
+    <label for="contourRoleSelect" class="text-xs text-slate-400">Тип:</label>
+    <select id="contourRoleSelect" disabled class="min-w-0 flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-xs disabled:opacity-50">
+      <option value="outer">Внешний контур</option>
+      <option value="hole">Отверстие</option>
+    </select>
+    <button id="applyContourRoleBtn" type="button" disabled class="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded-lg px-3 py-2 text-xs font-medium">Применить</button>
+  </div>
+  <p id="contourStatus" class="text-[11px] text-slate-400 mt-2" aria-live="polite">Старые и новые штрихи считаются внешними контурами. Включите выбор, чтобы назначить отверстию отдельную роль.</p>
+</div>
+
 <!-- Настройки кисти -->
 <div class="w-full grid grid-cols-2 gap-4 mt-4 bg-slate-900/60 p-3 rounded-lg border border-slate-700/60">
 <div>
@@ -141,6 +154,8 @@ let currentChar = 'А';
 let currentPoints = [];
 let isDrawing = false;
 let activePointerId = null;
+let contourEditMode = false;
+let selectedStrokeIndex = null;
 let panPointerId = null;
 let panStart = null;
 // Отдельное состояние контактных указателей для двухпальцевого жеста.
@@ -164,6 +179,10 @@ const thinningVal = document.getElementById('thinningVal');
 const previewInput = document.getElementById('previewInput');
 const livePreviewOutput = document.getElementById('livePreviewOutput');
 const progressText = document.getElementById('progressText');
+const contourModeBtn = document.getElementById('contourModeBtn');
+const contourRoleSelect = document.getElementById('contourRoleSelect');
+const applyContourRoleBtn = document.getElementById('applyContourRoleBtn');
+const contourStatus = document.getElementById('contourStatus');
 
 // Преобразование массива точек от perfect-freehand в SVG-путь
 function getSvgPathFromStroke(stroke) {
@@ -206,27 +225,121 @@ progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
 function selectChar(char) {
 if (isDrawing) finishStroke(false, false);
 currentChar = char;
+selectedStrokeIndex = null;
+updateContourTools();
 currentCharLabel.textContent = char;
 renderGrid();
 renderCanvas();
 }
 
-// Отрисовка всех штрихов текущей буквы на холсте
-function renderCanvas() {
-drawSvg.innerHTML = '';
-const strokes = glyphData[currentChar] || [];
-strokes.forEach(s => {
-const outline = getStroke(s.points, {
-size: s.size,
-thinning: s.thinning,
+function getStrokeOutline(stroke) {
+if (!stroke || !Array.isArray(stroke.points) || !stroke.points.length) return [];
+return getStroke(stroke.points, {
+size: Number(stroke.size) || 16,
+thinning: Number.isFinite(Number(stroke.thinning)) ? Number(stroke.thinning) : 0.6,
 smoothing: 0.5,
 streamline: 0.5,
 });
-const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-path.setAttribute('d', getSvgPathFromStroke(outline));
-path.setAttribute('fill', '#0f172a');
-drawSvg.appendChild(path);
+}
+function getContourRole(stroke) {
+return stroke && stroke.role === 'hole' ? 'hole' : 'outer';
+}
+function contourSignedArea(points) {
+let area = 0;
+for (let i = 0; i < points.length; i++) {
+const a = points[i], b = points[(i + 1) % points.length];
+area += a[0] * b[1] - b[0] * a[1];
+}
+return area / 2;
+}
+function orientSvgContour(outline, role) {
+if (outline.length < 3) return outline;
+const area = contourSignedArea(outline);
+const wantsPositive = role !== 'hole';
+return ((area > 0) === wantsPositive) ? outline : [...outline].reverse();
+}
+function contourBounds(points) {
+return points.reduce((box, point) => ({
+minX: Math.min(box.minX, point[0]), minY: Math.min(box.minY, point[1]),
+maxX: Math.max(box.maxX, point[0]), maxY: Math.max(box.maxY, point[1])
+}), {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity});
+}
+function segmentsIntersect(a, b, c, d) {
+const cross = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+const abC = cross(a, b, c), abD = cross(a, b, d);
+const cdA = cross(c, d, a), cdB = cross(c, d, b);
+return abC * abD < -0.0001 && cdA * cdB < -0.0001;
+}
+function isHoleWithinOuterBounds(holeStroke, strokes, holeIndex) {
+const hole = getStrokeOutline(holeStroke);
+if (hole.length < 3) return false;
+const holeBox = contourBounds(hole);
+return strokes.some((outerStroke, index) => {
+if (index === holeIndex || getContourRole(outerStroke) !== 'outer') return false;
+const outer = getStrokeOutline(outerStroke);
+if (outer.length < 3) return false;
+const box = contourBounds(outer);
+const contained = holeBox.minX > box.minX && holeBox.maxX < box.maxX &&
+holeBox.minY > box.minY && holeBox.maxY < box.maxY;
+if (!contained) return false;
+for (let i = 0; i < hole.length; i++) {
+const a = hole[i], b = hole[(i + 1) % hole.length];
+for (let j = 0; j < outer.length; j++) {
+if (segmentsIntersect(a, b, outer[j], outer[(j + 1) % outer.length])) return false;
+}
+}
+return true;
 });
+}
+function updateContourTools() {
+const strokes = glyphData[currentChar] || [];
+const selected = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
+contourModeBtn.textContent = contourEditMode ? 'Завершить выбор' : 'Выбрать контур';
+contourModeBtn.classList.toggle('bg-amber-700', contourEditMode);
+contourRoleSelect.disabled = !contourEditMode || !selected;
+applyContourRoleBtn.disabled = !contourEditMode || !selected;
+if (selected) {
+contourRoleSelect.value = getContourRole(selected);
+contourStatus.textContent = `Выбран контур ${selectedStrokeIndex + 1}. Назначьте ему внешний тип или отверстие.`;
+} else if (contourEditMode) {
+contourStatus.textContent = 'Нажмите на контур буквы, чтобы выбрать его.';
+} else {
+contourStatus.textContent = 'Старые и новые штрихи считаются внешними контурами. Включите выбор, чтобы назначить отверстию отдельную роль.';
+}
+}
+
+// Отрисовка составного контура глифа: внешние области и отверстия имеют разное направление.
+function renderCanvas() {
+drawSvg.innerHTML = '';
+const strokes = glyphData[currentChar] || [];
+const records = strokes.map((stroke, index) => {
+const outline = getStrokeOutline(stroke);
+return {index, outline: orientSvgContour(outline, getContourRole(stroke))};
+}).filter(record => record.outline.length >= 3);
+if (records.length) {
+const fillPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+fillPath.setAttribute('d', records.map(record => getSvgPathFromStroke(record.outline)).join(' '));
+fillPath.setAttribute('fill', '#0f172a');
+fillPath.setAttribute('fill-rule', 'nonzero');
+fillPath.setAttribute('class', 'glyph-fill');
+fillPath.setAttribute('pointer-events', 'none');
+drawSvg.appendChild(fillPath);
+if (contourEditMode) {
+records.forEach(record => {
+const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+hitPath.setAttribute('d', getSvgPathFromStroke(record.outline));
+hitPath.setAttribute('fill', 'transparent');
+hitPath.setAttribute('fill-rule', 'nonzero');
+hitPath.setAttribute('pointer-events', 'all');
+hitPath.setAttribute('data-contour-index', String(record.index));
+if (record.index === selectedStrokeIndex) {
+hitPath.setAttribute('stroke', '#f59e0b');
+hitPath.setAttribute('stroke-width', '2');
+}
+drawSvg.appendChild(hitPath);
+});
+}
+}
 
 // Рисуем текущий незавершенный штрих
 if (isDrawing && currentPoints.length > 0) {
@@ -239,6 +352,7 @@ streamline: 0.5,
 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 path.setAttribute('d', getSvgPathFromStroke(outline));
 path.setAttribute('fill', '#4f46e5');
+path.setAttribute('pointer-events', 'none');
 drawSvg.appendChild(path);
 }
 }
@@ -325,6 +439,16 @@ viewBox.y = anchorY - nextRatioY * nextSize;
 applyViewBox();
 }
 drawSvg.addEventListener('pointerdown', (e) => {
+if (contourEditMode) {
+const hit = e.target.closest?.('[data-contour-index]');
+if (hit) {
+selectedStrokeIndex = Number(hit.getAttribute('data-contour-index'));
+updateContourTools();
+renderCanvas();
+}
+e.preventDefault();
+return;
+}
 if (e.pointerType === 'touch') {
 e.preventDefault();
 touchPointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
@@ -500,7 +624,7 @@ if (!isDrawing) return;
 isDrawing = false;
 if (commit && currentPoints.length) {
 if (!glyphData[currentChar]) glyphData[currentChar] = [];
-glyphData[currentChar].push({points: currentPoints, size: Number(brushSizeInput.value), thinning: Number(brushThinningInput.value)});
+glyphData[currentChar].push({points: currentPoints, size: Number(brushSizeInput.value), thinning: Number(brushThinningInput.value), role: 'outer'});
 saveHistory();
 }
 currentPoints = [];
@@ -546,6 +670,27 @@ if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
 // Кнопки управления
 document.getElementById('undoBtn').onclick = () => restoreHistory(historyIndex - 1);
 document.getElementById('redoBtn').onclick = () => restoreHistory(historyIndex + 1);
+contourModeBtn.onclick = () => {
+contourEditMode = !contourEditMode;
+selectedStrokeIndex = null;
+updateContourTools();
+renderCanvas();
+};
+applyContourRoleBtn.onclick = () => {
+const strokes = glyphData[currentChar] || [];
+const selected = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
+if (!selected) return;
+const role = contourRoleSelect.value;
+if (role === 'hole' && !isHoleWithinOuterBounds(selected, strokes, selectedStrokeIndex)) {
+contourStatus.textContent = 'Отверстие должно находиться внутри внешнего контура и не пересекать его границу.';
+contourRoleSelect.value = getContourRole(selected);
+return;
+}
+selected.role = role;
+saveHistory();
+renderCanvas();
+updateContourTools();
+};
 
 document.getElementById('clearBtn').onclick = () => {
 glyphData[currentChar] = [];
@@ -636,16 +781,14 @@ const mapped = outline.map(([x, y]) => ({
 x: x * scale + xOffset,
 y: (baselineY - y) * scale
 }));
-// В TrueType внешние контуры должны иметь согласованное направление
-// (по часовой стрелке в координатах шрифта). Инверсия оси Y выше
-// меняет ориентацию исходного контура perfect-freehand.
-let signedArea = 0;
-for (let i = 0; i < mapped.length; i++) {
-const current = mapped[i];
-const next = mapped[(i + 1) % mapped.length];
-signedArea += current.x * next.y - next.x * current.y;
-}
-if (signedArea > 0) mapped.reverse();
+// В TrueType внешние контуры и отверстия должны иметь противоположное
+// направление. Инверсия оси Y меняет ориентацию исходного SVG-контура.
+const signedArea = mapped.reduce((area, current, index) => {
+const next = mapped[(index + 1) % mapped.length];
+return area + current.x * next.y - next.x * current.y;
+}, 0);
+const role = getContourRole(s);
+if ((role === 'outer' && signedArea > 0) || (role === 'hole' && signedArea < 0)) mapped.reverse();
 fontPath.moveTo(mapped[0].x, mapped[0].y);
 for (let i = 1; i < mapped.length; i++) {
 fontPath.lineTo(mapped[i].x, mapped[i].y);
