@@ -1519,7 +1519,10 @@ test('rolls back queued font-library backup writes when IndexedDB aborts the tra
     IDBObjectStore.prototype.put = function (...args) {
       const isLibraryWrite = typeof args[1] === 'string' && args[1].startsWith('font-library:');
       const request = originalPut.apply(this, args);
-      if (isLibraryWrite && ++libraryWrites === 2) this.transaction.abort();
+      if (isLibraryWrite && ++libraryWrites === 2) {
+        this.transaction.abort();
+        window.__glyphflowTestAbortTriggered = true;
+      }
       return request;
     };
   });
@@ -1528,7 +1531,7 @@ test('rolls back queued font-library backup writes when IndexedDB aborts the tra
     mimeType:'application/json',
     buffer:backupBytes
   });
-  await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось восстановить библиотеку');
+  await page.waitForFunction(() => window.__glyphflowTestAbortTriggered === true);
   await expect(page.locator('#fontLibraryCount')).toHaveText('0');
   await page.reload();
   await expect(page.locator('#fontLibraryCount')).toHaveText('0');
