@@ -51,7 +51,7 @@ const requiredContracts = [
   ['nested parent-depth validation', 'isContourWithinParentDepth(selected, strokes, selectedStrokeIndex, depth)'],
   ['four-level contour selector', 'value="nested-hole"'],
   ['depth-preserving role compatibility', 'selected.depth = depth'],
-  ['Boolean difference hole containment', 'polygonClipping.difference([[hole]], outerUnion)'],
+  ['Boolean difference hole containment', 'polygonClipping.difference([[candidate]], parentUnion)'],
   ['outside-hole area rejection', 'multiPolygonArea(outside) > 1e-4'],
   ['segment endpoint and collinear rejection', 'return onSegment(a, c, b) || onSegment(a, d, b) || onSegment(c, a, d) || onSegment(c, b, d);'],
   ['contour role editor controls', "getElementById('contourRoleSelect')"],
