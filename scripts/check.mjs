@@ -19,7 +19,13 @@ const nestedExportContracts = [
   ['font smoke validates four exported contours', "charToGlyph('Ы').path.commands.filter(command => command.type === 'M').length, 4"],
   ['browser test exports nested counters', "exports four nested contour levels with alternating transparent counters"],
   ['browser test checks filled island pixels', 'expect(result.alpha[2], JSON.stringify(result)).toBeGreaterThan(0)'],
-  ['browser test checks nested transparent counter', 'expect(result.alpha[3], JSON.stringify(result)).toBe(0)']
+  ['browser test checks nested transparent counter', 'expect(result.alpha[3], JSON.stringify(result)).toBe(0)'],
+  ['browser test verifies depth metadata in IndexedDB', 'const readPersistedDepths = async () => page.evaluate'],
+  ['browser test verifies all four stored depth levels', 'toEqual([0, 1, 2, 3])'],
+  ['browser test verifies undo of nested depth', "toHaveValue('outer')"],
+  ['browser test verifies redo of nested depth', "toHaveValue('nested-hole')"],
+  ['browser test verifies depth after reload', "await page.reload();"],
+  ['browser test verifies depth after switching glyphs', "Switching to another glyph and back must not lose or cross-assign depths."]
 ];
 for (const [label, token] of nestedExportContracts) {
   assert.ok(fontSmoke.includes(token) || browserTests.includes(token), `Missing nested TTF export test: ${label}`);
