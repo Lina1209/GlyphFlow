@@ -335,26 +335,33 @@ function isContourWithinParentDepth(candidateStroke, strokes, candidateIndex, de
 if (depth === 0) return true;
 const candidate = cleanPolygonRing(getStrokeOutline(candidateStroke));
 if (candidate.length < 3) return false;
-const parentPolygons = strokes
+const parentRings = strokes
 .filter((stroke, index) => index !== candidateIndex && getContourDepth(stroke) === depth - 1)
 .map(stroke => cleanPolygonRing(getStrokeOutline(stroke)))
-.filter(ring => ring.length >= 3)
-.map(ring => [[ring]]);
-if (!parentPolygons.length) return false;
-const parentUnion = polygonClipping.union(...parentPolygons);
-const outside = polygonClipping.difference([[candidate]], parentUnion);
-if (multiPolygonArea(outside) > 1e-4) return false;
-for (const polygon of parentUnion) {
-for (const boundary of polygon) {
+.filter(ring => ring.length >= 3);
+if (!parentRings.length) return false;
+// A contour at depth N must fit inside one complete contour at depth N-1.
+// Checking the actual polygon vertices and every edge avoids bounding-box
+// false positives and does not confuse a cut-out region with its complement.
+const pointInsideRing = (point, ring) => {
+let inside = false;
+for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+const a = ring[i], b = ring[j];
+if ((a[1] > point[1]) !== (b[1] > point[1]) &&
+point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+}
+return inside;
+};
+return parentRings.some(parent => {
+if (!candidate.every(point => pointInsideRing(point, parent))) return false;
 for (let i = 0; i < candidate.length; i++) {
 const a = candidate[i], b = candidate[(i + 1) % candidate.length];
-for (let j = 0; j < boundary.length; j++) {
-if (segmentsIntersect(a, b, boundary[j], boundary[(j + 1) % boundary.length])) return false;
-}
-}
+for (let j = 0; j < parent.length; j++) {
+if (segmentsIntersect(a, b, parent[j], parent[(j + 1) % parent.length])) return false;
 }
 }
 return true;
+});
 }
 function isHoleWithinOuterBounds(holeStroke, strokes, holeIndex) {
 return isContourWithinParentDepth(holeStroke, strokes, holeIndex, 1);
