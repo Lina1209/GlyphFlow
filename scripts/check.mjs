@@ -38,7 +38,7 @@ const requiredContracts = [
   ['normalized left side bearing', 'const xOffset = sideBearing - minX * scale;'],
   ['advance width from glyph bounds', '(maxX - minX) * scale'],
   ['TrueType outer/hole winding normalization', "role === 'outer' && signedArea > 0"],
-  ['explicit contour role migration', "s && s.role === 'hole' ? 'hole' : 'outer'"],
+  ['explicit contour role migration', "stroke && stroke.role === 'hole' ? 'hole' : 'outer'"],
   ['compound nonzero contour fill', "setAttribute('fill-rule', 'nonzero')"],
   ['Boolean polygon union dependency', "import polygonClipping from 'https://esm.sh/polygon-clipping@0.15.7';"],
   ['outer brush Boolean union', 'polygonClipping.union(...outerPolygons)'],
