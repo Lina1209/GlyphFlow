@@ -997,6 +997,11 @@ drawSvg.dataset.outlineFinishChanged = String(Boolean(changed));
 drawSvg.dataset.outlineFinishPoint = finalOutline[drag.pointIndex] ? finalOutline[drag.pointIndex].join(',') : 'missing';
 if (changed) saveHistory();
 renderCanvas();
+const committedHandle = drawSvg.querySelector(`[data-outline-index="${drag.pointIndex}"]`);
+drawSvg.dataset.outlineFinalHandlePoint = committedHandle
+? `${committedHandle.getAttribute('cx')},${committedHandle.getAttribute('cy')}`
+: 'missing';
+drawSvg.dataset.outlineSelectedAfterRender = String(selectedOutlineIndex);
 updateLiveFont();
 updateContourTools();
 }
