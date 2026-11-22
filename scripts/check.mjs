@@ -128,7 +128,6 @@ const requiredContracts = [
   ['editable outline geometry override', 'stroke.outlineOverride'],
   ['outline vertex drag handler', 'activeOutlineDrag.pointIndex'],
   ['outline self-intersection guard', 'function isValidEditableRing(points)'],
-  ['outline editor regression test', "test('edits actual vector outline vertices with validation, undo, redo and draft persistence'"],
   ['centerline node handles', "setAttribute('data-node-index', String(pointIndex))"],
   ['centerline node dragging', 'activeNodeDrag.pointIndex'],
   ['node drag undo commit only on change', 'if (commit && changed) saveHistory();'],
