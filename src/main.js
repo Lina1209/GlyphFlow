@@ -229,7 +229,7 @@ return rings;
 });
 if (candidate.some(polygon => !polygon)) return null;
 try {
-const normalized = polygonClipping.union(candidate);
+const normalized = polygonClipping.union(...candidate);
 if (!normalized.length || compoundTopologySignature(normalized) !== compoundTopologySignature(candidate)) return null;
 if (!Number.isFinite(multiPolygonArea(normalized)) || multiPolygonArea(normalized) <= 1e-3) return null;
 return candidate;
@@ -293,7 +293,7 @@ return true;
 function isValidCompoundEdit(candidate, original) {
 if (!Array.isArray(candidate) || !candidate.length) return false;
 try {
-const normalized = polygonClipping.union(candidate);
+const normalized = polygonClipping.union(...candidate);
 const normalizedSignature = compoundTopologySignature(normalized);
 const originalSignature = compoundTopologySignature(original);
 const area = multiPolygonArea(normalized);
