@@ -21,7 +21,8 @@ vm.runInNewContext(
   '\nthis.getStrokeOutline = getStrokeOutline;' +
   '\nthis.multiPolygonArea = multiPolygonArea;' +
   '\nthis.cleanPolygonRing = cleanPolygonRing;' +
-  '\nthis.segmentsIntersect = segmentsIntersect;',
+  '\nthis.segmentsIntersect = segmentsIntersect;' +
+  '\nthis.isHoleWithinOuterBounds = isHoleWithinOuterBounds;',
   context
 );
 
@@ -105,5 +106,7 @@ for (const polygon of outerUnion) {
   }
 }
 assert.ok(boundaryCrossing, 'Boundary-touching counter fixture must actually intersect the outer boundary');
+assert.equal(context.isHoleWithinOuterBounds(touchingHole[1], touchingHole, 1), false,
+  'The live hole validator must reject a counter that touches the outer boundary');
 
 console.log('GlyphFlow geometry edge cases passed: narrow connected bridge, preserved near-touching gap, repeated samples, microscopic stroke rejection, and boundary-touching counter detection.');
