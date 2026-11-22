@@ -753,7 +753,22 @@ drawSvg.dataset.outlineDragState = 'rejected';
 }
 if (drawSvg.dataset.outlineDragState === 'accepted') {
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
-renderCanvas();
+// Keep the SVG tree intact during pointer capture. Rebuilding innerHTML here
+// can detach the active interaction surface in some browser implementations.
+const handle = drawSvg.querySelector(`[data-outline-index="${activeOutlineDrag.pointIndex}"]`);
+if (handle) {
+handle.setAttribute('cx', String(position[0]));
+handle.setAttribute('cy', String(position[1]));
+}
+const selectedHitPath = drawSvg.querySelector(`[data-contour-index="${activeOutlineDrag.strokeIndex}"]`);
+if (selectedHitPath) selectedHitPath.setAttribute('d', getSvgPathFromStroke(orientSvgContour(candidate, getContourRole(stroke))));
+try {
+const previewRecords = getCompoundPathRecords(getCompoundGlyphGeometry(glyphData[currentChar] || []));
+const fillPath = drawSvg.querySelector('.glyph-fill');
+if (fillPath) fillPath.setAttribute('d', previewRecords.map(record => getSvgPathFromStroke(record.outline)).join(' '));
+} catch (err) {
+console.error('Не удалось обновить предпросмотр границы:', err);
+}
 }
 }
 e.preventDefault();
