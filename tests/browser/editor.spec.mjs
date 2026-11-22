@@ -1456,6 +1456,46 @@ test('exports and restores a portable font-library backup', async ({ page }) => 
 });
 
 
+test('restores a font-library backup atomically when a storage write fails', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const fontBytes = await readFile(await download.path());
+  const fontBase64 = fontBytes.toString('base64');
+  const backupBytes = Buffer.from(JSON.stringify({
+    format: 'GlyphFlowFontLibrary',
+    version: 1,
+    fonts: [
+      {name:'Atomic Restore A',format:'ttf',fileName:'atomic-a.ttf',fontBase64,projectSnapshot:null},
+      {name:'Atomic Restore B',format:'ttf',fileName:'atomic-b.ttf',fontBase64,projectSnapshot:null}
+    ]
+  }));
+
+  await page.evaluate(() => {
+    const originalPut = IDBObjectStore.prototype.put;
+    let libraryWrites = 0;
+    IDBObjectStore.prototype.put = function (...args) {
+      if (typeof args[1] === 'string' && args[1].startsWith('font-library:')) {
+        libraryWrites++;
+        if (libraryWrites === 2) throw new DOMException('Simulated storage write failure', 'QuotaExceededError');
+      }
+      return originalPut.apply(this, args);
+    };
+  });
+  await page.locator('#importLibraryBackupInput').setInputFiles({
+    name:'atomic-backup.json',
+    mimeType:'application/json',
+    buffer:backupBytes
+  });
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось восстановить библиотеку');
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+  await page.reload();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+});
+
+
 test('rejects a malformed imported font file without adding it to the library', async ({ page }) => {
   await page.goto('/');
   await page.locator('#importFontInput').setInputFiles({
