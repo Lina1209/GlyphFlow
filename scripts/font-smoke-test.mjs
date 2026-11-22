@@ -43,6 +43,11 @@ const glyphData = {
     { points: [[165, 65, 0.5], [205, 125, 0.6], [250, 175, 0.5], [295, 125, 0.6], [335, 65, 0.5]], size: 16, thinning: 0.45 },
     { points: [[165, 235, 0.5], [205, 185, 0.6], [250, 140, 0.5], [295, 185, 0.6], [335, 235, 0.5]], size: 16, thinning: 0.45 }
   ],
+  // An explicitly assigned inner contour must keep opposite winding after TTF conversion.
+  'Р': [
+    { points: [[85, 180, 0.5], [85, 115, 0.5], [145, 75, 0.5], [220, 75, 0.5], [275, 115, 0.5], [275, 180, 0.5], [220, 220, 0.5], [145, 220, 0.5], [85, 180, 0.5]], size: 22, thinning: 0.35, role: 'outer' },
+    { points: [[145, 145, 0.5], [175, 120, 0.5], [215, 120, 0.5], [235, 145, 0.5], [215, 170, 0.5], [175, 170, 0.5], [145, 145, 0.5]], size: 8, thinning: 0.3, role: 'hole' }
+  ],
   // A self-crossing figure-eight trajectory probes outline stability at crossings.
   '∞': [{
     points: [[150, 150, 0.5], [180, 105, 0.6], [225, 105, 0.6], [255, 150, 0.5], [285, 195, 0.6], [330, 195, 0.6], [360, 150, 0.5], [330, 105, 0.6], [285, 105, 0.6], [255, 150, 0.5], [225, 195, 0.6], [180, 195, 0.6], [150, 150, 0.5]],
@@ -72,7 +77,7 @@ const notdef = parsed.glyphs.get(0);
 assert.equal(notdef.name, '.notdef', 'Glyph zero must be .notdef');
 assert.equal(parsed.charToGlyph(' ').advanceWidth, 350, 'Space advance width must be preserved');
 
-for (const char of ['A', 'Ё', '😀', 'О', 'Ж', '∞']) {
+for (const char of ['A', 'Ё', '😀', 'О', 'Ж', 'Р', '∞']) {
   const glyph = parsed.charToGlyph(char);
   assert.ok(glyph && glyph.index > 0, `Missing cmap entry for ${char}`);
   assert.equal(glyph.unicode, char.codePointAt(0), `Incorrect Unicode mapping for ${char}`);
@@ -102,6 +107,7 @@ assert.equal(reparsedTtf.charToGlyph('Ё').unicode, 0x401);
 assert.equal(reparsedTtf.charToGlyph('😀').unicode, 0x1F600);
 assert.equal(reparsedTtf.charToGlyph('О').unicode, 0x41E);
 assert.equal(reparsedTtf.charToGlyph('Ж').unicode, 0x416);
+assert.equal(reparsedTtf.charToGlyph('Р').unicode, 0x420);
 assert.equal(reparsedTtf.charToGlyph('∞').unicode, 0x221E);
 assert.equal(reparsedTtf.charToGlyph('Ё').path.commands.filter(command => command.type === 'M').length, 2,
   'TTF conversion must preserve multi-contour glyphs');
@@ -112,7 +118,9 @@ for (const char of ['О', '∞']) {
   assert.ok(glyph.path.commands.filter(command => command.type === 'Z').length >= 1,
     `Closed/self-crossing glyph ${char} must retain closed contours`);
 }
+assert.equal(reparsedTtf.charToGlyph('Р').path.commands.filter(command => command.type === 'M').length, 2,
+  'Outer contour and explicit hole must survive TTF conversion');
 assert.equal(reparsedTtf.charToGlyph('Ж').path.commands.filter(command => command.type === 'M').length, 3,
   'Intersecting multi-stroke glyph must preserve its three brush contours');
 
-console.log('GlyphFlow font pipeline passed: real perfect-freehand curves, closed loop, intersecting multi-stroke glyph, self-crossing trajectory, OTF-to-TTF conversion, Unicode and multi-contour preservation.');
+console.log('GlyphFlow font pipeline passed: real perfect-freehand curves, closed loop, explicit hole contour, intersecting multi-stroke glyph, self-crossing trajectory, OTF-to-TTF conversion, Unicode and multi-contour preservation.');
