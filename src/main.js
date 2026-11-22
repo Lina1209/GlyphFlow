@@ -290,10 +290,20 @@ if (segmentsIntersect(a, b, ring[otherIndex], ring[otherNext])) return false;
 }
 return true;
 }
+function closePolygonClippingRings(geometry) {
+return (geometry || []).map(polygon => polygon.map(ring => {
+const cleaned = cleanPolygonRing(ring);
+if (cleaned.length < 3) return [];
+const first = cleaned[0], last = cleaned[cleaned.length - 1];
+return [...cleaned.map(point => [...point]), [...first]];
+}));
+}
 function isValidCompoundEdit(candidate, original) {
 if (!Array.isArray(candidate) || !candidate.length) return false;
 try {
-const normalized = polygonClipping.union(...candidate);
+// Our editor stores rings without duplicated closing vertices. polygon-clipping
+// requires closed rings; normalize the API boundary without changing editable data.
+const normalized = polygonClipping.union(...closePolygonClippingRings(candidate));
 const normalizedSignature = compoundTopologySignature(normalized);
 const originalSignature = compoundTopologySignature(original);
 const area = multiPolygonArea(normalized);
