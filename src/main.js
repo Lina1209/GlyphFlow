@@ -1030,6 +1030,21 @@ Math.sign(contourSignedArea(original)) !== Math.sign(contourSignedArea(ring)))) 
 // same-sized and same-winding; the Boolean geometry pipeline validates the result.
 return ring.every(point => Number.isFinite(point[0]) && Number.isFinite(point[1]));
 }
+function finishCompoundDrag(commit) {
+if (!activeCompoundDrag) return;
+const drag = activeCompoundDrag;
+activeCompoundDrag = null;
+if (!commit) {
+if (drag.originalOverride) compoundOverrides[drag.char] = cloneCompoundGeometry(drag.originalOverride);
+else delete compoundOverrides[drag.char];
+} else {
+const current = compoundOverrides[drag.char];
+if (current && JSON.stringify(current) !== JSON.stringify(drag.originalGeometry)) saveHistory();
+}
+renderCanvas();
+updateLiveFont();
+updateContourTools();
+}
 function finishOutlineDrag(commit) {
 if (!activeOutlineDrag) return;
 const drag = activeOutlineDrag;
@@ -1069,6 +1084,7 @@ updateLiveFont();
 updateContourTools();
 }
 drawSvg.addEventListener('pointerup', (e) => {
+if (activeCompoundDrag && e.pointerId === activeCompoundDrag.pointerId) { finishCompoundDrag(true); return; }
 if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(true); return; }
 if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(true); return; }
 if (finishTouchPointer(e, false)) {
@@ -1079,6 +1095,7 @@ if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return
 if (e.pointerId === activePointerId) finishStroke(true);
 });
 drawSvg.addEventListener('pointercancel', (e) => {
+if (activeCompoundDrag && e.pointerId === activeCompoundDrag.pointerId) { finishCompoundDrag(false); return; }
 if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(false); return; }
 if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(false); return; }
 if (finishTouchPointer(e, true)) {
@@ -1089,6 +1106,7 @@ if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return
 if (e.pointerId === activePointerId) finishStroke(false);
 });
 drawSvg.addEventListener('lostpointercapture', (e) => {
+if (activeCompoundDrag && e.pointerId === activeCompoundDrag.pointerId) { finishCompoundDrag(false); return; }
 if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(false); return; }
 if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(false); return; }
 if (finishTouchPointer(e, true)) {
