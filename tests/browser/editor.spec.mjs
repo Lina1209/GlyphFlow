@@ -1393,3 +1393,50 @@ test('imports a valid font file into the local font library and supports removal
   await card.getByRole('button',{name:'Удалить'}).click();
   await expect(page.locator('#fontLibraryCount')).toHaveText('0');
 });
+
+
+test('exports and restores a portable font-library backup', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  await page.locator('#fontName').fill('Portable Backup Test');
+  await page.locator('#saveToLibraryBtn').click();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+
+  const backupPromise = page.waitForEvent('download');
+  await page.locator('#exportFontLibraryBtn').click();
+  const backupDownload = await backupPromise;
+  expect(backupDownload.suggestedFilename()).toContain('GlyphFlow-font-library-backup');
+  const backupBytes = await readFile(await backupDownload.path());
+  const backupData = JSON.parse(backupBytes.toString('utf8'));
+  expect(backupData.format).toBe('GlyphFlowFontLibrary');
+  expect(backupData.fonts).toHaveLength(1);
+  expect(backupData.fonts[0].projectSnapshot).toContain('glyphData');
+  expect(backupData.fonts[0].fontBase64.length).toBeGreaterThan(100);
+
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readwrite');
+      tx.objectStore('projects').clear();
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  await page.reload();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+  await page.locator('#importLibraryBackupInput').setInputFiles({
+    name: 'GlyphFlow-backup.json',
+    mimeType: 'application/json',
+    buffer: backupBytes
+  });
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+  const card = page.locator('#fontLibraryList article').first();
+  await expect(card).toContainText('Portable Backup Test');
+  await expect(card).toContainText('проект можно продолжить редактировать');
+  page.once('dialog', dialog => dialog.accept());
+  await card.getByRole('button', {name:'Открыть проект'}).click();
+  await expect(page.locator('#fontName')).toHaveValue('Portable Backup Test');
+  await expect(page.locator('#drawSvg .glyph-fill')).toBeVisible();
+});
