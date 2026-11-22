@@ -1753,3 +1753,55 @@ test('does not replace the active drawing when a saved library project is invali
   await expect(page.locator('#fontLibraryStatus')).toContainText('Проект не открыт');
   await expect(page.locator('#drawSvg .glyph-fill')).toBeVisible();
 });
+
+
+test('closes an existing IndexedDB connection so a schema upgrade can proceed', async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalOpen = IDBFactory.prototype.open;
+    const originalClose = IDBDatabase.prototype.close;
+    window.__glyphflowUpgradeDb = null;
+    window.__glyphflowAllowVersionClose = false;
+    window.__glyphflowCloseObserved = false;
+    IDBFactory.prototype.open = function (...args) {
+      const request = originalOpen.apply(this, args);
+      request.addEventListener('success', () => {
+        if (request.result.name === 'glyphflow-local') {
+          window.__glyphflowUpgradeDb = request.result;
+        }
+      });
+      return request;
+    };
+    IDBDatabase.prototype.close = function (...args) {
+      if (this === window.__glyphflowUpgradeDb && !window.__glyphflowAllowVersionClose) {
+        window.__glyphflowCloseObserved = true;
+        return;
+      }
+      return originalClose.apply(this, args);
+    };
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => window.__glyphflowUpgradeDb !== null);
+  await page.evaluate(() => {
+    window.__glyphflowAllowVersionClose = true;
+    const request = indexedDB.open('glyphflow-local', 2);
+    request.onupgradeneeded = () => {
+      window.__glyphflowUpgradeStarted = true;
+    };
+    request.onsuccess = () => {
+      window.__glyphflowUpgradeSucceeded = true;
+      request.result.close();
+    };
+    request.onerror = () => {
+      window.__glyphflowUpgradeError = request.error?.message || 'unknown';
+    };
+  });
+  await page.waitForFunction(() => window.__glyphflowUpgradeSucceeded === true);
+  const result = await page.evaluate(() => ({
+    closeObserved: window.__glyphflowCloseObserved,
+    upgradeStarted: window.__glyphflowUpgradeStarted,
+    error: window.__glyphflowUpgradeError || null
+  }));
+  expect(result.closeObserved).toBe(true);
+  expect(result.upgradeStarted).toBe(true);
+  expect(result.error).toBeNull();
+});
