@@ -1181,3 +1181,44 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   expect(restored.x).toBeCloseTo(redone.x, 1);
   expect(restored.y).toBeCloseTo(redone.y, 1);
 });
+
+
+test('keeps editor lifecycle bounded across repeated glyph switches, history and draft restores', async ({ page }) => {
+  await page.addInitScript(() => {
+    const create = URL.createObjectURL.bind(URL);
+    const revoke = URL.revokeObjectURL.bind(URL);
+    window.__glyphFlowBlobStats = {created: 0, revoked: 0, active: new Set()};
+    URL.createObjectURL = value => {
+      const url = create(value);
+      window.__glyphFlowBlobStats.created++;
+      window.__glyphFlowBlobStats.active.add(url);
+      return url;
+    };
+    URL.revokeObjectURL = url => {
+      if (window.__glyphFlowBlobStats.active.delete(url)) window.__glyphFlowBlobStats.revoked++;
+      return revoke(url);
+    };
+  });
+  await page.goto('/');
+  const glyphButtons = page.locator('#glyphGrid button');
+  for (let index = 0; index < 12; index++) {
+    if (index > 0) await glyphButtons.nth(index).click();
+    await drawStroke(page);
+    await page.locator('#undoBtn').click();
+    await page.locator('#redoBtn').click();
+    const svgNodes = await page.locator('#drawSvg').evaluate(svg => svg.childElementCount);
+    expect(svgNodes).toBeLessThan(5);
+    const blobStats = await page.evaluate(() => ({
+      created: window.__glyphFlowBlobStats.created,
+      revoked: window.__glyphFlowBlobStats.revoked,
+      active: window.__glyphFlowBlobStats.active.size
+    }));
+    expect(blobStats.active).toBeLessThanOrEqual(1);
+    expect(blobStats.created - blobStats.revoked).toBeLessThanOrEqual(1);
+  }
+  await page.waitForTimeout(150);
+  await page.reload();
+  await expect(page.locator('#progressText')).toContainText('Готово: 12');
+  const restoredNodes = await page.locator('#drawSvg').evaluate(svg => svg.childElementCount);
+  expect(restoredNodes).toBeLessThan(5);
+});
