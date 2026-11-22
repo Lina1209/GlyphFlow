@@ -214,7 +214,13 @@ result = polygonClipping.difference(result, levelUnion);
 return result;
 }
 function cloneCompoundGeometry(geometry) {
-return (geometry || []).map(polygon => (polygon || []).map(ring => cleanPolygonRing(ring)));
+return (geometry || []).map(polygon => {
+const rings = (polygon || []).map(ring => cleanPolygonRing(ring));
+if (!rings.length || rings[0].length < 3) return null;
+// A Boolean library may leave a zero-area remnant after touching edges.
+// It is not a real component and must never become an editable empty polygon.
+return [rings[0], ...rings.slice(1).filter(ring => ring.length >= 3)];
+}).filter(Boolean);
 }
 function compoundTopologySignature(geometry) {
 return (geometry || []).map(polygon => polygon.length).sort((a, b) => a - b).join(',');
