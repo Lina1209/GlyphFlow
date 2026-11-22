@@ -535,3 +535,14 @@ Playwright проверяет миграцию старого отверстия
 - The dependency installation summary reported one high-severity advisory. The pinned Vite 6.3.5 release also falls within published vulnerable ranges for Vite 6; Vite 6.4.6 is the current patched release on the same major line. The project dependency was updated to 6.4.6 without moving to a new major version.
 - CI now runs npm audit with --no-package-lock and prints each affected package, severity, direct/transitive status and fix availability. This is diagnostic output, not yet a hard failure gate. Review the report before considering the dependency audit closed.
 - The production bundle currently emits a non-blocking large-chunk warning (about 535 KiB uncompressed / 165 KiB gzip). Code splitting is a follow-up performance task; it must preserve first-load reliability and offline PWA caching.
+
+
+## Итог CI: атомарное восстановление и PWA
+
+- Quality run 45077803106 на коммите d724fef91c44e4825301686e00d6e3cb6dde219f завершился полностью успешно: `static-checks` — success; `browser-smoke-tests` — success.
+- Production browser suite: **30 passed**. Новый тест `restores a font-library backup atomically when a storage write fails` прошёл: при искусственной ошибке второй записи библиотека остаётся пустой и после перезагрузки.
+- В том же run `npm audit` завершился сообщением `found 0 vulnerabilities`; сводка: info 0, low 0, moderate 0, high 0, critical 0.
+- PWA browser regression test также прошёл: проверяет installable manifest, активный Service Worker, app-shell/cache assets, отсутствие внешних runtime ресурсов и загрузку/рисование в offline-режиме после первоначального посещения.
+- Service Worker расположен в `public/sw.js`; регистрируется из `index.html`. Cache version `glyphflow-shell-v2`; при активации удаляются старые cache entries с тем же префиксом, навигация использует network-first с offline fallback, same-origin GET ресурсы — cache-first с runtime заполнением.
+- Ветка `fix/glyphflow-stability-foundation` остаётся отдельной от `main`; PR не сливался.
+- Следующие задачи аудита: (1) проверка сохранения/удаления шрифтов и backup round-trip на границах квоты IndexedDB; (2) тест очистки старых SW caches и обновления новой версии приложения; (3) безопасное уменьшение initial JS chunk без потери offline-доступности TTF export; (4) реальное устройство после публикации.
