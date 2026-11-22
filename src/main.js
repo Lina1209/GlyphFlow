@@ -1,0 +1,1182 @@
+import opentype from 'opentype.js';
+
+// Импортируем библиотеку каллиграфической кисти perfect-freehand
+import { getStroke } from 'perfect-freehand';
+import { createFont } from 'fonteditor-core';
+import polygonClipping from 'polygon-clipping';
+
+// Набор символов для старта (Кириллица + Латиница + Цифры)
+const CHARS = [
+...'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ',
+...'абвгдеёжзийклмнопрстуфхцчшщъыьэюя',
+...'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+...'0123456789!?.,-'
+];
+
+// Хранилище штрихов для каждого символа
+const glyphData = {};
+let currentChar = 'А';
+let currentPoints = [];
+let isDrawing = false;
+let activePointerId = null;
+let contourEditMode = false;
+let nodeEditMode = false;
+let outlineEditMode = false;
+let activeNodeDrag = null;
+let activeOutlineDrag = null;
+let selectedNodeIndex = null;
+let selectedOutlineIndex = null;
+let selectedStrokeIndex = null;
+let panPointerId = null;
+let panStart = null;
+// Отдельное состояние контактных указателей для двухпальцевого жеста.
+const touchPointers = new Map();
+let pinchStart = null;
+let touchGestureConsumed = false;
+let viewBox = { x: 0, y: 0, size: 360 };
+let history = [JSON.stringify(glyphData)];
+let historyIndex = 0;
+let previewFontUrl = null;
+
+// Элементы DOM
+const glyphGrid = document.getElementById('glyphGrid');
+const drawSvg = document.getElementById('drawSvg');
+const guideSvg = document.getElementById('guideSvg');
+const currentCharLabel = document.getElementById('currentCharLabel');
+const brushSizeInput = document.getElementById('brushSize');
+const brushThinningInput = document.getElementById('brushThinning');
+const sizeVal = document.getElementById('sizeVal');
+const thinningVal = document.getElementById('thinningVal');
+const previewInput = document.getElementById('previewInput');
+const livePreviewOutput = document.getElementById('livePreviewOutput');
+const progressText = document.getElementById('progressText');
+const contourModeBtn = document.getElementById('contourModeBtn');
+const nodeEditModeBtn = document.getElementById('nodeEditModeBtn');
+const outlineEditModeBtn = document.getElementById('outlineEditModeBtn');
+const addTrajectoryPointBtn = document.getElementById('addTrajectoryPointBtn');
+const deleteTrajectoryPointBtn = document.getElementById('deleteTrajectoryPointBtn');
+const contourRoleSelect = document.getElementById('contourRoleSelect');
+const applyContourRoleBtn = document.getElementById('applyContourRoleBtn');
+const contourStatus = document.getElementById('contourStatus');
+
+// Преобразование массива точек от perfect-freehand в SVG-путь
+function getSvgPathFromStroke(stroke) {
+if (!stroke.length) return '';
+const d = stroke.reduce(
+(acc, [x0, y0], i, arr) => {
+const [x1, y1] = arr[(i + 1) % arr.length];
+acc.push(x0.toFixed(1), y0.toFixed(1), ((x0 + x1) / 2).toFixed(1), ((y0 + y1) / 2).toFixed(1));
+return acc;
+},
+['M', ...stroke[0].map(n => n.toFixed(1)), 'Q']
+);
+d.push('Z');
+return d.join(' ');
+}
+
+// Отрисовка сетки символов слева
+function renderGrid() {
+glyphGrid.innerHTML = '';
+let completedCount = 0;
+CHARS.forEach(char => {
+const hasStrokes = glyphData[char] && glyphData[char].length > 0;
+if (hasStrokes) completedCount++;
+const btn = document.createElement('button');
+btn.textContent = char;
+btn.className = `h-10 rounded-lg font-medium text-sm transition flex items-center justify-center border ${
+char === currentChar
+? 'bg-indigo-600 border-indigo-400 text-white shadow-md'
+: hasStrokes
+? 'bg-emerald-950/60 border-emerald-600/60 text-emerald-300 hover:bg-emerald-900/60'
+: 'bg-slate-900/70 border-slate-700 text-slate-400 hover:bg-slate-700'
+}`;
+btn.onclick = () => selectChar(char);
+glyphGrid.appendChild(btn);
+});
+progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
+}
+
+// Переключение активной буквы
+function selectChar(char) {
+if (activeNodeDrag) finishNodeDrag(false);
+if (activeOutlineDrag) finishOutlineDrag(false);
+if (isDrawing) finishStroke(false, false);
+currentChar = char;
+selectedStrokeIndex = null;
+selectedNodeIndex = null;
+selectedOutlineIndex = null;
+updateContourTools();
+currentCharLabel.textContent = char;
+renderGrid();
+renderCanvas();
+}
+
+const glyphGeometryCache = new WeakMap();
+function getStrokeOutline(stroke) {
+if (!stroke) return [];
+if (Array.isArray(stroke.outlineOverride) && stroke.outlineOverride.length >= 3) {
+const override = cleanPolygonRing(stroke.outlineOverride);
+if (override.length >= 3) return override;
+}
+if (!Array.isArray(stroke.points) || !stroke.points.length) return [];
+return getStroke(stroke.points, {
+size: Number(stroke.size) || 16,
+thinning: Number.isFinite(Number(stroke.thinning)) ? Number(stroke.thinning) : 0.6,
+smoothing: 0.5,
+streamline: 0.5,
+});
+}
+function getContourRole(stroke) {
+if (Number.isInteger(stroke && stroke.depth) && stroke.depth >= 0) return stroke.depth % 2 ? 'hole' : 'outer';
+return stroke && stroke.role === 'hole' ? 'hole' : 'outer';
+}
+function contourSignedArea(points) {
+let area = 0;
+for (let i = 0; i < points.length; i++) {
+const a = points[i], b = points[(i + 1) % points.length];
+area += a[0] * b[1] - b[0] * a[1];
+}
+return area / 2;
+}
+function orientSvgContour(outline, role) {
+if (outline.length < 3) return outline;
+const area = contourSignedArea(outline);
+const wantsPositive = role !== 'hole';
+return ((area > 0) === wantsPositive) ? outline : [...outline].reverse();
+}
+function cleanPolygonRing(points) {
+const ring = [];
+for (const point of points || []) {
+if (!Array.isArray(point) || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) continue;
+const previous = ring[ring.length - 1];
+if (!previous || Math.abs(previous[0] - point[0]) > 1e-7 || Math.abs(previous[1] - point[1]) > 1e-7) {
+ring.push([point[0], point[1]]);
+}
+}
+if (ring.length > 2 &&
+Math.abs(ring[0][0] - ring[ring.length - 1][0]) <= 1e-7 &&
+Math.abs(ring[0][1] - ring[ring.length - 1][1]) <= 1e-7) ring.pop();
+// Discard sub-pixel numerical remnants before they become phantom glyph components.
+return ring.length >= 3 && Math.abs(contourSignedArea(ring)) > 1e-3 ? ring : [];
+}
+function getContourDepth(stroke) {
+if (Number.isInteger(stroke && stroke.depth) && stroke.depth >= 0) return stroke.depth;
+return getContourRole(stroke) === 'hole' ? 1 : 0;
+}
+// Even depths add filled regions; odd depths subtract counters. Union each
+// level first so overlapping strokes at the same nesting depth behave as one region.
+function buildNestedContourGeometry(contours) {
+const levels = new Map();
+(contours || []).forEach(contour => {
+const depth = Number(contour && contour.depth);
+const ring = cleanPolygonRing(contour && contour.ring);
+if (!Number.isInteger(depth) || depth < 0 || ring.length < 3) return;
+if (!levels.has(depth)) levels.set(depth, []);
+levels.get(depth).push([ring]);
+});
+let result = [];
+[...levels.keys()].sort((a, b) => a - b).forEach(depth => {
+const levelUnion = polygonClipping.union(...levels.get(depth));
+if (depth % 2 === 0) {
+result = result.length ? polygonClipping.union(result, levelUnion) : levelUnion;
+} else if (result.length) {
+result = polygonClipping.difference(result, levelUnion);
+}
+});
+return result;
+}
+function getCompoundGlyphGeometry(strokes) {
+if (!Array.isArray(strokes) || !strokes.length) return [];
+const cached = glyphGeometryCache.get(strokes);
+if (cached) return cached;
+const contours = strokes.map(stroke => ({
+depth: getContourDepth(stroke),
+ring: getStrokeOutline(stroke)
+}));
+const result = buildNestedContourGeometry(contours);
+glyphGeometryCache.set(strokes, result);
+return result;
+}
+function getCompoundPathRecords(geometry) {
+const records = [];
+(geometry || []).forEach(polygon => {
+polygon.forEach((ring, ringIndex) => {
+const outline = cleanPolygonRing(ring);
+if (outline.length >= 3) {
+const role = ringIndex === 0 ? 'outer' : 'hole';
+records.push({outline: orientSvgContour(outline, role), role});
+}
+});
+});
+return records;
+}
+function multiPolygonArea(geometry) {
+return (geometry || []).reduce((total, polygon) => {
+if (!polygon.length) return total;
+const outerArea = Math.abs(contourSignedArea(polygon[0]));
+const holesArea = polygon.slice(1).reduce((sum, ring) => sum + Math.abs(contourSignedArea(ring)), 0);
+return total + Math.max(0, outerArea - holesArea);
+}, 0);
+}
+function segmentsIntersect(a, b, c, d) {
+const epsilon = 1e-7;
+const cross = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+const onSegment = (p, q, r) =>
+Math.abs(cross(p, q, r)) <= epsilon &&
+q[0] >= Math.min(p[0], r[0]) - epsilon && q[0] <= Math.max(p[0], r[0]) + epsilon &&
+q[1] >= Math.min(p[1], r[1]) - epsilon && q[1] <= Math.max(p[1], r[1]) + epsilon;
+const abC = cross(a, b, c), abD = cross(a, b, d);
+const cdA = cross(c, d, a), cdB = cross(c, d, b);
+if (((abC > epsilon && abD < -epsilon) || (abC < -epsilon && abD > epsilon)) &&
+((cdA > epsilon && cdB < -epsilon) || (cdA < -epsilon && cdB > epsilon))) return true;
+return onSegment(a, c, b) || onSegment(a, d, b) || onSegment(c, a, d) || onSegment(c, b, d);
+}
+function isContourWithinParentDepth(candidateStroke, strokes, candidateIndex, depth) {
+if (depth === 0) return true;
+const candidate = cleanPolygonRing(getStrokeOutline(candidateStroke));
+if (candidate.length < 3) return false;
+const parentPolygons = strokes
+.filter((stroke, index) => index !== candidateIndex && getContourDepth(stroke) === depth - 1)
+.map(stroke => cleanPolygonRing(getStrokeOutline(stroke)))
+.filter(ring => ring.length >= 3)
+.map(ring => [ring]);
+if (!parentPolygons.length) return false;
+const parentUnion = polygonClipping.union(...parentPolygons);
+const outside = polygonClipping.difference([[candidate]], parentUnion);
+if (multiPolygonArea(outside) > 1e-4) return false;
+for (const polygon of parentUnion) {
+for (const boundary of polygon) {
+for (let i = 0; i < candidate.length; i++) {
+const a = candidate[i], b = candidate[(i + 1) % candidate.length];
+for (let j = 0; j < boundary.length; j++) {
+if (segmentsIntersect(a, b, boundary[j], boundary[(j + 1) % boundary.length])) return false;
+}
+}
+}
+}
+return true;
+}
+function isHoleWithinOuterBounds(holeStroke, strokes, holeIndex) {
+return isContourWithinParentDepth(holeStroke, strokes, holeIndex, 1);
+}
+function updateContourTools() {
+const strokes = glyphData[currentChar] || [];
+const selected = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
+contourModeBtn.textContent = contourEditMode ? 'Завершить выбор' : 'Выбрать контур';
+contourModeBtn.classList.toggle('bg-amber-700', contourEditMode);
+nodeEditModeBtn.classList.toggle('bg-amber-700', nodeEditMode);
+nodeEditModeBtn.setAttribute('aria-pressed', String(nodeEditMode));
+outlineEditModeBtn.classList.toggle('bg-amber-700', outlineEditMode);
+outlineEditModeBtn.setAttribute('aria-pressed', String(outlineEditMode));
+const selectedPoints = selected ? (selected.points || []) : [];
+addTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length < 2;
+deleteTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length <= 2 || selectedNodeIndex === null;
+contourRoleSelect.disabled = !contourEditMode || !selected;
+applyContourRoleBtn.disabled = !contourEditMode || !selected;
+if (nodeEditMode) {
+contourStatus.textContent = selected
+? `Выбран штрих ${selectedStrokeIndex + 1}. Перетаскивайте круглые узлы траектории, чтобы изменить форму.`
+: 'Нажмите на штрих, чтобы показать его узлы.';
+} else if (outlineEditMode) {
+contourStatus.textContent = selected
+? `Выбран штрих ${selectedStrokeIndex + 1}. Перетаскивайте вершины границы; составная геометрия пересчитывается.`
+: 'Нажмите на штрих, чтобы показать вершины его границы.';
+} else if (selected) {
+contourRoleSelect.value = ['outer', 'hole', 'island', 'nested-hole'][Math.min(3, getContourDepth(selected))];
+contourStatus.textContent = `Выбран контур ${selectedStrokeIndex + 1}. Уровень ${getContourDepth(selected)}: ${getContourDepth(selected) % 2 ? 'вырезание' : 'заполнение'}.`;
+} else if (contourEditMode) {
+contourStatus.textContent = 'Нажмите на контур буквы, чтобы выбрать его.';
+} else {
+contourStatus.textContent = 'Старые и новые штрихи считаются внешними контурами. Включите выбор, чтобы назначить отверстию отдельную роль.';
+}
+}
+
+// Отрисовка составного контура глифа: внешние области и отверстия имеют разное направление.
+function renderCanvas() {
+drawSvg.innerHTML = '';
+const strokes = glyphData[currentChar] || [];
+let fillRecords = [];
+try {
+fillRecords = getCompoundPathRecords(getCompoundGlyphGeometry(strokes));
+} catch (err) {
+console.error('Ошибка объединения контуров глифа:', err);
+if (contourStatus) contourStatus.textContent = 'Не удалось объединить контуры. Проверьте геометрию штрихов.';
+}
+if (fillRecords.length) {
+const fillPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+fillPath.setAttribute('d', fillRecords.map(record => getSvgPathFromStroke(record.outline)).join(' '));
+fillPath.setAttribute('fill', '#0f172a');
+fillPath.setAttribute('fill-rule', 'nonzero');
+fillPath.setAttribute('class', 'glyph-fill');
+fillPath.setAttribute('pointer-events', 'none');
+drawSvg.appendChild(fillPath);
+}
+if (contourEditMode || nodeEditMode || outlineEditMode) {
+strokes.forEach((stroke, index) => {
+const outline = orientSvgContour(getStrokeOutline(stroke), getContourRole(stroke));
+if (outline.length < 3) return;
+const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+hitPath.setAttribute('d', getSvgPathFromStroke(outline));
+hitPath.setAttribute('fill', 'transparent');
+hitPath.setAttribute('fill-rule', 'nonzero');
+hitPath.setAttribute('pointer-events', 'all');
+hitPath.setAttribute('data-contour-index', String(index));
+if (index === selectedStrokeIndex) {
+hitPath.setAttribute('stroke', '#f59e0b');
+hitPath.setAttribute('stroke-width', '2');
+}
+drawSvg.appendChild(hitPath);
+});
+}
+if (outlineEditMode && selectedStrokeIndex !== null && strokes[selectedStrokeIndex]) {
+const outlinePoints = cleanPolygonRing(getStrokeOutline(strokes[selectedStrokeIndex]));
+const outlineStep = Math.max(1, Math.ceil(outlinePoints.length / 48));
+outlinePoints.forEach((point, pointIndex) => {
+if (pointIndex % outlineStep !== 0 && pointIndex !== outlinePoints.length - 1) return;
+const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+node.setAttribute('cx', String(point[0]));
+node.setAttribute('cy', String(point[1]));
+node.setAttribute('r', '4.5');
+node.setAttribute('fill', pointIndex === selectedOutlineIndex ? '#22c55e' : '#38bdf8');
+node.setAttribute('stroke', '#ffffff');
+node.setAttribute('stroke-width', '1.5');
+node.setAttribute('data-outline-index', String(pointIndex));
+node.setAttribute('role', 'slider');
+node.setAttribute('aria-label', `Вершина границы ${pointIndex + 1}`);
+node.setAttribute('pointer-events', 'all');
+drawSvg.appendChild(node);
+});
+}
+if (nodeEditMode && selectedStrokeIndex !== null && strokes[selectedStrokeIndex]) {
+const selectedPoints = strokes[selectedStrokeIndex].points || [];
+// Keep the overlay usable on dense trajectories: show at most 48 evenly
+// distributed handles plus the final endpoint, while preserving source indices.
+const nodeStep = Math.max(1, Math.ceil(selectedPoints.length / 48));
+selectedPoints.forEach((point, pointIndex) => {
+if (pointIndex % nodeStep !== 0 && pointIndex !== selectedPoints.length - 1) return;
+const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+node.setAttribute('cx', String(point[0]));
+node.setAttribute('cy', String(point[1]));
+node.setAttribute('r', '4');
+node.setAttribute('fill', pointIndex === selectedNodeIndex ? '#22c55e' : '#f59e0b');
+node.setAttribute('stroke', '#ffffff');
+node.setAttribute('stroke-width', '1.5');
+node.setAttribute('data-node-index', String(pointIndex));
+node.setAttribute('role', 'slider');
+node.setAttribute('aria-label', `Узел траектории ${pointIndex + 1}`);
+node.setAttribute('pointer-events', 'all');
+drawSvg.appendChild(node);
+});
+}
+
+// Рисуем текущий незавершенный штрих
+if (isDrawing && currentPoints.length > 0) {
+const outline = getStroke(currentPoints, {
+size: Number(brushSizeInput.value),
+thinning: Number(brushThinningInput.value),
+smoothing: 0.5,
+streamline: 0.5,
+});
+const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+path.setAttribute('d', getSvgPathFromStroke(outline));
+path.setAttribute('fill', '#4f46e5');
+path.setAttribute('pointer-events', 'none');
+drawSvg.appendChild(path);
+}
+}
+
+// Масштабирование и перемещение выполняются через viewBox, поэтому координаты штрихов
+// остаются в исходной системе 360x360 и не меняют геометрию при зуме.
+const MIN_VIEW_SIZE = 120;
+const MAX_VIEW_SIZE = 720;
+const zoomLevel = document.getElementById('zoomLevel');
+function clampViewBox() {
+viewBox.x = Math.max(-180, Math.min(540 - viewBox.size, viewBox.x));
+viewBox.y = Math.max(-180, Math.min(540 - viewBox.size, viewBox.y));
+}
+function applyViewBox() {
+clampViewBox();
+const nextViewBox = `${viewBox.x} ${viewBox.y} ${viewBox.size} ${viewBox.size}`;
+drawSvg.setAttribute('viewBox', nextViewBox);
+guideSvg.setAttribute('viewBox', nextViewBox);
+zoomLevel.textContent = `${Math.round(360 / viewBox.size * 100)}%`;
+}
+function svgPointFromClient(clientX, clientY) {
+const point = drawSvg.createSVGPoint();
+point.x = clientX;
+point.y = clientY;
+return point.matrixTransform(drawSvg.getScreenCTM().inverse());
+}
+function zoomAt(factor, clientX, clientY) {
+const anchor = clientX == null ? {x: viewBox.x + viewBox.size / 2, y: viewBox.y + viewBox.size / 2} : svgPointFromClient(clientX, clientY);
+const nextSize = Math.max(MIN_VIEW_SIZE, Math.min(MAX_VIEW_SIZE, viewBox.size * factor));
+const ratioX = (anchor.x - viewBox.x) / viewBox.size;
+const ratioY = (anchor.y - viewBox.y) / viewBox.size;
+viewBox.size = nextSize;
+viewBox.x = anchor.x - ratioX * nextSize;
+viewBox.y = anchor.y - ratioY * nextSize;
+applyViewBox();
+}
+function panView(dx, dy) {
+viewBox.x += dx;
+viewBox.y += dy;
+applyViewBox();
+}
+document.getElementById('zoomInBtn').onclick = () => zoomAt(0.8);
+document.getElementById('zoomOutBtn').onclick = () => zoomAt(1.25);
+document.getElementById('zoomResetBtn').onclick = () => { viewBox = {x: 0, y: 0, size: 360}; applyViewBox(); };
+document.getElementById('panLeftBtn').onclick = () => panView(-40, 0);
+document.getElementById('panRightBtn').onclick = () => panView(40, 0);
+document.getElementById('panUpBtn').onclick = () => panView(0, -40);
+document.getElementById('panDownBtn').onclick = () => panView(0, 40);
+drawSvg.addEventListener('wheel', e => {
+e.preventDefault();
+zoomAt(e.deltaY < 0 ? 0.9 : 1.1, e.clientX, e.clientY);
+}, {passive: false});
+drawSvg.addEventListener('contextmenu', e => e.preventDefault());
+
+// Получение точных координат SVG с учётом текущего масштаба и положения viewBox.
+function getPointerPos(e) {
+const point = svgPointFromClient(e.clientX, e.clientY);
+return [point.x, point.y, e.pressure || 0.5];
+}
+
+// События рисования и перетаскивания холста мышью (Alt + перетаскивание или средняя кнопка).
+function touchDistance(a, b) {
+return Math.hypot(a.x - b.x, a.y - b.y);
+}
+function updatePinchView() {
+if (touchPointers.size < 2 || !pinchStart) return;
+const points = [...touchPointers.values()];
+const first = points[0];
+const second = points[1];
+const midpoint = {x: (first.x + second.x) / 2, y: (first.y + second.y) / 2};
+const distance = Math.max(1, touchDistance(first, second));
+const rect = drawSvg.getBoundingClientRect();
+const nextSize = Math.max(MIN_VIEW_SIZE, Math.min(MAX_VIEW_SIZE,
+pinchStart.viewBox.size * pinchStart.distance / distance));
+const ratioX = (pinchStart.midpoint.x - rect.left) / Math.max(1, rect.width);
+const ratioY = (pinchStart.midpoint.y - rect.top) / Math.max(1, rect.height);
+const anchorX = pinchStart.viewBox.x + ratioX * pinchStart.viewBox.size;
+const anchorY = pinchStart.viewBox.y + ratioY * pinchStart.viewBox.size;
+const nextRatioX = (midpoint.x - rect.left) / Math.max(1, rect.width);
+const nextRatioY = (midpoint.y - rect.top) / Math.max(1, rect.height);
+viewBox.size = nextSize;
+viewBox.x = anchorX - nextRatioX * nextSize;
+viewBox.y = anchorY - nextRatioY * nextSize;
+applyViewBox();
+}
+drawSvg.addEventListener('pointerdown', (e) => {
+if (outlineEditMode) {
+const vertex = e.target.closest?.('[data-outline-index]');
+if (vertex && selectedStrokeIndex !== null) {
+const stroke = (glyphData[currentChar] || [])[selectedStrokeIndex];
+const pointerPosition = getPointerPos(e);
+const candidateHandles = [...drawSvg.querySelectorAll('[data-outline-index]')];
+const nearestHandle = candidateHandles.reduce((best, handle) => {
+const x = Number(handle.getAttribute('cx'));
+const y = Number(handle.getAttribute('cy'));
+const distance = Math.hypot(x - pointerPosition[0], y - pointerPosition[1]);
+return !best || distance < best.distance ? {handle, distance} : best;
+}, null);
+const pointIndex = Number((nearestHandle && nearestHandle.handle || vertex).getAttribute('data-outline-index'));
+const outline = stroke ? cleanPolygonRing(getStrokeOutline(stroke)) : [];
+if (outline[pointIndex]) {
+selectedOutlineIndex = pointIndex;
+activeOutlineDrag = {pointerId: e.pointerId, strokeIndex: selectedStrokeIndex, pointIndex,
+originalOutline: outline.map(point => [...point]),
+originalOverride: Array.isArray(stroke.outlineOverride) ? stroke.outlineOverride.map(point => [...point]) : null};
+try { drawSvg.setPointerCapture(e.pointerId); }
+catch (err) { activeOutlineDrag = null; e.preventDefault(); return; }
+vertex.setAttribute('fill', '#22c55e');
+updateContourTools();
+e.preventDefault();
+return;
+}
+}
+const hit = e.target.closest?.('[data-contour-index]');
+if (hit) {
+selectedStrokeIndex = Number(hit.getAttribute('data-contour-index'));
+selectedOutlineIndex = null;
+updateContourTools();
+renderCanvas();
+}
+e.preventDefault();
+return;
+}
+if (nodeEditMode) {
+const node = e.target.closest?.('[data-node-index]');
+if (node && selectedStrokeIndex !== null) {
+const stroke = (glyphData[currentChar] || [])[selectedStrokeIndex];
+const pointIndex = Number(node.getAttribute('data-node-index'));
+if (stroke && stroke.points && stroke.points[pointIndex]) {
+selectedNodeIndex = pointIndex;
+activeNodeDrag = {
+pointerId: e.pointerId,
+strokeIndex: selectedStrokeIndex,
+pointIndex,
+originalPoint: [...stroke.points[pointIndex]],
+originalOutlineOverride: Array.isArray(stroke.outlineOverride) ? stroke.outlineOverride.map(point => [...point]) : null
+};
+updateContourTools();
+renderCanvas();
+try { drawSvg.setPointerCapture(e.pointerId); } catch (err) { activeNodeDrag = null; }
+e.preventDefault();
+return;
+}
+}
+const hit = e.target.closest?.('[data-contour-index]');
+if (hit) {
+selectedStrokeIndex = Number(hit.getAttribute('data-contour-index'));
+selectedNodeIndex = null;
+updateContourTools();
+renderCanvas();
+}
+e.preventDefault();
+return;
+}
+if (contourEditMode) {
+const hit = e.target.closest?.('[data-contour-index]');
+if (hit) {
+selectedStrokeIndex = Number(hit.getAttribute('data-contour-index'));
+updateContourTools();
+renderCanvas();
+}
+e.preventDefault();
+return;
+}
+if (e.pointerType === 'touch') {
+e.preventDefault();
+touchPointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+try { drawSvg.setPointerCapture(e.pointerId); } catch (err) {}
+if (touchPointers.size === 1) {
+touchGestureConsumed = false;
+} else if (touchPointers.size >= 2) {
+touchGestureConsumed = true;
+if (isDrawing) finishStroke(false, false);
+if (panPointerId !== null) {
+try { if (drawSvg.hasPointerCapture(panPointerId)) drawSvg.releasePointerCapture(panPointerId); } catch (err) {}
+panPointerId = null;
+panStart = null;
+}
+const points = [...touchPointers.values()];
+pinchStart = {
+distance: Math.max(1, touchDistance(points[0], points[1])),
+midpoint: {x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2},
+viewBox: {...viewBox}
+};
+}
+if (touchGestureConsumed) return;
+}
+if (e.button === 1 || e.button === 2 || (e.altKey && e.pointerType !== 'touch')) {
+e.preventDefault();
+panPointerId = e.pointerId;
+panStart = {clientX: e.clientX, clientY: e.clientY, x: viewBox.x, y: viewBox.y};
+try { drawSvg.setPointerCapture(e.pointerId); } catch (err) { panPointerId = null; panStart = null; }
+return;
+}
+if (e.button !== 0 || !e.isPrimary || isDrawing || panPointerId !== null) return;
+try {
+if (e.pointerType !== 'touch') drawSvg.setPointerCapture(e.pointerId);
+} catch (err) {
+console.warn('Не удалось захватить указатель:', err);
+return;
+}
+activePointerId = e.pointerId;
+isDrawing = true;
+currentPoints = [getPointerPos(e)];
+renderCanvas();
+});
+
+drawSvg.addEventListener('pointermove', (e) => {
+if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) {
+const stroke = (glyphData[currentChar] || [])[activeNodeDrag.strokeIndex];
+if (stroke && stroke.points && stroke.points[activeNodeDrag.pointIndex]) {
+delete stroke.outlineOverride;
+stroke.points[activeNodeDrag.pointIndex] = getPointerPos(e);
+if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
+renderCanvas();
+}
+e.preventDefault();
+return;
+}
+if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) {
+const stroke = (glyphData[currentChar] || [])[activeOutlineDrag.strokeIndex];
+if (stroke) {
+const candidate = (stroke.outlineOverride || activeOutlineDrag.originalOutline).map(point => [...point]);
+const position = getPointerPos(e);
+candidate[activeOutlineDrag.pointIndex] = [position[0], position[1]];
+if (isValidEditableRing(candidate, activeOutlineDrag.pointIndex, activeOutlineDrag.originalOutline)) {
+stroke.outlineOverride = candidate;
+} else {
+}
+if (drawSvg.dataset.outlineDragState === 'accepted') {
+if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
+// Keep the SVG tree intact during pointer capture. Rebuilding innerHTML here
+// can detach the active interaction surface in some browser implementations.
+const handle = drawSvg.querySelector(`[data-outline-index="${activeOutlineDrag.pointIndex}"]`);
+if (handle) {
+handle.setAttribute('cx', String(position[0]));
+handle.setAttribute('cy', String(position[1]));
+}
+const selectedHitPath = drawSvg.querySelector(`[data-contour-index="${activeOutlineDrag.strokeIndex}"]`);
+if (selectedHitPath) selectedHitPath.setAttribute('d', getSvgPathFromStroke(orientSvgContour(candidate, getContourRole(stroke))));
+try {
+const previewRecords = getCompoundPathRecords(getCompoundGlyphGeometry(glyphData[currentChar] || []));
+const fillPath = drawSvg.querySelector('.glyph-fill');
+if (fillPath) fillPath.setAttribute('d', previewRecords.map(record => getSvgPathFromStroke(record.outline)).join(' '));
+} catch (err) {
+console.error('Не удалось обновить предпросмотр границы:', err);
+}
+}
+}
+e.preventDefault();
+return;
+}
+if (e.pointerType === 'touch' && touchPointers.has(e.pointerId)) {
+touchPointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+if (touchPointers.size >= 2 && pinchStart) {
+updatePinchView();
+return;
+}
+if (touchGestureConsumed) return;
+}
+if (e.pointerId === panPointerId && panStart) {
+const rect = drawSvg.getBoundingClientRect();
+const factor = viewBox.size / Math.max(1, rect.width);
+viewBox.x = panStart.x - (e.clientX - panStart.clientX) * factor;
+viewBox.y = panStart.y - (e.clientY - panStart.clientY) * factor;
+applyViewBox();
+return;
+}
+if (!isDrawing || e.pointerId !== activePointerId) return;
+currentPoints.push(getPointerPos(e));
+scheduleStrokePreviewRender();
+});
+
+const DRAFT_DB = 'glyphflow-local';
+const DRAFT_STORE = 'projects';
+let draftWriteQueue = Promise.resolve();
+
+function openDraftDB() {
+return new Promise((resolve, reject) => {
+if (!('indexedDB' in window)) return reject(new Error('IndexedDB недоступен'));
+const request = indexedDB.open(DRAFT_DB, 1);
+request.onupgradeneeded = () => {
+if (!request.result.objectStoreNames.contains(DRAFT_STORE)) {
+request.result.createObjectStore(DRAFT_STORE);
+}
+};
+request.onsuccess = () => resolve(request.result);
+request.onerror = () => reject(request.error);
+request.onblocked = () => reject(new Error('Открытие IndexedDB заблокировано другой вкладкой'));
+});
+}
+
+// Снимок создаётся сразу, а записи выполняются строго по порядку вызовов.
+function persistDraft() {
+let snapshot;
+try {
+snapshot = {
+glyphData: JSON.parse(JSON.stringify(glyphData)),
+fontName: document.getElementById('fontName').value,
+savedAt: Date.now()
+};
+} catch (err) {
+console.warn('Не удалось подготовить черновик к сохранению:', err);
+return draftWriteQueue;
+}
+
+draftWriteQueue = draftWriteQueue.catch(() => {}).then(async () => {
+let db;
+try {
+db = await openDraftDB();
+const tx = db.transaction(DRAFT_STORE, 'readwrite');
+tx.objectStore(DRAFT_STORE).put(snapshot, 'current');
+await new Promise((resolve, reject) => {
+tx.oncomplete = resolve;
+tx.onerror = () => reject(tx.error);
+tx.onabort = () => reject(tx.error);
+});
+} finally {
+if (db) db.close();
+}
+}).catch(err => {
+console.warn('Автосохранение недоступно:', err);
+});
+return draftWriteQueue;
+}
+
+async function restoreDraft() {
+let db;
+try {
+db = await openDraftDB();
+const tx = db.transaction(DRAFT_STORE, 'readonly');
+const request = tx.objectStore(DRAFT_STORE).get('current');
+const draft = await new Promise((resolve, reject) => {
+request.onsuccess = () => resolve(request.result);
+request.onerror = () => reject(request.error);
+});
+if (draft && draft.glyphData && typeof draft.glyphData === 'object') {
+const restored = {};
+for (const [char, strokes] of Object.entries(draft.glyphData)) {
+if ([...char].length !== 1 || !Array.isArray(strokes)) continue;
+const validStrokes = strokes.filter(stroke =>
+stroke && Array.isArray(stroke.points) && stroke.points.length > 0 &&
+stroke.points.every(point => Array.isArray(point) && point.length >= 2 &&
+Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1]))) &&
+Number.isFinite(Number(stroke.size)) && Number(stroke.size) > 0 &&
+Number.isFinite(Number(stroke.thinning))
+).map(stroke => {
+const storedDepth = Number(stroke.depth);
+const depth = Number.isInteger(storedDepth) && storedDepth >= 0 && storedDepth <= 3
+? storedDepth
+: stroke.role === 'hole' ? 1 : 0;
+return {...stroke, depth, role: depth % 2 ? 'hole' : 'outer'};
+});
+if (validStrokes.length) restored[char] = validStrokes;
+}
+Object.assign(glyphData, restored);
+if (typeof draft.fontName === 'string' && draft.fontName.trim()) {
+document.getElementById('fontName').value = draft.fontName.slice(0, 48);
+}
+history = [JSON.stringify(glyphData)];
+historyIndex = 0;
+}
+} catch (err) {
+console.warn('Не удалось восстановить черновик:', err);
+} finally {
+if (db) db.close();
+}
+}
+// Undo snapshots are full-project JSON strings. Bound both their count and
+// estimated UTF-16 storage so long editing sessions cannot grow history forever.
+const MAX_HISTORY_ENTRIES = 40;
+const MAX_HISTORY_BYTES = 8 * 1024 * 1024;
+function trimHistoryToBudget() {
+let retainedBytes = 0;
+let firstRetained = history.length - 1;
+for (let index = history.length - 1; index >= 0; index--) {
+const snapshotBytes = history[index].length * 2;
+const entriesFromIndex = history.length - index;
+if (index < history.length - 1 &&
+(entriesFromIndex > MAX_HISTORY_ENTRIES || retainedBytes + snapshotBytes > MAX_HISTORY_BYTES)) break;
+retainedBytes += snapshotBytes;
+firstRetained = index;
+}
+if (firstRetained > 0) {
+history = history.slice(firstRetained);
+historyIndex = Math.max(0, historyIndex - firstRetained);
+}
+}
+function saveHistory() {
+if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
+const snapshot = JSON.stringify(glyphData);
+if (history[historyIndex] === snapshot) return;
+history = history.slice(0, historyIndex + 1);
+history.push(snapshot);
+historyIndex = history.length - 1;
+trimHistoryToBudget();
+persistDraft();
+}
+function restoreHistory(index) {
+if (index < 0 || index >= history.length) return;
+if (activeNodeDrag) finishNodeDrag(false);
+if (activeOutlineDrag) finishOutlineDrag(false);
+Object.keys(glyphData).forEach(key => delete glyphData[key]);
+Object.assign(glyphData, JSON.parse(history[index]));
+historyIndex = index;
+selectedStrokeIndex = null;
+persistDraft();
+renderCanvas(); renderGrid(); updateLiveFont(); updateContourTools();
+}
+let strokeRenderFrame = null;
+function scheduleStrokePreviewRender() {
+if (strokeRenderFrame !== null) return;
+strokeRenderFrame = requestAnimationFrame(() => {
+strokeRenderFrame = null;
+if (isDrawing && currentPoints.length) renderCanvas();
+});
+}
+function finishStroke(commit = true, releaseCapture = true) {
+if (!isDrawing) return;
+if (strokeRenderFrame !== null) {
+cancelAnimationFrame(strokeRenderFrame);
+strokeRenderFrame = null;
+}
+isDrawing = false;
+if (commit && currentPoints.length) {
+if (!glyphData[currentChar]) glyphData[currentChar] = [];
+glyphData[currentChar].push({points: currentPoints, size: Number(brushSizeInput.value), thinning: Number(brushThinningInput.value), role: 'outer'});
+saveHistory();
+}
+currentPoints = [];
+if (releaseCapture && activePointerId !== null && drawSvg.hasPointerCapture(activePointerId)) drawSvg.releasePointerCapture(activePointerId);
+activePointerId = null;
+renderCanvas(); renderGrid(); updateLiveFont();
+}
+function finishTouchPointer(e, cancelled = false) {
+if (e.pointerType === 'touch' && touchPointers.has(e.pointerId)) {
+touchPointers.delete(e.pointerId);
+if (touchPointers.size < 2) pinchStart = null;
+if (touchPointers.size === 0) touchGestureConsumed = false;
+if (cancelled && isDrawing && e.pointerId === activePointerId) finishStroke(false);
+return true;
+}
+return false;
+}
+function isValidEditableRing(points, changedVertexIndex = null, originalPoints = null) {
+const ring = cleanPolygonRing(points);
+const original = Array.isArray(originalPoints) ? cleanPolygonRing(originalPoints) : null;
+if (ring.length < 3 || ring.length !== points.length || Math.abs(contourSignedArea(ring)) <= 1e-3) return false;
+if (original && (original.length !== ring.length ||
+Math.sign(contourSignedArea(original)) !== Math.sign(contourSignedArea(ring)))) return false;
+// Do not reject a local edit merely because the source brush outline contains
+// a pre-existing near-touch or intersection. Keep the ring finite, non-degenerate,
+// same-sized and same-winding; the Boolean geometry pipeline validates the result.
+return ring.every(point => Number.isFinite(point[0]) && Number.isFinite(point[1]));
+}
+function finishOutlineDrag(commit) {
+if (!activeOutlineDrag) return;
+const drag = activeOutlineDrag;
+activeOutlineDrag = null;
+const stroke = (glyphData[currentChar] || [])[drag.strokeIndex];
+if (!stroke) return;
+if (!commit) {
+if (drag.originalOverride) stroke.outlineOverride = drag.originalOverride;
+else delete stroke.outlineOverride;
+}
+const finalOutline = getStrokeOutline(stroke);
+const changed = commit && finalOutline.length === drag.originalOutline.length &&
+finalOutline.some((point, index) => Math.abs(point[0] - drag.originalOutline[index][0]) > 1e-6 ||
+Math.abs(point[1] - drag.originalOutline[index][1]) > 1e-6);
+if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
+if (changed) saveHistory();
+renderCanvas();
+updateLiveFont();
+updateContourTools();
+}
+function finishNodeDrag(commit) {
+if (!activeNodeDrag) return;
+const drag = activeNodeDrag;
+activeNodeDrag = null;
+const stroke = (glyphData[currentChar] || [])[drag.strokeIndex];
+if (!commit && stroke && stroke.points && stroke.points[drag.pointIndex]) {
+stroke.points[drag.pointIndex] = drag.originalPoint;
+if (drag.originalOutlineOverride) stroke.outlineOverride = drag.originalOutlineOverride;
+else delete stroke.outlineOverride;
+}
+const finalPoint = stroke && stroke.points && stroke.points[drag.pointIndex];
+const changed = Boolean(finalPoint && (Math.abs(finalPoint[0] - drag.originalPoint[0]) > 1e-6 || Math.abs(finalPoint[1] - drag.originalPoint[1]) > 1e-6));
+if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
+if (commit && changed) saveHistory();
+renderCanvas();
+updateLiveFont();
+updateContourTools();
+}
+drawSvg.addEventListener('pointerup', (e) => {
+if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(true); return; }
+if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(true); return; }
+if (finishTouchPointer(e, false)) {
+if (e.pointerId === activePointerId && isDrawing) finishStroke(true);
+return;
+}
+if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return; }
+if (e.pointerId === activePointerId) finishStroke(true);
+});
+drawSvg.addEventListener('pointercancel', (e) => {
+if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(false); return; }
+if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(false); return; }
+if (finishTouchPointer(e, true)) {
+if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
+return;
+}
+if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return; }
+if (e.pointerId === activePointerId) finishStroke(false);
+});
+drawSvg.addEventListener('lostpointercapture', (e) => {
+if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(false); return; }
+if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(false); return; }
+if (finishTouchPointer(e, true)) {
+if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
+return;
+}
+if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; }
+if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
+});
+// Кнопки управления
+document.getElementById('undoBtn').onclick = () => restoreHistory(historyIndex - 1);
+document.getElementById('redoBtn').onclick = () => restoreHistory(historyIndex + 1);
+contourModeBtn.onclick = () => {
+if (activeOutlineDrag) finishOutlineDrag(false);
+contourEditMode = !contourEditMode;
+nodeEditMode = false;
+outlineEditMode = false;
+selectedStrokeIndex = null;
+selectedNodeIndex = null;
+selectedOutlineIndex = null;
+updateContourTools();
+renderCanvas();
+};
+nodeEditModeBtn.onclick = () => {
+if (activeNodeDrag) finishNodeDrag(false);
+if (activeOutlineDrag) finishOutlineDrag(false);
+nodeEditMode = !nodeEditMode;
+outlineEditMode = false;
+contourEditMode = false;
+selectedStrokeIndex = null;
+selectedNodeIndex = null;
+selectedOutlineIndex = null;
+updateContourTools();
+renderCanvas();
+};
+outlineEditModeBtn.onclick = () => {
+if (activeNodeDrag) finishNodeDrag(false);
+if (activeOutlineDrag) finishOutlineDrag(false);
+outlineEditMode = !outlineEditMode;
+nodeEditMode = false;
+contourEditMode = false;
+selectedStrokeIndex = null;
+selectedNodeIndex = null;
+selectedOutlineIndex = null;
+updateContourTools();
+renderCanvas();
+};
+addTrajectoryPointBtn.onclick = () => {
+const strokes = glyphData[currentChar] || [];
+const stroke = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
+if (!nodeEditMode || !stroke || !Array.isArray(stroke.points) || stroke.points.length < 2) return;
+const insertAt = selectedNodeIndex === null
+? stroke.points.length - 1
+: Math.min(selectedNodeIndex + 1, stroke.points.length - 1);
+const left = stroke.points[insertAt - 1];
+const right = stroke.points[insertAt];
+if (!left || !right) return;
+const midpoint = [(left[0] + right[0]) / 2, (left[1] + right[1]) / 2];
+if (Number.isFinite(left[2]) && Number.isFinite(right[2])) midpoint.push((left[2] + right[2]) / 2);
+else if (Number.isFinite(left[2])) midpoint.push(left[2]);
+else if (Number.isFinite(right[2])) midpoint.push(right[2]);
+delete stroke.outlineOverride;
+stroke.points.splice(insertAt, 0, midpoint);
+selectedNodeIndex = insertAt;
+glyphGeometryCache.delete(strokes);
+saveHistory();
+renderCanvas();
+updateLiveFont();
+updateContourTools();
+};
+deleteTrajectoryPointBtn.onclick = () => {
+const strokes = glyphData[currentChar] || [];
+const stroke = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
+if (!nodeEditMode || !stroke || !Array.isArray(stroke.points) || stroke.points.length <= 2 || selectedNodeIndex === null) return;
+delete stroke.outlineOverride;
+stroke.points.splice(selectedNodeIndex, 1);
+selectedNodeIndex = Math.min(selectedNodeIndex, stroke.points.length - 1);
+glyphGeometryCache.delete(strokes);
+saveHistory();
+renderCanvas();
+updateLiveFont();
+updateContourTools();
+};
+applyContourRoleBtn.onclick = () => {
+const strokes = glyphData[currentChar] || [];
+const selected = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
+if (!selected) return;
+const depth = ({outer: 0, hole: 1, island: 2, 'nested-hole': 3})[contourRoleSelect.value];
+if (!Number.isInteger(depth)) return;
+if (depth > 0 && !isContourWithinParentDepth(selected, strokes, selectedStrokeIndex, depth)) {
+contourStatus.textContent = `Контур уровня ${depth} должен целиком находиться внутри области уровня ${depth - 1} и не касаться её границы.`;
+contourRoleSelect.value = ['outer', 'hole', 'island', 'nested-hole'][Math.min(3, getContourDepth(selected))];
+return;
+}
+selected.depth = depth;
+selected.role = depth % 2 ? 'hole' : 'outer';
+saveHistory();
+renderCanvas();
+updateLiveFont();
+updateContourTools();
+};
+
+document.getElementById('clearBtn').onclick = () => {
+glyphData[currentChar] = [];
+selectedStrokeIndex = null;
+saveHistory();
+renderCanvas();
+renderGrid();
+updateLiveFont();
+updateContourTools();
+};
+
+brushSizeInput.oninput = () => sizeVal.textContent = brushSizeInput.value + 'px';
+brushThinningInput.oninput = () => thinningVal.textContent = brushThinningInput.value;
+previewInput.oninput = () => livePreviewOutput.textContent = previewInput.value;
+document.getElementById('fontName').addEventListener('change', () => { updateLiveFont(); persistDraft(); });
+
+// Генерация объекта шрифта opentype.js
+function buildOpenTypeFont() {
+const unitsPerEm = 1000;
+const ascender = 950;
+const descender = -370;
+const baselineY = 270;
+const scale = 3.2;
+const sideBearing = 50;
+
+const notdefPath = new opentype.Path();
+notdefPath.moveTo(50, 0);
+notdefPath.lineTo(450, 0);
+notdefPath.lineTo(450, 700);
+notdefPath.lineTo(50, 700);
+notdefPath.close();
+notdefPath.moveTo(100, 50);
+notdefPath.lineTo(100, 650);
+notdefPath.lineTo(400, 650);
+notdefPath.lineTo(400, 50);
+notdefPath.close();
+
+const notdefGlyph = new opentype.Glyph({
+name: '.notdef',
+unicode: 0,
+advanceWidth: 500,
+path: notdefPath
+});
+
+const spaceGlyph = new opentype.Glyph({
+name: 'space',
+unicode: 32,
+advanceWidth: 350,
+path: new opentype.Path()
+});
+
+const glyphs = [notdefGlyph, spaceGlyph];
+
+Object.keys(glyphData).forEach(char => {
+const strokes = glyphData[char];
+if (!strokes || !strokes.length) return;
+
+const contours = getCompoundPathRecords(getCompoundGlyphGeometry(strokes));
+let minX = Infinity;
+let maxX = -Infinity;
+contours.forEach(({outline}) => outline.forEach(([x]) => {
+minX = Math.min(minX, x);
+maxX = Math.max(maxX, x);
+}));
+
+if (!contours.length || !Number.isFinite(minX) || !Number.isFinite(maxX)) return;
+
+const fontPath = new opentype.Path();
+const xOffset = sideBearing - minX * scale;
+contours.forEach(({outline, role}) => {
+const mapped = outline.map(([x, y]) => ({
+x: x * scale + xOffset,
+y: (baselineY - y) * scale
+}));
+// В TrueType внешние контуры и отверстия должны иметь противоположное
+// направление. Инверсия оси Y меняет ориентацию исходного SVG-контура.
+const signedArea = mapped.reduce((area, current, index) => {
+const next = mapped[(index + 1) % mapped.length];
+return area + current.x * next.y - next.x * current.y;
+}, 0);
+if ((role === 'outer' && signedArea > 0) || (role === 'hole' && signedArea < 0)) mapped.reverse();
+fontPath.moveTo(mapped[0].x, mapped[0].y);
+for (let i = 1; i < mapped.length; i++) {
+fontPath.lineTo(mapped[i].x, mapped[i].y);
+}
+fontPath.close();
+});
+
+const glyphWidth = Math.max(1, (maxX - minX) * scale);
+const advanceWidth = Math.ceil(glyphWidth + sideBearing * 2);
+const codePoint = char.codePointAt(0);
+if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10FFFF) return;
+const glyphName = codePoint <= 0xFFFF
+? 'uni' + codePoint.toString(16).toUpperCase().padStart(4, '0')
+: 'u' + codePoint.toString(16).toUpperCase().padStart(5, '0');
+
+glyphs.push(new opentype.Glyph({
+name: glyphName,
+unicode: codePoint,
+advanceWidth,
+path: fontPath
+}));
+});
+
+const rawFamilyName = document.getElementById('fontName').value.trim() || 'MyHandwriting';
+const familyName = rawFamilyName.replace(/[\\{};\n\r]/g, '').slice(0, 48) || 'MyHandwriting';
+return new opentype.Font({
+familyName,
+styleName: 'Regular',
+unitsPerEm,
+ascender,
+descender,
+glyphs
+});
+}
+
+// Обновление живого предпросмотра через Blob URL
+function updateLiveFont() {
+try {
+const font = buildOpenTypeFont();
+const arrayBuffer = font.toArrayBuffer();
+const blob = new Blob([arrayBuffer], { type: 'font/otf' });
+const url = URL.createObjectURL(blob);
+if (previewFontUrl) URL.revokeObjectURL(previewFontUrl);
+previewFontUrl = url;
+
+let styleTag = document.getElementById('dynamic-font-style');
+if (!styleTag) {
+styleTag = document.createElement('style');
+styleTag.id = 'dynamic-font-style';
+document.head.appendChild(styleTag);
+}
+styleTag.textContent = `@font-face { font-family: 'LiveCustomFont'; src: url('${url}'); }`;
+} catch (err) {
+console.error('Ошибка обновления шрифта:', err);
+}
+}
+
+// opentype.js строит промежуточный CFF/OTF; fonteditor-core конвертирует его в настоящий TrueType .TTF.
+document.getElementById('downloadBtn').onclick = () => {
+let downloadUrl;
+try {
+const count = Object.values(glyphData).filter(strokes => strokes && strokes.length).length;
+if (!count) { alert('Сначала нарисуйте хотя бы один символ.'); return; }
+if (typeof opentype === 'undefined' || !opentype.Font) { alert('Библиотека opentype.js не загрузилась. Проверьте подключение к интернету и повторите попытку.'); return; }
+const font = buildOpenTypeFont();
+const otfBuffer = font.toArrayBuffer();
+if (!otfBuffer || otfBuffer.byteLength < 100) throw new Error('Получен пустой промежуточный OTF.');
+const converter = createFont(otfBuffer, {type: 'otf'});
+const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: false});
+const ttfBuffer = rawTtf instanceof ArrayBuffer
+? rawTtf
+: rawTtf.buffer.slice(rawTtf.byteOffset, rawTtf.byteOffset + rawTtf.byteLength);
+if (!ttfBuffer || ttfBuffer.byteLength < 100) throw new Error('Конвертер вернул пустой TTF.');
+const signature = new Uint8Array(ttfBuffer, 0, 4);
+if (signature[0] !== 0 || signature[1] !== 1 || signature[2] !== 0 || signature[3] !== 0) {
+throw new Error('Результат не имеет сигнатуру TrueType.');
+}
+const familyName = (font.getEnglishName('fontFamily') || 'GlyphFlow')
+.replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'GlyphFlow';
+const blob = new Blob([ttfBuffer], {type: 'font/ttf'});
+downloadUrl = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = downloadUrl;
+link.download = familyName + '-Regular.ttf';
+document.body.appendChild(link);
+link.click();
+link.remove();
+const completedDownloadUrl = downloadUrl;
+window.setTimeout(() => URL.revokeObjectURL(completedDownloadUrl), 1500);
+downloadUrl = null;
+} catch (err) {
+if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+console.error('Ошибка экспорта TTF:', err);
+alert('Не удалось создать TTF. Проверьте данные глифов и попробуйте ещё раз.');
+}
+};
+
+// Инициализация
+await restoreDraft();
+renderGrid();
+renderCanvas();
+updateLiveFont();
+updateContourTools();
