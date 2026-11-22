@@ -211,7 +211,32 @@ result = polygonClipping.difference(result, levelUnion);
 });
 return result;
 }
-function getCompoundGlyphGeometry(strokes) {
+function cloneCompoundGeometry(geometry) {
+return (geometry || []).map(polygon => (polygon || []).map(ring => (ring || []).map(point => [point[0], point[1]])));
+}
+function compoundTopologySignature(geometry) {
+return (geometry || []).map(polygon => polygon.length).sort((a, b) => a - b).join(',');
+}
+function sanitizeCompoundGeometry(input) {
+if (!Array.isArray(input) || !input.length) return null;
+const candidate = input.map(polygon => {
+if (!Array.isArray(polygon) || !polygon.length) return null;
+const rings = polygon.map(ring => cleanPolygonRing(ring));
+if (rings.some(ring => ring.length < 3 || Math.abs(contourSignedArea(ring)) <= 1e-3)) return null;
+return rings;
+});
+if (candidate.some(polygon => !polygon)) return null;
+try {
+const normalized = polygonClipping.union(candidate);
+if (!normalized.length || compoundTopologySignature(normalized) !== compoundTopologySignature(candidate)) return null;
+if (!Number.isFinite(multiPolygonArea(normalized)) || multiPolygonArea(normalized) <= 1e-3) return null;
+return candidate;
+} catch (err) {
+return null;
+}
+}
+function getCompoundGlyphGeometry(strokes, override = null) {
+if (Array.isArray(override) && override.length) return override;
 if (!Array.isArray(strokes) || !strokes.length) return [];
 const cached = glyphGeometryCache.get(strokes);
 if (cached) return cached;
@@ -225,12 +250,12 @@ return result;
 }
 function getCompoundPathRecords(geometry) {
 const records = [];
-(geometry || []).forEach(polygon => {
+(geometry || []).forEach((polygon, polygonIndex) => {
 polygon.forEach((ring, ringIndex) => {
 const outline = cleanPolygonRing(ring);
 if (outline.length >= 3) {
 const role = ringIndex === 0 ? 'outer' : 'hole';
-records.push({outline: orientSvgContour(outline, role), role});
+records.push({outline: orientSvgContour(outline, role), role, polygonIndex, ringIndex});
 }
 });
 });
@@ -243,6 +268,34 @@ const outerArea = Math.abs(contourSignedArea(polygon[0]));
 const holesArea = polygon.slice(1).reduce((sum, ring) => sum + Math.abs(contourSignedArea(ring)), 0);
 return total + Math.max(0, outerArea - holesArea);
 }, 0);
+}
+function isSimpleRingAfterVertexMove(ring, pointIndex) {
+const count = ring.length;
+if (count < 3) return false;
+const affectedEdges = [(pointIndex - 1 + count) % count, pointIndex];
+for (const edgeIndex of affectedEdges) {
+const a = ring[edgeIndex];
+const b = ring[(edgeIndex + 1) % count];
+for (let otherIndex = 0; otherIndex < count; otherIndex++) {
+const otherNext = (otherIndex + 1) % count;
+if (otherIndex === edgeIndex || otherNext === edgeIndex ||
+otherIndex === (edgeIndex + 1) % count || otherNext === (edgeIndex + 1) % count) continue;
+if (segmentsIntersect(a, b, ring[otherIndex], ring[otherNext])) return false;
+}
+}
+return true;
+}
+function isValidCompoundEdit(candidate, original) {
+if (!Array.isArray(candidate) || !candidate.length) return false;
+try {
+const normalized = polygonClipping.union(candidate);
+return normalized.length > 0 &&
+compoundTopologySignature(normalized) === compoundTopologySignature(original) &&
+Number.isFinite(multiPolygonArea(normalized)) &&
+multiPolygonArea(normalized) > 1e-3;
+} catch (err) {
+return false;
+}
 }
 function segmentsIntersect(a, b, c, d) {
 const epsilon = 1e-7;
