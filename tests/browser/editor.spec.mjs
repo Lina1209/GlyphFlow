@@ -1118,7 +1118,9 @@ test('adds and removes trajectory points with undo and redo', async ({ page }) =
   await page.locator('#deleteTrajectoryPointBtn').click();
   await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial);
   await page.locator('#undoBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
   await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial + 1);
   await page.locator('#redoBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
   await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial);
 });
