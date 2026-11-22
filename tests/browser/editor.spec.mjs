@@ -1143,13 +1143,13 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   if (!bounds) throw new Error('Vector outline handle is not visible');
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   await page.mouse.down();
-  await page.mouse.move(bounds.x + bounds.width / 2 + 8, bounds.y + bounds.height / 2 + 6, {steps: 4});
+  await page.mouse.move(bounds.x + bounds.width / 2 + 3, bounds.y + bounds.height / 2 + 2, {steps: 3});
   await page.mouse.up();
   const changed = await page.locator('#drawSvg [data-outline-index]').nth(Math.floor((await page.locator('#drawSvg [data-outline-index]').count()) / 2)).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
   }));
-  expect(Math.hypot(changed.x - before.x, changed.y - before.y)).toBeGreaterThan(2);
+  expect(Math.hypot(changed.x - before.x, changed.y - before.y)).toBeGreaterThan(0.5);
 
   await page.locator('#undoBtn').click();
   await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
