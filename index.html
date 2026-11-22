@@ -942,7 +942,7 @@ return false;
 }
 function isValidEditableRing(points) {
 const ring = cleanPolygonRing(points);
-if (ring.length < 3 || Math.abs(contourSignedArea(ring)) <= 1e-3) return false;
+if (ring.length < 3 || ring.length !== points.length || Math.abs(contourSignedArea(ring)) <= 1e-3) return false;
 for (let i = 0; i < ring.length; i++) {
 const a = ring[i], b = ring[(i + 1) % ring.length];
 for (let j = i + 1; j < ring.length; j++) {
@@ -1024,6 +1024,7 @@ if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
 document.getElementById('undoBtn').onclick = () => restoreHistory(historyIndex - 1);
 document.getElementById('redoBtn').onclick = () => restoreHistory(historyIndex + 1);
 contourModeBtn.onclick = () => {
+if (activeOutlineDrag) finishOutlineDrag(false);
 contourEditMode = !contourEditMode;
 nodeEditMode = false;
 outlineEditMode = false;
