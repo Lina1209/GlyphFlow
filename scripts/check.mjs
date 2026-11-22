@@ -25,7 +25,9 @@ const requiredContracts = [
   ['draft restoration on startup', 'await restoreDraft();'],
   ['visible .notdef glyph', "name: '.notdef'"],
   ['normalized left side bearing', 'const xOffset = sideBearing - minX * scale;'],
-  ['advance width from glyph bounds', '(maxX - minX) * scale']
+  ['advance width from glyph bounds', '(maxX - minX) * scale'],
+  ['full Unicode code point mapping', 'char.codePointAt(0)'],
+  ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"]
 ];
 
 for (const [label, token] of requiredContracts) {
