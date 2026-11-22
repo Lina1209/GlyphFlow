@@ -199,10 +199,23 @@ test('canvas zoom, pan and coordinate mapping stay stable', async ({ page }) => 
   const zoomed = (await svg.getAttribute('viewBox')).split(' ').map(Number);
   expect(zoomed[2]).toBeCloseTo(288, 4);
   expect(zoomed[3]).toBeCloseTo(288, 4);
+  await expect(page.locator('#guideSvg')).toHaveAttribute('viewBox', (await svg.getAttribute('viewBox')));
 
   await page.locator('#panRightBtn').click();
   const panned = (await svg.getAttribute('viewBox')).split(' ').map(Number);
   expect(panned[0]).toBeGreaterThan(zoomed[0]);
+  await expect(page.locator('#guideSvg')).toHaveAttribute('viewBox', (await svg.getAttribute('viewBox')));
+
+  const panBounds = await svg.boundingBox();
+  if (!panBounds) throw new Error('Drawing SVG has no visible bounds');
+  const panStartX = panBounds.x + panBounds.width / 2;
+  const panStartY = panBounds.y + panBounds.height / 2;
+  await page.mouse.move(panStartX, panStartY);
+  await page.mouse.down({button: 'middle'});
+  await page.mouse.move(panStartX + 20, panStartY + 8, {steps: 2});
+  await page.mouse.up({button: 'middle'});
+  const mousePanned = (await svg.getAttribute('viewBox')).split(' ').map(Number);
+  expect(mousePanned[0]).toBeLessThan(panned[0]);
 
   await page.locator('#zoomResetBtn').click();
   await expect(svg).toHaveAttribute('viewBox', '0 0 360 360');
