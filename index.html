@@ -445,7 +445,11 @@ drawSvg.appendChild(hitPath);
 }
 if (nodeEditMode && selectedStrokeIndex !== null && strokes[selectedStrokeIndex]) {
 const selectedPoints = strokes[selectedStrokeIndex].points || [];
+// Keep the overlay usable on dense trajectories: show at most 48 evenly
+// distributed handles plus the final endpoint, while preserving source indices.
+const nodeStep = Math.max(1, Math.ceil(selectedPoints.length / 48));
 selectedPoints.forEach((point, pointIndex) => {
+if (pointIndex % nodeStep !== 0 && pointIndex !== selectedPoints.length - 1) return;
 const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
 node.setAttribute('cx', String(point[0]));
 node.setAttribute('cy', String(point[1]));
