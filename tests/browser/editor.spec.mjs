@@ -1157,6 +1157,7 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
     x: Number(element.getAttribute('cx')),
     y: Number(element.getAttribute('cy'))
   }));
+  console.log('outline handle after drag', {changed, before, matches: await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).count()});
   expect(Math.hypot(changed.x - before.x, changed.y - before.y)).toBeGreaterThan(0.5);
 
   await page.locator('#undoBtn').click();
