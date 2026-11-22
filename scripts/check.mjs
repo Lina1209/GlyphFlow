@@ -17,7 +17,13 @@ const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
 assert.equal(syntax.status, 0, `Inline module syntax check failed:\n${syntax.stderr || syntax.stdout}`);
 
 const requiredContracts = [
-  ['primary pointer guard', 'if (!e.isPrimary || isDrawing) return;'],
+  ['primary pointer guard', 'if (e.button !== 0 || !e.isPrimary || isDrawing || panPointerId !== null) return;'],
+  ['SVG coordinate transform', 'point.matrixTransform(drawSvg.getScreenCTM().inverse())'],
+  ['bounded canvas zoom', 'const MIN_VIEW_SIZE = 120;'],
+  ['canvas viewBox zoom control', "getElementById('zoomInBtn')"],
+  ['canvas directional pan controls', "getElementById('panLeftBtn')"],
+  ['wheel zoom handler', "addEventListener('wheel'"],
+  ['mouse pan gesture', 'panStart = {clientX: e.clientX, clientY: e.clientY, x: viewBox.x, y: viewBox.y};'],
   ['active pointer filtering', 'e.pointerId !== activePointerId'],
   ['pointer cancellation', "addEventListener('pointercancel'"],
   ['lost pointer capture handling', "addEventListener('lostpointercapture'"],
