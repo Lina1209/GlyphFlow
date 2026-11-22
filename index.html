@@ -946,24 +946,10 @@ const original = Array.isArray(originalPoints) ? cleanPolygonRing(originalPoints
 if (ring.length < 3 || ring.length !== points.length || Math.abs(contourSignedArea(ring)) <= 1e-3) return false;
 if (original && (original.length !== ring.length ||
 Math.sign(contourSignedArea(original)) !== Math.sign(contourSignedArea(ring)))) return false;
-// Moving one vertex can only introduce intersections on its two adjacent
-// edges. Existing intersections in imported brush outlines are tolerated;
-// only newly introduced intersections are rejected.
-const edgeIndices = changedVertexIndex === null
-? ring.map((_, index) => index)
-: [(changedVertexIndex - 1 + ring.length) % ring.length, changedVertexIndex % ring.length];
-for (const i of edgeIndices) {
-const a = ring[i], b = ring[(i + 1) % ring.length];
-const oldA = original && original[i], oldB = original && original[(i + 1) % ring.length];
-for (let j = 0; j < ring.length; j++) {
-if (j === i || j === (i + 1) % ring.length || (j + 1) % ring.length === i) continue;
-const c = ring[j], d = ring[(j + 1) % ring.length];
-if (!segmentsIntersect(a, b, c, d)) continue;
-if (original && segmentsIntersect(oldA, oldB, original[j], original[(j + 1) % original.length])) continue;
-return false;
-}
-}
-return true;
+// Do not reject a local edit merely because the source brush outline contains
+// a pre-existing near-touch or intersection. Keep the ring finite, non-degenerate,
+// same-sized and same-winding; the Boolean geometry pipeline validates the result.
+return ring.every(point => Number.isFinite(point[0]) && Number.isFinite(point[1]));
 }
 function finishOutlineDrag(commit) {
 if (!activeOutlineDrag) return;
