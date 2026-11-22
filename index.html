@@ -745,6 +745,8 @@ candidate[activeOutlineDrag.pointIndex] = [position[0], position[1]];
 if (isValidEditableRing(candidate, activeOutlineDrag.pointIndex, activeOutlineDrag.originalOutline)) {
 drawSvg.dataset.outlineDragState = 'accepted';
 stroke.outlineOverride = candidate;
+drawSvg.dataset.outlineStoredPoint = candidate[activeOutlineDrag.pointIndex].join(',');
+drawSvg.dataset.outlineStoredLength = String(candidate.length);
 } else {
 drawSvg.dataset.outlineDragState = 'rejected';
 }
