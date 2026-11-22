@@ -390,7 +390,7 @@ const strokes = glyphData[currentChar] || [];
 let compoundGeometry = [];
 let fillRecords = [];
 try {
-compoundGeometry = getCompoundGlyphGeometry(strokes, compoundOverrides[currentChar]);
+compoundGeometry = cloneCompoundGeometry(getCompoundGlyphGeometry(strokes, compoundOverrides[currentChar]));
 fillRecords = getCompoundPathRecords(compoundGeometry);
 } catch (err) {
 console.error('Ошибка объединения контуров глифа:', err);
