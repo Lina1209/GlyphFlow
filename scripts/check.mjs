@@ -31,8 +31,13 @@ const requiredContracts = [
   ['normalized left side bearing', 'const xOffset = sideBearing - minX * scale;'],
   ['advance width from glyph bounds', '(maxX - minX) * scale'],
   ['TrueType contour winding normalization', 'if (signedArea > 0) mapped.reverse();'],
-  ['OpenType CFF MIME type', "type: 'font/otf'"],
-  ['honest OTF download extension', "link.download = familyName + '-Regular.otf';"],
+  ['OpenType preview MIME type', "type: 'font/otf'"],
+  ['TrueType export MIME type', "type: 'font/ttf'"],
+  ['OTF-to-TTF conversion import', "import { createFont } from 'https://esm.sh/fonteditor-core@2.6.3';"],
+  ['OTF parsing before conversion', "createFont(otfBuffer, {type: 'otf'})"],
+  ['TrueType output conversion', "converter.write({type: 'ttf', hinting: false, kerning: false})"],
+  ['TrueType sfnt signature validation', 'signature[1] !== 1'],
+  ['honest TrueType download extension', "link.download = familyName + '-Regular.ttf';"],
   ['download uses a user-triggered anchor', 'link.click();'],
   ['vertical ascender metric covers canvas top', 'const ascender = 900;'],
   ['vertical descender metric covers canvas bottom', 'const descender = -300;'],
@@ -45,7 +50,7 @@ for (const [label, token] of requiredContracts) {
 }
 
 assert.ok(!html.includes('font.download()'), 'Deprecated library download helper must not be used');
-assert.ok(!html.includes('Скачать .TTF'), 'The UI must not label CFF output as TTF');
+assert.ok(!html.includes('Скачать .OTF'), 'The UI must provide the requested TrueType TTF export');
 
 console.log(`GlyphFlow checks passed: module syntax + ${requiredContracts.length} structural contracts.`);
 console.log('Note: these checks do not replace browser, touch-device, or independent TTF validation.');
