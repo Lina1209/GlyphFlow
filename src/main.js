@@ -1078,14 +1078,30 @@ function openDraftDB() {
 return new Promise((resolve, reject) => {
 if (!('indexedDB' in window)) return reject(new Error('IndexedDB недоступен'));
 const request = indexedDB.open(DRAFT_DB, 1);
+let settled = false;
 request.onupgradeneeded = () => {
 if (!request.result.objectStoreNames.contains(DRAFT_STORE)) {
 request.result.createObjectStore(DRAFT_STORE);
 }
 };
-request.onsuccess = () => resolve(request.result);
-request.onerror = () => reject(request.error);
-request.onblocked = () => reject(new Error('Открытие IndexedDB заблокировано другой вкладкой'));
+request.onsuccess = () => {
+if (settled) {
+request.result.close();
+return;
+}
+settled = true;
+resolve(request.result);
+};
+request.onerror = () => {
+if (settled) return;
+settled = true;
+reject(request.error);
+};
+request.onblocked = () => {
+if (settled) return;
+settled = true;
+reject(new Error('Открытие IndexedDB заблокировано другой вкладкой'));
+};
 });
 }
 
