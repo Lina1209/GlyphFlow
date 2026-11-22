@@ -224,7 +224,7 @@ test('canvas zoom, pan and coordinate mapping stay stable', async ({ page }) => 
   await expect(svg.locator('path')).toHaveCount(1);
   const pathData = await svg.locator('path').getAttribute('d');
   expect(pathData).toBeTruthy();
-  const coordinates = [...pathData.matchAll(/-?\\d+(?:\\.\\d+)?/g)].map(match => Number(match[0]));
+  const coordinates = [...pathData.matchAll(/-?\d+(?:\.\d+)?/g)].map(match => Number(match[0]));
   expect(coordinates.length).toBeGreaterThan(8);
   expect(coordinates.every(Number.isFinite)).toBe(true);
 });
