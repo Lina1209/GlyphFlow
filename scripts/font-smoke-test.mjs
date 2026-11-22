@@ -8,18 +8,18 @@ import polygonClipping from 'polygon-clipping';
 
 const require = createRequire(import.meta.url);
 const opentype = require('opentype.js');
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const moduleSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 const helperStartMarker = 'const glyphGeometryCache = new WeakMap();';
 const builderStartMarker = 'function buildOpenTypeFont() {';
 const endMarker = '// Обновление живого предпросмотра';
-const helperStart = html.indexOf(helperStartMarker);
-const builderStart = html.indexOf(builderStartMarker);
-const helperEnd = html.indexOf('function updateContourTools()', helperStart);
-const builderEnd = html.indexOf(endMarker, builderStart);
-assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Could not locate glyph geometry helpers in index.html');
-assert.ok(builderStart >= 0 && builderEnd > builderStart, 'Could not locate buildOpenTypeFont() in index.html');
-const geometrySource = html.slice(helperStart, helperEnd);
-const builderSource = geometrySource + '\n' + html.slice(builderStart, builderEnd);
+const helperStart = moduleSource.indexOf(helperStartMarker);
+const builderStart = moduleSource.indexOf(builderStartMarker);
+const helperEnd = moduleSource.indexOf('function updateContourTools()', helperStart);
+const builderEnd = moduleSource.indexOf(endMarker, builderStart);
+assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Could not locate glyph geometry helpers in src/main.js');
+assert.ok(builderStart >= 0 && builderEnd > builderStart, 'Could not locate buildOpenTypeFont() in src/main.js');
+const geometrySource = moduleSource.slice(helperStart, helperEnd);
+const builderSource = geometrySource + '\n' + moduleSource.slice(builderStart, builderEnd);
 
 const rectangle = (x1, y1, x2, y2) => [
   [x1, y1], [x2, y1], [x2, y2], [x1, y2]
