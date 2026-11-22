@@ -55,6 +55,12 @@ const glyphData = {
     { points: [[80, 180, 0.5], [280, 180, 0.5]], size: 36, thinning: 0.35, role: 'outer' },
     { points: [[150, 180, 0.5], [210, 180, 0.5]], size: 8, thinning: 0.3, role: 'hole' }
   ],
+  // Two separate counters must remain independent after subtraction.
+  'Ф': [
+    { points: [[80, 180, 0.5], [280, 180, 0.5]], size: 36, thinning: 0.35, role: 'outer' },
+    { points: [[120, 180, 0.5], [140, 180, 0.5]], size: 8, thinning: 0.3, role: 'hole' },
+    { points: [[220, 180, 0.5], [240, 180, 0.5]], size: 8, thinning: 0.3, role: 'hole' }
+  ],
   // A self-crossing figure-eight trajectory probes outline stability at crossings.
   '∞': [{
     points: [[150, 150, 0.5], [180, 105, 0.6], [225, 105, 0.6], [255, 150, 0.5], [285, 195, 0.6], [330, 195, 0.6], [360, 150, 0.5], [330, 105, 0.6], [285, 105, 0.6], [255, 150, 0.5], [225, 195, 0.6], [180, 195, 0.6], [150, 150, 0.5]],
@@ -85,7 +91,7 @@ const notdef = parsed.glyphs.get(0);
 assert.equal(notdef.name, '.notdef', 'Glyph zero must be .notdef');
 assert.equal(parsed.charToGlyph(' ').advanceWidth, 350, 'Space advance width must be preserved');
 
-for (const char of ['A', 'Ё', '😀', 'О', 'Ж', 'Р', '∞']) {
+for (const char of ['A', 'Ё', '😀', 'О', 'Ж', 'Р', 'Ф', '∞']) {
   const glyph = parsed.charToGlyph(char);
   assert.ok(glyph && glyph.index > 0, `Missing cmap entry for ${char}`);
   assert.equal(glyph.unicode, char.codePointAt(0), `Incorrect Unicode mapping for ${char}`);
@@ -116,6 +122,7 @@ assert.equal(reparsedTtf.charToGlyph('😀').unicode, 0x1F600);
 assert.equal(reparsedTtf.charToGlyph('О').unicode, 0x41E);
 assert.equal(reparsedTtf.charToGlyph('Ж').unicode, 0x416);
 assert.equal(reparsedTtf.charToGlyph('Р').unicode, 0x420);
+assert.equal(reparsedTtf.charToGlyph('Ф').unicode, 0x424);
 assert.equal(reparsedTtf.charToGlyph('∞').unicode, 0x221E);
 assert.equal(reparsedTtf.charToGlyph('Ё').path.commands.filter(command => command.type === 'M').length, 2,
   'TTF conversion must preserve multi-contour glyphs');
@@ -132,5 +139,7 @@ assert.equal(reparsedTtf.charToGlyph('Ж').path.commands.filter(command => comma
   'Three intersecting brush strokes must be Boolean-unioned into one outline contour');
 assert.equal(reparsedTtf.charToGlyph('∞').path.commands.filter(command => command.type === 'M').length, 2,
   'The self-crossing figure-eight must resolve into two non-overlapping filled lobes');
+assert.equal(reparsedTtf.charToGlyph('Ф').path.commands.filter(command => command.type === 'M').length, 3,
+  'Two independent holes must survive Boolean subtraction as two inner contours');
 
 console.log('GlyphFlow font pipeline passed: real perfect-freehand curves, closed loop, explicit hole subtraction, Boolean union of intersecting brush strokes, self-crossing trajectory, OTF-to-TTF conversion, Unicode and multi-contour preservation.');
