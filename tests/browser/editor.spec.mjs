@@ -1388,7 +1388,7 @@ test('imports a valid font file into the local font library and supports removal
   const card = page.locator('#fontLibraryList article').first();
   await expect(card).toContainText('Imported-GlyphFlow');
   await expect(card).toContainText('импортированный файл');
-  await card.getByRole('button',{name:'Удалить'}).click();
   page.once('dialog', dialog => dialog.accept());
+  await card.getByRole('button',{name:'Удалить'}).click();
   await expect(page.locator('#fontLibraryCount')).toHaveText('0');
 });
