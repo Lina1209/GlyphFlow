@@ -139,6 +139,7 @@ placeholder="Введите текст для проверки...">ПРИВЕТ<
 // Импортируем библиотеку каллиграфической кисти perfect-freehand
 import { getStroke } from 'https://esm.sh/perfect-freehand@1.2.0';
 import { createFont } from 'https://esm.sh/fonteditor-core@2.6.3';
+import polygonClipping from 'https://esm.sh/polygon-clipping@0.15.7';
 
 // Набор символов для старта (Кириллица + Латиница + Цифры)
 const CHARS = [
@@ -232,6 +233,7 @@ renderGrid();
 renderCanvas();
 }
 
+const glyphGeometryCache = new WeakMap();
 function getStrokeOutline(stroke) {
 if (!stroke || !Array.isArray(stroke.points) || !stroke.points.length) return [];
 return getStroke(stroke.points, {
@@ -258,11 +260,62 @@ const area = contourSignedArea(outline);
 const wantsPositive = role !== 'hole';
 return ((area > 0) === wantsPositive) ? outline : [...outline].reverse();
 }
-function contourBounds(points) {
-return points.reduce((box, point) => ({
-minX: Math.min(box.minX, point[0]), minY: Math.min(box.minY, point[1]),
-maxX: Math.max(box.maxX, point[0]), maxY: Math.max(box.maxY, point[1])
-}), {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity});
+function cleanPolygonRing(points) {
+const ring = [];
+for (const point of points || []) {
+if (!Array.isArray(point) || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) continue;
+const previous = ring[ring.length - 1];
+if (!previous || Math.abs(previous[0] - point[0]) > 1e-7 || Math.abs(previous[1] - point[1]) > 1e-7) {
+ring.push([point[0], point[1]]);
+}
+}
+if (ring.length > 2 &&
+Math.abs(ring[0][0] - ring[ring.length - 1][0]) <= 1e-7 &&
+Math.abs(ring[0][1] - ring[ring.length - 1][1]) <= 1e-7) ring.pop();
+return ring.length >= 3 && Math.abs(contourSignedArea(ring)) > 1e-6 ? ring : [];
+}
+function getCompoundGlyphGeometry(strokes) {
+if (!Array.isArray(strokes) || !strokes.length) return [];
+const cached = glyphGeometryCache.get(strokes);
+if (cached) return cached;
+const outerPolygons = [];
+const holePolygons = [];
+strokes.forEach(stroke => {
+const ring = cleanPolygonRing(getStrokeOutline(stroke));
+if (ring.length < 3) return;
+(getContourRole(stroke) === 'hole' ? holePolygons : outerPolygons).push([ring]);
+});
+if (!outerPolygons.length) {
+glyphGeometryCache.set(strokes, []);
+return [];
+}
+const outerUnion = polygonClipping.union(...outerPolygons);
+const result = holePolygons.length
+? polygonClipping.difference(outerUnion, polygonClipping.union(...holePolygons))
+: outerUnion;
+glyphGeometryCache.set(strokes, result);
+return result;
+}
+function getCompoundPathRecords(geometry) {
+const records = [];
+(geometry || []).forEach(polygon => {
+polygon.forEach((ring, ringIndex) => {
+const outline = cleanPolygonRing(ring);
+if (outline.length >= 3) {
+const role = ringIndex === 0 ? 'outer' : 'hole';
+records.push({outline: orientSvgContour(outline, role), role});
+}
+});
+});
+return records;
+}
+function multiPolygonArea(geometry) {
+return (geometry || []).reduce((total, polygon) => {
+if (!polygon.length) return total;
+const outerArea = Math.abs(contourSignedArea(polygon[0]));
+const holesArea = polygon.slice(1).reduce((sum, ring) => sum + Math.abs(contourSignedArea(ring)), 0);
+return total + Math.max(0, outerArea - holesArea);
+}, 0);
 }
 function segmentsIntersect(a, b, c, d) {
 const epsilon = 1e-7;
@@ -277,37 +330,29 @@ if (((abC > epsilon && abD < -epsilon) || (abC < -epsilon && abD > epsilon)) &&
 ((cdA > epsilon && cdB < -epsilon) || (cdA < -epsilon && cdB > epsilon))) return true;
 return onSegment(a, c, b) || onSegment(a, d, b) || onSegment(c, a, d) || onSegment(c, b, d);
 }
-function pointInPolygon(point, polygon) {
-let inside = false;
-for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-const a = polygon[i], b = polygon[j];
-if ((a[1] > point[1]) !== (b[1] > point[1]) &&
-point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) {
-inside = !inside;
-}
-}
-return inside;
-}
 function isHoleWithinOuterBounds(holeStroke, strokes, holeIndex) {
-const hole = getStrokeOutline(holeStroke);
+const hole = cleanPolygonRing(getStrokeOutline(holeStroke));
 if (hole.length < 3) return false;
-const holeBox = contourBounds(hole);
-return strokes.some((outerStroke, index) => {
-if (index === holeIndex || getContourRole(outerStroke) !== 'outer') return false;
-const outer = getStrokeOutline(outerStroke);
-if (outer.length < 3) return false;
-const box = contourBounds(outer);
-const contained = holeBox.minX > box.minX && holeBox.maxX < box.maxX &&
-holeBox.minY > box.minY && holeBox.maxY < box.maxY;
-if (!contained || !pointInPolygon(hole[0], outer)) return false;
+const outerPolygons = strokes
+.filter((stroke, index) => index !== holeIndex && getContourRole(stroke) === 'outer')
+.map(stroke => cleanPolygonRing(getStrokeOutline(stroke)))
+.filter(ring => ring.length >= 3)
+.map(ring => [ring]);
+if (!outerPolygons.length) return false;
+const outerUnion = polygonClipping.union(...outerPolygons);
+const outside = polygonClipping.difference([[hole]], outerUnion);
+if (multiPolygonArea(outside) > 1e-4) return false;
+for (const polygon of outerUnion) {
+for (const boundary of polygon) {
 for (let i = 0; i < hole.length; i++) {
 const a = hole[i], b = hole[(i + 1) % hole.length];
-for (let j = 0; j < outer.length; j++) {
-if (segmentsIntersect(a, b, outer[j], outer[(j + 1) % outer.length])) return false;
+for (let j = 0; j < boundary.length; j++) {
+if (segmentsIntersect(a, b, boundary[j], boundary[(j + 1) % boundary.length])) return false;
+}
+}
 }
 }
 return true;
-});
 }
 function updateContourTools() {
 const strokes = glyphData[currentChar] || [];
@@ -330,33 +375,38 @@ contourStatus.textContent = 'Старые и новые штрихи счита�
 function renderCanvas() {
 drawSvg.innerHTML = '';
 const strokes = glyphData[currentChar] || [];
-const records = strokes.map((stroke, index) => {
-const outline = getStrokeOutline(stroke);
-return {index, outline: orientSvgContour(outline, getContourRole(stroke))};
-}).filter(record => record.outline.length >= 3);
-if (records.length) {
+let fillRecords = [];
+try {
+fillRecords = getCompoundPathRecords(getCompoundGlyphGeometry(strokes));
+} catch (err) {
+console.error('Ошибка объединения контуров глифа:', err);
+if (contourStatus) contourStatus.textContent = 'Не удалось объединить контуры. Проверьте геометрию штрихов.';
+}
+if (fillRecords.length) {
 const fillPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-fillPath.setAttribute('d', records.map(record => getSvgPathFromStroke(record.outline)).join(' '));
+fillPath.setAttribute('d', fillRecords.map(record => getSvgPathFromStroke(record.outline)).join(' '));
 fillPath.setAttribute('fill', '#0f172a');
 fillPath.setAttribute('fill-rule', 'nonzero');
 fillPath.setAttribute('class', 'glyph-fill');
 fillPath.setAttribute('pointer-events', 'none');
 drawSvg.appendChild(fillPath);
+}
 if (contourEditMode) {
-records.forEach(record => {
+strokes.forEach((stroke, index) => {
+const outline = orientSvgContour(getStrokeOutline(stroke), getContourRole(stroke));
+if (outline.length < 3) return;
 const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-hitPath.setAttribute('d', getSvgPathFromStroke(record.outline));
+hitPath.setAttribute('d', getSvgPathFromStroke(outline));
 hitPath.setAttribute('fill', 'transparent');
 hitPath.setAttribute('fill-rule', 'nonzero');
 hitPath.setAttribute('pointer-events', 'all');
-hitPath.setAttribute('data-contour-index', String(record.index));
-if (record.index === selectedStrokeIndex) {
+hitPath.setAttribute('data-contour-index', String(index));
+if (index === selectedStrokeIndex) {
 hitPath.setAttribute('stroke', '#f59e0b');
 hitPath.setAttribute('stroke-width', '2');
 }
 drawSvg.appendChild(hitPath);
 });
-}
 }
 
 // Рисуем текущий незавершенный штрих
@@ -622,6 +672,7 @@ if (db) db.close();
 }
 }
 function saveHistory() {
+if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
 const snapshot = JSON.stringify(glyphData);
 if (history[historyIndex] === snapshot) return;
 history = history.slice(0, historyIndex + 1);
@@ -768,31 +819,13 @@ Object.keys(glyphData).forEach(char => {
 const strokes = glyphData[char];
 if (!strokes || !strokes.length) return;
 
-const contours = [];
+const contours = getCompoundPathRecords(getCompoundGlyphGeometry(strokes));
 let minX = Infinity;
 let maxX = -Infinity;
-
-strokes.forEach(s => {
-if (!s || !Array.isArray(s.points) || s.points.length < 1) return;
-const outline = getStroke(s.points, {
-size: Number(s.size) || 16,
-thinning: Number.isFinite(Number(s.thinning)) ? Number(s.thinning) : 0.6,
-smoothing: 0.5,
-streamline: 0.5,
-});
-if (!Array.isArray(outline) || outline.length < 3) return;
-
-const valid = outline.every(point =>
-Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1])
-);
-if (!valid) return;
-
-outline.forEach(([x]) => {
+contours.forEach(({outline}) => outline.forEach(([x]) => {
 minX = Math.min(minX, x);
 maxX = Math.max(maxX, x);
-});
-contours.push({outline, role: s && s.role === 'hole' ? 'hole' : 'outer'});
-});
+}));
 
 if (!contours.length || !Number.isFinite(minX) || !Number.isFinite(maxX)) return;
 
