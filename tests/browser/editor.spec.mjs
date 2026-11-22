@@ -16,6 +16,26 @@ async function drawStroke(page, offset = 0) {
   await page.mouse.up();
 }
 
+async function drawClosedContour(page, points) {
+  const bounds = await page.locator('#drawSvg').boundingBox();
+  if (!bounds) throw new Error('Drawing SVG has no visible bounds');
+  await page.mouse.move(bounds.x + points[0][0], bounds.y + points[0][1]);
+  await page.mouse.down();
+  for (const [x, y] of points.slice(1)) {
+    await page.mouse.move(bounds.x + x, bounds.y + y, {steps: 3});
+  }
+  await page.mouse.up();
+}
+
+async function clickContourPath(page, path) {
+  const point = await path.evaluate(element => {
+    const local = element.getPointAtLength(Math.max(1, element.getTotalLength() * 0.08));
+    const screen = new DOMPoint(local.x, local.y).matrixTransform(element.getScreenCTM());
+    return {x: screen.x, y: screen.y};
+  });
+  await page.mouse.click(point.x, point.y);
+}
+
 test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
@@ -254,6 +274,38 @@ test('drawing workspace fits a narrow mobile viewport', async ({ page }) => {
   await expect(page.locator('#zoomLevel')).toHaveText('125%');
 });
 
+
+test('contour editor assigns a hole role and preserves it in the generated font', async ({page}) => {
+  await page.goto('/');
+  const svg = page.locator('#drawSvg');
+  await page.locator('#brushSize').evaluate(element => {
+    element.value = '36';
+    element.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  await drawClosedContour(page, [[60,60],[300,60],[300,300],[60,300],[60,60]]);
+  await page.locator('#brushSize').evaluate(element => {
+    element.value = '8';
+    element.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  await drawClosedContour(page, [[145,145],[215,145],[215,215],[145,215],[145,145]]);
+  await expect(svg.locator('.glyph-fill')).toHaveCount(1);
+
+  await page.locator('#contourModeBtn').click();
+  const innerContour = svg.locator('[data-contour-index="1"]');
+  await expect(innerContour).toBeVisible();
+  await clickContourPath(page, innerContour);
+  const roleSelect = page.locator('#contourRoleSelect');
+  await expect(roleSelect).toBeEnabled();
+  await roleSelect.selectOption('hole');
+  await page.locator('#applyContourRoleBtn').click();
+  await expect(roleSelect).toHaveValue('hole');
+  await expect(page.locator('#contourStatus')).toContainText('Выбран контур 2');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.ttf$/i);
+});
 
 test('two-finger touch gesture zooms and pans without committing a glyph', async ({ page }) => {
   await page.setViewportSize({width: 390, height: 844});
