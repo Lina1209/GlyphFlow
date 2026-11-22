@@ -8,10 +8,14 @@ async function drawStroke(page, offset = 0) {
   const points = [
     [45, 275], [60, 235], [78, 195], [96, 155], [116, 115], [138, 80]
   ];
-  await page.mouse.move(bounds.x + points[0][0] + offset, bounds.y + points[0][1]);
+  // Coordinates are authored in the SVG's 360x360 viewBox. Scale them to
+  // the actual CSS viewport so the same gesture remains inside small screens.
+  const scaleX = bounds.width / 360;
+  const scaleY = bounds.height / 360;
+  await page.mouse.move(bounds.x + points[0][0] * scaleX + offset, bounds.y + points[0][1] * scaleY);
   await page.mouse.down();
   for (const [x, y] of points.slice(1)) {
-    await page.mouse.move(bounds.x + x + offset, bounds.y + y, { steps: 3 });
+    await page.mouse.move(bounds.x + x * scaleX + offset, bounds.y + y * scaleY, { steps: 3 });
   }
   await page.mouse.up();
 }
