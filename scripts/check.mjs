@@ -116,7 +116,7 @@ const requiredContracts = [
   ['nested counter subtraction', 'polygonClipping.difference(result, levelUnion)'],
   ['nested topology pipeline', 'buildNestedContourGeometry(contours)'],
   ['microscopic geometry tolerance', 'Math.abs(contourSignedArea(ring)) > 1e-3'],
-  ['compound geometry export', 'getCompoundPathRecords(getCompoundGlyphGeometry(strokes))'],
+  ['compound geometry export', 'getCompoundPathRecords(getCompoundGlyphGeometry(strokes, compoundOverrides[char]))'],
   ['cached glyph Boolean geometry', 'const glyphGeometryCache = new WeakMap();'],
   ['nested parent-depth validation', 'isContourWithinParentDepth(selected, strokes, selectedStrokeIndex, depth)'],
   ['restored depth is restricted to supported UI levels', 'storedDepth <= 3'],
