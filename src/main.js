@@ -1797,13 +1797,13 @@ importFontInput.addEventListener('change', async () => {
 const files = [...(importFontInput.files || [])];
 for (const file of files) {
 try {
-const extension = /\\.(ttf|otf)$/i.exec(file.name)?.[1]?.toLowerCase();
+const extension = /\.(ttf|otf)$/i.exec(file.name)?.[1]?.toLowerCase();
 if (!extension) throw new Error('Поддерживаются только файлы TTF и OTF.');
 if (file.size > MAX_IMPORTED_FONT_BYTES) throw new Error('Файл шрифта превышает лимит 20 МБ.');
 const format = extension;
 const buffer = await file.arrayBuffer();
 const parsed = parseLibraryFontBytes(buffer, format);
-const name = parsed.names?.fontFamily?.en || file.name.replace(/\\.(ttf|otf)$/i, '');
+const name = parsed.names?.fontFamily?.en || file.name.replace(/\.(ttf|otf)$/i, '');
 const record = {id:makeLibraryId(),name:String(name).slice(0,64),format,fileName:file.name,blob:file.slice(0,file.size),size:file.size,savedAt:Date.now(),projectSnapshot:null};
 await saveFontRecord(record);
 libraryStatus.textContent = 'Импортирован: ' + record.name;
