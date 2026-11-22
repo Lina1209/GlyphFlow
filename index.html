@@ -464,6 +464,16 @@ const mapped = outline.map(([x, y]) => ({
 x: x * scale + xOffset,
 y: (baselineY - y) * scale
 }));
+// В TrueType внешние контуры должны иметь согласованное направление
+// (по часовой стрелке в координатах шрифта). Инверсия оси Y выше
+// меняет ориентацию исходного контура perfect-freehand.
+let signedArea = 0;
+for (let i = 0; i < mapped.length; i++) {
+const current = mapped[i];
+const next = mapped[(i + 1) % mapped.length];
+signedArea += current.x * next.y - next.x * current.y;
+}
+if (signedArea > 0) mapped.reverse();
 fontPath.moveTo(mapped[0].x, mapped[0].y);
 for (let i = 1; i < mapped.length; i++) {
 fontPath.lineTo(mapped[i].x, mapped[i].y);
