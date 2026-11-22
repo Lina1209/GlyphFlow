@@ -621,8 +621,8 @@ activeOutlineDrag = {pointerId: e.pointerId, strokeIndex: selectedStrokeIndex, p
 originalOutline: outline.map(point => [...point]),
 originalOverride: Array.isArray(stroke.outlineOverride) ? stroke.outlineOverride.map(point => [...point]) : null};
 try { drawSvg.setPointerCapture(e.pointerId); } catch (err) { activeOutlineDrag = null; e.preventDefault(); return; }
+vertex.setAttribute('fill', '#22c55e');
 updateContourTools();
-renderCanvas();
 e.preventDefault();
 return;
 }
