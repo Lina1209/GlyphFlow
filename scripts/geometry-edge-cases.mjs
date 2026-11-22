@@ -86,7 +86,7 @@ assert.equal(area(microscopicGeometry), 0, 'Microscopic geometry must not create
 // A hole touching the outer boundary is not a valid counter.
 const touchingHole = [
   stroke([[100, 100], [260, 100]], 40, 'outer'),
-  stroke([[100, 100], [130, 100]], 8, 'hole')
+  stroke([[84, 100], [130, 100]], 8, 'hole')
 ];
 const touchingHoleOutline = context.getStrokeOutline(touchingHole[1]);
 const cleanedHole = context.cleanPolygonRing(touchingHoleOutline);
