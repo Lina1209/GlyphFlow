@@ -214,7 +214,7 @@ result = polygonClipping.difference(result, levelUnion);
 return result;
 }
 function cloneCompoundGeometry(geometry) {
-return (geometry || []).map(polygon => (polygon || []).map(ring => (ring || []).map(point => [point[0], point[1]])));
+return (geometry || []).map(polygon => (polygon || []).map(ring => cleanPolygonRing(ring)));
 }
 function compoundTopologySignature(geometry) {
 return (geometry || []).map(polygon => polygon.length).sort((a, b) => a - b).join(',');
