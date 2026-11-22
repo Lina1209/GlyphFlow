@@ -52,7 +52,7 @@ async function drawClosedContour(page, points) {
 
 async function clickContourPath(page, path) {
   const targetIndex = await path.getAttribute('data-contour-index');
-  const point = await path.evaluate(element => {
+  const diagnostics = await path.evaluate(element => {
     const length = element.getTotalLength();
     const bounds = element.getBBox();
     const rect = element.getBoundingClientRect();
@@ -62,11 +62,16 @@ async function clickContourPath(page, path) {
       const x = rect.left + (local.x - bounds.x) / Math.max(1, bounds.width) * rect.width;
       const y = rect.top + (local.y - bounds.y) / Math.max(1, bounds.height) * rect.height;
       const hit = document.elementFromPoint(x, y);
-      return {x, y, ratio, hitIndex: hit?.getAttribute('data-contour-index') ?? null};
+      return {x, y, ratio, hitTag: hit?.tagName ?? null, hitIndex: hit?.getAttribute('data-contour-index') ?? null};
     });
-    return samples.find(sample => sample.hitIndex === element.getAttribute('data-contour-index')) || null;
+    return {
+      bounds: {x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height},
+      rect: {x: rect.x, y: rect.y, width: rect.width, height: rect.height},
+      samples
+    };
   });
-  if (!point) throw new Error(`Contour ${targetIndex} has no reachable SVG hit point`);
+  const point = diagnostics.samples.find(sample => sample.hitIndex === targetIndex);
+  if (!point) throw new Error(`Contour ${targetIndex} has no reachable SVG hit point: ${JSON.stringify(diagnostics)}`);
   await page.mouse.click(point.x, point.y);
   const selectedIndex = await page.locator('#drawSvg').getAttribute('data-selected-contour-index');
   console.log('contour selection', {requested: targetIndex, selectedIndex, ratio: point.ratio});
