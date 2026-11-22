@@ -60,6 +60,7 @@ const browserEnduranceContracts = [
   ['long-session glyph isolation', "toEqual({A: 18, B: 6})"],
   ['long-session undo redo', "for (let index = 0; index < 4; index++) await page.locator('#undoBtn').click()"],
   ['node editor browser regression', "test('edits a selected stroke centerline through draggable nodes with undo support'"],
+  ['trajectory point history', "test('adds and removes trajectory points with undo and redo'"],
   ['trajectory point insertion and deletion regression', "test('adds and removes trajectory points with undo and redo'"]
 ];
 for (const [label, token] of browserEnduranceContracts) {
