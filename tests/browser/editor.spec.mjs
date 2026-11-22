@@ -253,3 +253,61 @@ test('drawing workspace fits a narrow mobile viewport', async ({ page }) => {
   await page.locator('#zoomInBtn').click();
   await expect(page.locator('#zoomLevel')).toHaveText('125%');
 });
+
+
+test('two-finger touch gesture zooms and pans without committing a glyph', async ({ page }) => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.goto('/');
+  const svg = page.locator('#drawSvg');
+  const initialViewBox = await svg.getAttribute('viewBox');
+  const session = await page.context().newCDPSession(page);
+  await session.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 2});
+  const bounds = await svg.boundingBox();
+  if (!bounds) throw new Error('Drawing SVG has no visible bounds');
+
+  const touch = (id, x, y) => ({
+    id,
+    x: Math.round(bounds.x + x),
+    y: Math.round(bounds.y + y),
+    radiusX: 3,
+    radiusY: 3,
+    force: 0.7
+  });
+
+  // First contact begins a potential stroke; adding the second contact must
+  // cancel it and switch the interaction into viewport navigation.
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [touch(1, 90, 220)]
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [touch(1, 90, 220), touch(2, 210, 220)]
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [touch(1, 65, 220), touch(2, 235, 220)]
+  });
+  const zoomedViewBox = await svg.getAttribute('viewBox');
+  expect(zoomedViewBox).not.toBe(initialViewBox);
+  await expect(svg.locator('path')).toHaveCount(0);
+
+  // Move the pair together to verify midpoint panning as well as pinch zoom.
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [touch(1, 80, 240), touch(2, 250, 240)]
+  });
+  const movedViewBox = await svg.getAttribute('viewBox');
+  expect(movedViewBox).not.toBe(zoomedViewBox);
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [touch(1, 80, 240)]
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: []
+  });
+  await expect(svg.locator('path')).toHaveCount(0);
+  await expect(page.locator('#progressText')).toContainText('0 /');
+  await session.detach();
+});
