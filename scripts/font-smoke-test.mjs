@@ -77,6 +77,7 @@ const glyphData = {
 const context = {
   opentype,
   glyphData,
+  compoundOverrides: {},
   getStroke,
   polygonClipping,
   document: { getElementById: id => ({ value: id === 'fontName' ? 'GlyphFlow CI Fixture' : '' }) }
