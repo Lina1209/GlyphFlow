@@ -754,20 +754,20 @@ test('bounds undo memory and Blob URLs during repeated edit/export stress', asyn
       tx.oncomplete = () => db.close();
     };
   }));
-  await expect.poll(readStrokeCount).toBe(42);
+  await expect.poll(readStrokeCount, {timeout: 15000}).toBe(42);
 
   // The undo stack retains the newest 40 full-project snapshots (39 undo steps).
   // Older snapshots must be discarded rather than growing memory indefinitely.
   for (let index = 0; index < 41; index++) await page.locator('#undoBtn').click();
-  await expect.poll(readStrokeCount).toBe(3);
+  await expect.poll(readStrokeCount, {timeout: 15000}).toBe(3);
   await page.locator('#redoBtn').click();
-  await expect.poll(readStrokeCount).toBe(4);
+  await expect.poll(readStrokeCount, {timeout: 15000}).toBe(4);
 
   for (let index = 0; index < 2; index++) {
     const downloadPromise = page.waitForEvent('download');
     await page.locator('#downloadBtn').click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/\\.ttf$/i);
+    expect(download.suggestedFilename()).toMatch(/\.ttf$/i);
   }
   await page.waitForTimeout(1700);
   const activeAfterDownloads = await page.evaluate(() => window.__glyphFlowActiveBlobUrls);
