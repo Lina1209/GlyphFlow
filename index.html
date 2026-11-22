@@ -739,7 +739,7 @@ if (stroke) {
 const candidate = (stroke.outlineOverride || activeOutlineDrag.originalOutline).map(point => [...point]);
 const position = getPointerPos(e);
 candidate[activeOutlineDrag.pointIndex] = [position[0], position[1]];
-if (isValidEditableRing(candidate)) {
+if (isValidEditableRing(candidate, activeOutlineDrag.pointIndex)) {
 stroke.outlineOverride = candidate;
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
 renderCanvas();
@@ -940,13 +940,18 @@ return true;
 }
 return false;
 }
-function isValidEditableRing(points) {
+function isValidEditableRing(points, changedVertexIndex = null) {
 const ring = cleanPolygonRing(points);
 if (ring.length < 3 || ring.length !== points.length || Math.abs(contourSignedArea(ring)) <= 1e-3) return false;
-for (let i = 0; i < ring.length; i++) {
+// The source ring was already valid; moving one vertex can only introduce
+// intersections on its two adjacent edges. Check those edges in O(n), not O(n²).
+const edgeIndices = changedVertexIndex === null
+? ring.map((_, index) => index)
+: [(changedVertexIndex - 1 + ring.length) % ring.length, changedVertexIndex % ring.length];
+for (const i of edgeIndices) {
 const a = ring[i], b = ring[(i + 1) % ring.length];
-for (let j = i + 1; j < ring.length; j++) {
-if (j === (i + 1) % ring.length || (j + 1) % ring.length === i) continue;
+for (let j = 0; j < ring.length; j++) {
+if (j === i || j === (i + 1) % ring.length || (j + 1) % ring.length === i) continue;
 if (segmentsIntersect(a, b, ring[j], ring[(j + 1) % ring.length])) return false;
 }
 }
