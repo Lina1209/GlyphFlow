@@ -614,7 +614,15 @@ if (outlineEditMode) {
 const vertex = e.target.closest?.('[data-outline-index]');
 if (vertex && selectedStrokeIndex !== null) {
 const stroke = (glyphData[currentChar] || [])[selectedStrokeIndex];
-const pointIndex = Number(vertex.getAttribute('data-outline-index'));
+const pointerPosition = getPointerPos(e);
+const candidateHandles = [...drawSvg.querySelectorAll('[data-outline-index]')];
+const nearestHandle = candidateHandles.reduce((best, handle) => {
+const x = Number(handle.getAttribute('cx'));
+const y = Number(handle.getAttribute('cy'));
+const distance = Math.hypot(x - pointerPosition[0], y - pointerPosition[1]);
+return !best || distance < best.distance ? {handle, distance} : best;
+}, null);
+const pointIndex = Number((nearestHandle && nearestHandle.handle || vertex).getAttribute('data-outline-index'));
 const outline = stroke ? cleanPolygonRing(getStrokeOutline(stroke)) : [];
 if (outline[pointIndex]) {
 selectedOutlineIndex = pointIndex;
