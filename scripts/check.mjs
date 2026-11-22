@@ -31,6 +31,9 @@ const requiredContracts = [
   ['normalized left side bearing', 'const xOffset = sideBearing - minX * scale;'],
   ['advance width from glyph bounds', '(maxX - minX) * scale'],
   ['TrueType contour winding normalization', 'if (signedArea > 0) mapped.reverse();'],
+  ['OpenType CFF MIME type', "type: 'font/otf'"],
+  ['honest OTF download extension', "link.download = familyName + '-Regular.otf';"],
+  ['download uses a user-triggered anchor', 'link.click();'],
   ['vertical ascender metric covers canvas top', 'const ascender = 900;'],
   ['vertical descender metric covers canvas bottom', 'const descender = -300;'],
   ['full Unicode code point mapping', 'char.codePointAt(0)'],
@@ -40,6 +43,9 @@ const requiredContracts = [
 for (const [label, token] of requiredContracts) {
   assert.ok(html.includes(token), `Missing required contract: ${label}`);
 }
+
+assert.ok(!html.includes('font.download()'), 'Deprecated library download helper must not be used');
+assert.ok(!html.includes('Скачать .TTF'), 'The UI must not label CFF output as TTF');
 
 console.log(`GlyphFlow checks passed: module syntax + ${requiredContracts.length} structural contracts.`);
 console.log('Note: these checks do not replace browser, touch-device, or independent TTF validation.');
