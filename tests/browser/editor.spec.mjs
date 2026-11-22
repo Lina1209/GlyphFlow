@@ -627,3 +627,35 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
   await expect(page.locator('#progressText')).toContainText('0 /');
   await session.detach();
 });
+
+
+test('assigns four nested contour levels through the editor', async ({ page }) => {
+  await page.goto('/');
+  const sizes = [36, 22, 14, 8];
+  const spans = [[55, 305], [100, 260], [135, 225], [155, 205]];
+  for (let i = 0; i < sizes.length; i++) {
+    await page.locator('#brushSize').evaluate((element, value) => {
+      element.value = String(value);
+      element.dispatchEvent(new Event('input', {bubbles: true}));
+    }, sizes[i]);
+    await drawClosedContour(page, [[spans[i][0], 180], [spans[i][1], 180]]);
+  }
+
+  await page.locator('#contourModeBtn').click();
+  const assignments = [
+    [1, 'hole'],
+    [2, 'island'],
+    [3, 'nested-hole']
+  ];
+  for (const [index, level] of assignments) {
+    const contour = page.locator(`#drawSvg [data-contour-index="${index}"]`);
+    await clickContourPath(page, contour);
+    const selector = page.locator('#contourRoleSelect');
+    await expect(selector).toBeEnabled();
+    await selector.selectOption(level);
+    await page.locator('#applyContourRoleBtn').click();
+    await expect(selector).toHaveValue(level);
+  }
+  await expect(page.locator('#drawSvg .glyph-fill')).toHaveCount(1);
+  await expect(page.locator('#contourStatus')).toContainText('уровень 3');
+});
