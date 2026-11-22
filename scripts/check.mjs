@@ -25,7 +25,9 @@ const nestedExportContracts = [
   ['browser test verifies undo of nested depth', "toHaveValue('outer')"],
   ['browser test verifies redo of nested depth', "toHaveValue('nested-hole')"],
   ['browser test verifies depth after reload', "await page.reload();"],
-  ['browser test verifies depth after switching glyphs', "Switching to another glyph and back must not lose or cross-assign depths."]
+  ['browser test verifies depth after switching glyphs', "Switching to another glyph and back must not lose or cross-assign depths."],
+  ['browser test covers legacy hole role migration', 'migrates legacy hole roles and clamps unsupported stored contour depths'],
+  ['browser test covers invalid depth recovery', 'depth: 99']
 ];
 for (const [label, token] of nestedExportContracts) {
   assert.ok(fontSmoke.includes(token) || browserTests.includes(token), `Missing nested TTF export test: ${label}`);
@@ -72,6 +74,9 @@ const requiredContracts = [
   ['compound geometry export', 'getCompoundPathRecords(getCompoundGlyphGeometry(strokes))'],
   ['cached glyph Boolean geometry', 'const glyphGeometryCache = new WeakMap();'],
   ['nested parent-depth validation', 'isContourWithinParentDepth(selected, strokes, selectedStrokeIndex, depth)'],
+  ['restored depth is restricted to supported UI levels', 'storedDepth <= 3'],
+  ['restored legacy hole role migrates to depth one', "stroke.role === 'hole' ? 1 : 0"],
+  ['restored role is normalized from depth parity', "role: depth % 2 ? 'hole' : 'outer'"],
   ['four-level contour selector', 'value="nested-hole"'],
   ['depth-preserving role compatibility', 'selected.depth = depth'],
   ['Boolean difference hole containment', 'polygonClipping.difference([[candidate]], parentUnion)'],
