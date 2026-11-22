@@ -11,8 +11,8 @@ assert "CFF " not in font.keys(), "Final .ttf must not contain CFF outlines"
 assert font.sfntVersion == "\x00\x01\x00\x00", "Expected TrueType sfnt signature"
 
 assert font["head"].unitsPerEm == 1000
-assert font["hhea"].ascent == 900
-assert font["hhea"].descent == -300
+assert font["hhea"].ascent == 950
+assert font["hhea"].descent == -370
 
 cmap = font.getBestCmap()
 for char in ("A", "Ё", "😀", " "):
