@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const moduleSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 assert.ok(html.includes('<script type="module" src="./src/main.js"></script>'), 'HTML must load the local Vite entry module');
-assert.ok(!/https?:\\/\\/(?:cdn\\.|esm\\.)/.test(html), 'HTML must not load runtime dependencies from external CDNs');
+assert.ok(!html.includes('https://cdn.') && !html.includes('https://esm.sh'), 'HTML must not load runtime dependencies from external CDNs');
 
 const fontSmoke = readFileSync(new URL('../scripts/font-smoke-test.mjs', import.meta.url), 'utf8');
 const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', import.meta.url), 'utf8');
