@@ -670,6 +670,112 @@ test('batches dense live pointer input into one preview render per animation fra
   await expect(page.locator('#progressText')).toContainText('1 /');
 });
 
+test('cancels a pending animation-frame preview without leaving a ghost stroke', async ({ page }) => {
+  await page.goto('/');
+  const svg = page.locator('#drawSvg');
+  const bounds = await svg.boundingBox();
+  if (!bounds) throw new Error('Drawing SVG has no visible bounds');
+  await page.evaluate(() => {
+    window.__glyphFlowPointerId = null;
+    document.querySelector('#drawSvg').addEventListener('pointerdown', event => {
+      window.__glyphFlowPointerId = event.pointerId;
+    }, {once: true});
+  });
+  await page.mouse.move(bounds.x + 45, bounds.y + 275);
+  await page.mouse.down();
+  await page.evaluate(({left, top}) => {
+    const target = document.querySelector('#drawSvg');
+    const pointerId = window.__glyphFlowPointerId;
+    target.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, pointerId, pointerType: 'mouse', buttons: 1,
+      clientX: left + 160, clientY: top + 140
+    }));
+    // Cancel in the same task, before the scheduled animation frame can run.
+    target.dispatchEvent(new PointerEvent('pointercancel', {
+      bubbles: true, pointerId, pointerType: 'mouse', buttons: 0
+    }));
+  }, {left: bounds.x, top: bounds.y});
+  await page.evaluate(() => new Promise(resolve =>
+    requestAnimationFrame(() => requestAnimationFrame(resolve))
+  ));
+  await page.mouse.up();
+  await expect(svg.locator('path')).toHaveCount(0);
+  await expect(page.locator('#progressText')).toContainText('0 /');
+  const storedCount = await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('current');
+      get.onsuccess = () => resolve(get.result?.glyphData?.['А']?.length || 0);
+      get.onerror = () => reject(get.error);
+      tx.oncomplete = () => db.close();
+    };
+  }));
+  expect(storedCount).toBe(0);
+});
+
+test('keeps Blob URLs bounded during repeated edits and export stress', async ({ page }) => {
+  await page.addInitScript(() => {
+    const active = new Set();
+    const create = URL.createObjectURL.bind(URL);
+    const revoke = URL.revokeObjectURL.bind(URL);
+    URL.createObjectURL = blob => {
+      const url = create(blob);
+      active.add(url);
+      return url;
+    };
+    URL.revokeObjectURL = url => {
+      active.delete(url);
+      return revoke(url);
+    };
+    Object.defineProperty(window, '__glyphFlowActiveBlobUrls', {
+      get: () => active.size
+    });
+  });
+  await page.goto('/');
+  for (let index = 0; index < 18; index++) {
+    await drawStroke(page, index * 4);
+    const active = await page.evaluate(() => window.__glyphFlowActiveBlobUrls);
+    expect(active, 'superseded live-font URLs should be revoked after every edit').toBeLessThanOrEqual(1);
+  }
+
+  const readStrokeCount = async () => page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('current');
+      get.onsuccess = () => resolve(get.result?.glyphData?.['А']?.length || 0);
+      get.onerror = () => reject(get.error);
+      tx.oncomplete = () => db.close();
+    };
+  }));
+  await expect.poll(readStrokeCount).toBe(18);
+
+  // History navigation must continue to work after many sequential saves.
+  await page.locator('#undoBtn').click();
+  await expect.poll(readStrokeCount).toBe(17);
+  await page.locator('#redoBtn').click();
+  await expect.poll(readStrokeCount).toBe(18);
+
+  for (let index = 0; index < 2; index++) {
+    const downloadPromise = page.waitForEvent('download');
+    await page.locator('#downloadBtn').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/\\.ttf$/i);
+  }
+  await page.waitForTimeout(1700);
+  const activeAfterDownloads = await page.evaluate(() => window.__glyphFlowActiveBlobUrls);
+  expect(activeAfterDownloads, 'temporary export URLs should be revoked after download').toBeLessThanOrEqual(1);
+
+  await page.reload();
+  await expect.poll(readStrokeCount).toBe(18);
+  await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
+});
+
 test('migrates legacy hole roles and clamps unsupported stored contour depths', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
