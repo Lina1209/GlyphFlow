@@ -6,16 +6,16 @@ import { getStroke } from 'perfect-freehand';
 import polygonClipping from 'polygon-clipping';
 
 const require = createRequire(import.meta.url);
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const moduleSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 const startMarker = 'const glyphGeometryCache = new WeakMap();';
 const endMarker = 'function updateContourTools()';
-const start = html.indexOf(startMarker);
-const end = html.indexOf(endMarker, start);
+const start = moduleSource.indexOf(startMarker);
+const end = moduleSource.indexOf(endMarker, start);
 assert.ok(start >= 0 && end > start, 'Could not extract the live geometry pipeline');
 
 const context = { getStroke, polygonClipping };
 vm.runInNewContext(
-  html.slice(start, end) +
+  moduleSource.slice(start, end) +
   '\nthis.getCompoundGlyphGeometry = getCompoundGlyphGeometry;' +
   '\nthis.buildNestedContourGeometry = buildNestedContourGeometry;' +
   '\nthis.getCompoundPathRecords = getCompoundPathRecords;' +
