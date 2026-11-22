@@ -313,10 +313,11 @@ polygon.length !== originalPolygon.length || !polygon.length) return reject('rin
 for (let ringIndex = 0; ringIndex < polygon.length; ringIndex++) {
 const ring = cleanPolygonRing(polygon[ringIndex]);
 const originalRing = cleanPolygonRing(originalPolygon[ringIndex]);
-if (ring.length < 3 || ring.length !== polygon[ringIndex].length ||
-ring.length !== originalRing.length ||
+if (ring.length < 3 || ring.length !== originalRing.length ||
 Math.sign(contourSignedArea(ring)) !== Math.sign(contourSignedArea(originalRing))) {
-return reject('invalid-ring-or-winding');
+return reject(JSON.stringify({reason: 'invalid-ring-or-winding', ringLength: ring.length,
+originalRingLength: originalRing.length, rawRingLength: polygon[ringIndex].length,
+area: contourSignedArea(ring), originalArea: contourSignedArea(originalRing)}));
 }
 for (let i = 0; i < ring.length; i++) {
 const a = ring[i], b = ring[(i + 1) % ring.length];
@@ -401,16 +402,19 @@ point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !i
 }
 return inside;
 };
-return parentRings.some(parent => {
-if (!candidate.every(point => pointInsideRing(point, parent))) return false;
+const diagnostics = parentRings.map((parent, parentIndex) => {
+const insideCount = candidate.filter(point => pointInsideRing(point, parent)).length;
+let intersections = 0;
 for (let i = 0; i < candidate.length; i++) {
 const a = candidate[i], b = candidate[(i + 1) % candidate.length];
 for (let j = 0; j < parent.length; j++) {
-if (segmentsIntersect(a, b, parent[j], parent[(j + 1) % parent.length])) return false;
+if (segmentsIntersect(a, b, parent[j], parent[(j + 1) % parent.length])) intersections++;
 }
 }
-return true;
+return {parentIndex, insideCount, candidateCount: candidate.length, intersections};
 });
+if (typeof drawSvg !== 'undefined') drawSvg.dataset.contourContainmentDebug = JSON.stringify(diagnostics);
+return diagnostics.some(item => item.insideCount === item.candidateCount && item.intersections === 0);
 }
 function isHoleWithinOuterBounds(holeStroke, strokes, holeIndex) {
 return isContourWithinParentDepth(holeStroke, strokes, holeIndex, 1);
