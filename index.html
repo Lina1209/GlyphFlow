@@ -306,8 +306,8 @@ if (activePointerId !== null && drawSvg.hasPointerCapture(activePointerId)) draw
 activePointerId = null;
 renderCanvas(); renderGrid(); updateLiveFont();
 }
-drawSvg.addEventListener('pointerup', () => finishStroke(true));
-drawSvg.addEventListener('pointercancel', () => finishStroke(false));
+drawSvg.addEventListener('pointerup', (e) => { if (e.pointerId === activePointerId) finishStroke(true); });
+drawSvg.addEventListener('pointercancel', (e) => { if (e.pointerId === activePointerId) finishStroke(false); });
 drawSvg.addEventListener('lostpointercapture', () => { if (isDrawing) finishStroke(false); });
 
 // Кнопки управления
@@ -326,7 +326,7 @@ updateLiveFont();
 brushSizeInput.oninput = () => sizeVal.textContent = brushSizeInput.value + 'px';
 brushThinningInput.oninput = () => thinningVal.textContent = brushThinningInput.value;
 previewInput.oninput = () => livePreviewOutput.textContent = previewInput.value;
-document.getElementById('fontName').addEventListener('change', updateLiveFont);
+document.getElementById('fontName').addEventListener('change', () => { updateLiveFont(); persistDraft(); });
 
 // Генерация объекта шрифта opentype.js
 function buildOpenTypeFont() {
