@@ -36,7 +36,8 @@ for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("�
             next_point = contour[(index + 1) % len(contour)]
             area2 += point[0] * next_point[1] - next_point[0] * point[1]
         contour_index = sum(1 for previous_end in end_points if previous_end < end)
-        expected_negative = not (char == "Р" and contour_index == 1)
+        is_hole = (char == "Р" and contour_index == 1) or (char == "∞" and contour_index == 1)
+        expected_negative = not is_hole
         assert (area2 < 0) == expected_negative, (
             f"Unexpected contour winding for {char} contour {contour_index} ending at {end}: "
             f"signed_area2={area2}, expected_negative={expected_negative}"
