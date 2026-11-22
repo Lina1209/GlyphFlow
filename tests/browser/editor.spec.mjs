@@ -370,7 +370,13 @@ test('contour editor assigns a hole role and preserves it in the generated font'
     context.font = '1000px GlyphHoleCheck';
     context.fillStyle = '#000';
     context.fillText('Р', 0, 950);
-    const outerPoint = findInterior(contours[0]);
+    const outerBox = bounds(contours[0]);
+    // The outer capsule's center can fall into a hollow region of a brush outline;
+    // sample near its upper interior band instead of assuming its bbox center is filled.
+    const outerPoint = {
+      x: (outerBox.minX + outerBox.maxX) / 2,
+      y: outerBox.maxY - (outerBox.maxY - outerBox.minY) * 0.1
+    };
     const holePoint = findInterior(contours[1]);
     const points = {
       outer: {x: outerPoint.x, y: 950 - outerPoint.y},
