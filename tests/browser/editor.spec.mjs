@@ -1385,6 +1385,31 @@ test('edits final Boolean compound rings with undo, redo, draft persistence and 
 });
 
 
+test('closes a late IndexedDB connection after an open request was blocked', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  await page.evaluate(() => {
+    const factory = Object.getPrototypeOf(indexedDB);
+    factory.open = function () {
+      const request = {};
+      const lateDatabase = {
+        close() { window.__lateBlockedDatabaseClosed = true; }
+      };
+      setTimeout(() => request.onblocked?.(), 0);
+      setTimeout(() => {
+        request.result = lateDatabase;
+        request.onsuccess?.();
+      }, 30);
+      return request;
+    };
+    window.__lateBlockedDatabaseClosed = false;
+  });
+
+  await page.locator('#saveToLibraryBtn').click();
+  await expect(page.locator('#fontLibraryStatus')).toContainText('заблокировано другой вкладкой');
+  await page.waitForFunction(() => window.__lateBlockedDatabaseClosed === true);
+});
+
 test('saves generated fonts and editable projects in the local font library', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
