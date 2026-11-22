@@ -18,7 +18,10 @@ vm.runInNewContext(
   html.slice(start, end) +
   '\nthis.getCompoundGlyphGeometry = getCompoundGlyphGeometry;' +
   '\nthis.getCompoundPathRecords = getCompoundPathRecords;' +
-  '\nthis.getStrokeOutline = getStrokeOutline;',
+  '\nthis.getStrokeOutline = getStrokeOutline;' +
+  '\nthis.multiPolygonArea = multiPolygonArea;' +
+  '\nthis.cleanPolygonRing = cleanPolygonRing;' +
+  '\nthis.segmentsIntersect = segmentsIntersect;',
   context
 );
 
