@@ -1289,6 +1289,35 @@ test('exposes an installable PWA manifest and caches the application shell', asy
 });
 
 
+
+test('activating a replacement service worker removes stale GlyphFlow caches', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    await caches.open('glyphflow-shell-stale-test');
+    const registration = await navigator.serviceWorker.register('./sw.js?lifecycle-test=1');
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Replacement service worker did not activate')), 10000);
+      const check = () => {
+        if (registration.active?.state === 'activated' &&
+            new URL(registration.active.scriptURL).searchParams.get('lifecycle-test') === '1') {
+          clearTimeout(timeout);
+          resolve();
+        }
+      };
+      registration.addEventListener('updatefound', () => {
+        const worker = registration.installing;
+        worker?.addEventListener('statechange', check);
+      });
+      registration.addEventListener('controllerchange', check);
+      check();
+    });
+  });
+  const cacheNames = await page.evaluate(() => caches.keys());
+  expect(cacheNames).toContain('glyphflow-shell-v2');
+  expect(cacheNames).not.toContain('glyphflow-shell-stale-test');
+});
+
 test('edits final Boolean compound rings with undo, redo, draft persistence and TTF export', async ({page}) => {
   await page.goto('/');
   await page.locator('#brushSize').evaluate(element => {
