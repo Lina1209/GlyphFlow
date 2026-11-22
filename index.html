@@ -19,7 +19,7 @@
 class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500" />
 <button id="downloadBtn"
 class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 rounded-lg text-sm transition flex items-center gap-2 shadow-lg shadow-indigo-500/20">
-<span>Скачать .TTF</span>
+<span>Скачать .OTF</span>
 </button>
 </div>
 </header>
@@ -514,7 +514,7 @@ function updateLiveFont() {
 try {
 const font = buildOpenTypeFont();
 const arrayBuffer = font.toArrayBuffer();
-const blob = new Blob([arrayBuffer], { type: 'font/ttf' });
+const blob = new Blob([arrayBuffer], { type: 'font/otf' });
 const url = URL.createObjectURL(blob);
 if (previewFontUrl) URL.revokeObjectURL(previewFontUrl);
 previewFontUrl = url;
@@ -531,8 +531,9 @@ console.error('Ошибка обновления шрифта:', err);
 }
 }
 
-// Скачивание готового .TTF файла
+// Скачивание OpenType/CFF файла .OTF
 document.getElementById('downloadBtn').onclick = () => {
+let downloadUrl;
 try {
 const count = Object.values(glyphData).filter(strokes => strokes && strokes.length).length;
 if (!count) { alert('Сначала нарисуйте хотя бы один символ.'); return; }
@@ -540,10 +541,22 @@ if (typeof opentype === 'undefined' || !opentype.Font) { alert('Библиоте
 const font = buildOpenTypeFont();
 const buffer = font.toArrayBuffer();
 if (!buffer || buffer.byteLength < 100) throw new Error('Получен пустой или некорректный файл шрифта.');
-font.download();
+const familyName = (font.getEnglishName('fontFamily') || 'GlyphFlow')
+.replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'GlyphFlow';
+const blob = new Blob([buffer], {type: 'font/otf'});
+downloadUrl = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = downloadUrl;
+link.download = familyName + '-Regular.otf';
+document.body.appendChild(link);
+link.click();
+link.remove();
+window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
+downloadUrl = null;
 } catch (err) {
-console.error('Ошибка экспорта TTF:', err);
-alert('Не удалось создать TTF. Проверьте данные глифов и попробуйте ещё раз.');
+if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+console.error('Ошибка экспорта OTF:', err);
+alert('Не удалось создать OTF. Проверьте данные глифов и попробуйте ещё раз.');
 }
 };
 
