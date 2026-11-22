@@ -16,8 +16,8 @@ assert.ok(start >= 0 && end > start, 'Could not extract the live geometry pipeli
 const context = { getStroke, polygonClipping };
 vm.runInNewContext(
   html.slice(start, end) +
-  '\nthis.getCompoundGlyphGeometry = getCompoundGlyphGeometry;
-this.buildNestedContourGeometry = buildNestedContourGeometry;' +
+  '\nthis.getCompoundGlyphGeometry = getCompoundGlyphGeometry;' +
+  '\nthis.buildNestedContourGeometry = buildNestedContourGeometry;' +
   '\nthis.getCompoundPathRecords = getCompoundPathRecords;' +
   '\nthis.getStrokeOutline = getStrokeOutline;' +
   '\nthis.multiPolygonArea = multiPolygonArea;' +
