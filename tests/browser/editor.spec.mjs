@@ -399,6 +399,42 @@ test('contour editor assigns a hole role and preserves it in the generated font'
   expect(pixels.holeFill, JSON.stringify(pixels)).toBe(0);
 });
 
+test('two separate hole contours remain distinct in the exported TTF', async ({page}) => {
+  await page.goto('/');
+  await page.getByRole('button', {name: 'Ф', exact: true}).click();
+  await page.locator('#brushSize').evaluate(element => {
+    element.value = '36';
+    element.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  await drawClosedContour(page, [[80,180],[280,180]]);
+  await page.locator('#brushSize').evaluate(element => {
+    element.value = '8';
+    element.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  await drawClosedContour(page, [[120,180],[140,180]]);
+  await drawClosedContour(page, [[220,180],[240,180]]);
+  await page.locator('#contourModeBtn').click();
+  const roleSelect = page.locator('#contourRoleSelect');
+  for (const index of [1, 2]) {
+    const contour = page.locator(`[data-contour-index="${index}"]`);
+    await expect(contour).toBeVisible();
+    await clickContourPath(page, contour);
+    await roleSelect.selectOption('hole');
+    await page.locator('#applyContourRoleBtn').click();
+    await expect(roleSelect).toHaveValue('hole');
+  }
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const bytes = await readFile(await download.path());
+  const encoded = bytes.toString('base64');
+  const count = await page.evaluate(base64 => {
+    const buffer = Uint8Array.from(atob(base64), character => character.charCodeAt(0)).buffer;
+    return window.opentype.parse(buffer).charToGlyph('Ф').path.commands.filter(command => command.type === 'M').length;
+  }, encoded);
+  expect(count).toBe(3);
+});
+
 test('overlapping brush strokes merge into one compound outline and one TTF contour', async ({page}) => {
   await page.goto('/');
   await page.getByRole('button', {name: 'Ж', exact: true}).click();
