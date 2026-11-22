@@ -58,7 +58,8 @@ const browserEnduranceContracts = [
   ['mobile 320px viewport', '{width: 320, height: 640}'],
   ['mobile 412px viewport', '{width: 412, height: 915}'],
   ['long-session glyph isolation', "toEqual({A: 18, B: 6})"],
-  ['long-session undo redo', "for (let index = 0; index < 4; index++) await page.locator('#undoBtn').click()"]
+  ['long-session undo redo', "for (let index = 0; index < 4; index++) await page.locator('#undoBtn').click()"],
+  ['node editor browser regression', "test('edits a selected stroke centerline through draggable nodes with undo support'"]
 ];
 for (const [label, token] of browserEnduranceContracts) {
   assert.ok(browserTests.includes(token), `Missing browser endurance contract: ${label}`);
@@ -120,6 +121,10 @@ const requiredContracts = [
   ['outside-hole area rejection', 'multiPolygonArea(outside) > 1e-4'],
   ['segment endpoint and collinear rejection', 'return onSegment(a, c, b) || onSegment(a, d, b) || onSegment(c, a, d) || onSegment(c, b, d);'],
   ['contour role editor controls', "getElementById('contourRoleSelect')"],
+  ['centerline node editor mode', "getElementById('nodeEditModeBtn')"],
+  ['centerline node handles', "setAttribute('data-node-index', String(pointIndex))"],
+  ['centerline node dragging', 'activeNodeDrag.pointIndex'],
+  ['node drag undo commit', 'if (commit) saveHistory();'],
   ['OpenType preview MIME type', "type: 'font/otf'"],
   ['TrueType export MIME type', "type: 'font/ttf'"],
   ['OTF-to-TTF conversion import', "import { createFont } from 'https://esm.sh/fonteditor-core@2.6.3';"],
