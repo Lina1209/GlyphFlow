@@ -20,6 +20,25 @@ async function drawStroke(page, offset = 0) {
   await page.mouse.up();
 }
 
+async function drawTouchStroke(page, offset = 0, pointerId = 1000) {
+  await page.locator('#drawSvg').evaluate((svg, args) => {
+    const points = [
+      [45 + args.offset, 275], [60 + args.offset, 235], [78 + args.offset, 195],
+      [96 + args.offset, 155], [116 + args.offset, 115], [138 + args.offset, 80]
+    ];
+    const matrix = svg.getScreenCTM();
+    const screenPoints = points.map(([x, y]) => new DOMPoint(x, y).matrixTransform(matrix));
+    const dispatch = (type, point, buttons) => svg.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerId: args.pointerId,
+      pointerType: 'touch', isPrimary: true, button: 0, buttons,
+      clientX: point.x, clientY: point.y
+    }));
+    dispatch('pointerdown', screenPoints[0], 1);
+    for (const point of screenPoints.slice(1)) dispatch('pointermove', point, 1);
+    dispatch('pointerup', screenPoints[screenPoints.length - 1], 0);
+  }, {offset, pointerId});
+}
+
 async function drawClosedContour(page, points) {
   const bounds = await page.locator('#drawSvg').boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
@@ -296,7 +315,7 @@ test('remains stable through repeated editing across narrow mobile viewport size
     await expect(page.locator('#zoomInBtn')).toBeVisible();
     await expect(page.locator('#panLeftBtn')).toBeVisible();
     for (let index = 0; index < 6; index++) {
-      await drawStroke(page, (offset++ % 5) * 2);
+      await drawTouchStroke(page, (offset++ % 5) * 2, 1000 + offset);
     }
     await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
     const svgNodeCount = await page.locator('#drawSvg path').count();
@@ -305,7 +324,7 @@ test('remains stable through repeated editing across narrow mobile viewport size
 
   // Keep a second glyph independent during the same long session.
   await page.locator('#glyphGrid button').filter({hasText: /^Б$/}).click();
-  for (let index = 0; index < 6; index++) await drawStroke(page, index * 2);
+  for (let index = 0; index < 6; index++) await drawTouchStroke(page, index * 2, 2000 + index);
   await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
 
   const readPersistedCounts = async () => page.evaluate(() => new Promise((resolve, reject) => {
