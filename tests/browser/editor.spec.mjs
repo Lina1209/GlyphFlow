@@ -662,7 +662,7 @@ test('exports four nested contour levels with alternating transparent counters',
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#downloadBtn').click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/\\.ttf$/i);
+  expect(download.suggestedFilename()).toMatch(/\.ttf$/i);
   const bytes = await readFile(await download.path());
   expect(bytes.subarray(0, 4).toString('hex')).toBe('00010000');
   const result = await page.evaluate(async base64 => {
