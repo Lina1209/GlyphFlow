@@ -1413,20 +1413,15 @@ test('imports a valid font file into the local font library and supports removal
 test('removing one library font preserves other records after reload', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
-  const downloadPromise = page.waitForEvent('download');
-  await page.locator('#downloadBtn').click();
-  const download = await downloadPromise;
-  const bytes = await readFile(await download.path());
 
-  for (const name of ['Library Keep A.ttf', 'Library Keep B.ttf']) {
-    await page.locator('#importFontInput').setInputFiles({
-      name,
-      mimeType: 'font/ttf',
-      buffer: bytes
-    });
-  }
+  await page.locator('#fontName').fill('Library Keep A');
+  await page.locator('#saveToLibraryBtn').click();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
 
+  await page.locator('#fontName').fill('Library Keep B');
+  await page.locator('#saveToLibraryBtn').click();
   await expect(page.locator('#fontLibraryCount')).toHaveText('2');
+
   const firstCard = page.locator('#fontLibraryList article').filter({hasText:'Library Keep A'});
   const secondCard = page.locator('#fontLibraryList article').filter({hasText:'Library Keep B'});
   await expect(firstCard).toHaveCount(1);
