@@ -274,25 +274,41 @@ Math.abs(ring[0][0] - ring[ring.length - 1][0]) <= 1e-7 &&
 Math.abs(ring[0][1] - ring[ring.length - 1][1]) <= 1e-7) ring.pop();
 return ring.length >= 3 && Math.abs(contourSignedArea(ring)) > 1e-6 ? ring : [];
 }
+function getContourDepth(stroke) {
+if (Number.isInteger(stroke && stroke.depth) && stroke.depth >= 0) return stroke.depth;
+return getContourRole(stroke) === 'hole' ? 1 : 0;
+}
+// Even depths add filled regions; odd depths subtract counters. Union each
+// level first so overlapping strokes at the same nesting depth behave as one region.
+function buildNestedContourGeometry(contours) {
+const levels = new Map();
+(contours || []).forEach(contour => {
+const depth = Number(contour && contour.depth);
+const ring = cleanPolygonRing(contour && contour.ring);
+if (!Number.isInteger(depth) || depth < 0 || ring.length < 3) return;
+if (!levels.has(depth)) levels.set(depth, []);
+levels.get(depth).push([ring]);
+});
+let result = [];
+[...levels.keys()].sort((a, b) => a - b).forEach(depth => {
+const levelUnion = polygonClipping.union(...levels.get(depth));
+if (depth % 2 === 0) {
+result = result.length ? polygonClipping.union(result, levelUnion) : levelUnion;
+} else if (result.length) {
+result = polygonClipping.difference(result, levelUnion);
+}
+});
+return result;
+}
 function getCompoundGlyphGeometry(strokes) {
 if (!Array.isArray(strokes) || !strokes.length) return [];
 const cached = glyphGeometryCache.get(strokes);
 if (cached) return cached;
-const outerPolygons = [];
-const holePolygons = [];
-strokes.forEach(stroke => {
-const ring = cleanPolygonRing(getStrokeOutline(stroke));
-if (ring.length < 3) return;
-(getContourRole(stroke) === 'hole' ? holePolygons : outerPolygons).push([ring]);
-});
-if (!outerPolygons.length) {
-glyphGeometryCache.set(strokes, []);
-return [];
-}
-const outerUnion = polygonClipping.union(...outerPolygons);
-const result = holePolygons.length
-? polygonClipping.difference(outerUnion, polygonClipping.union(...holePolygons))
-: outerUnion;
+const contours = strokes.map(stroke => ({
+depth: getContourDepth(stroke),
+ring: getStrokeOutline(stroke)
+}));
+const result = buildNestedContourGeometry(contours);
 glyphGeometryCache.set(strokes, result);
 return result;
 }
