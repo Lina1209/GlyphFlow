@@ -34,9 +34,11 @@ vm.runInNewContext(builderSource + '\nthis.buildOpenTypeFont = buildOpenTypeFont
 const generated = context.buildOpenTypeFont();
 const bytes = generated.toArrayBuffer();
 assert.ok(bytes instanceof ArrayBuffer && bytes.byteLength > 100, 'Font serialization returned an empty buffer');
-writeFileSync('/tmp/glyphflow-fixture.ttf', Buffer.from(bytes));
+writeFileSync('/tmp/glyphflow-fixture.otf', Buffer.from(bytes));
 
+assert.equal(Buffer.from(bytes).toString('ascii', 0, 4), 'OTTO', 'Expected OpenType/CFF signature');
 const parsed = opentype.parse(bytes);
+assert.equal(parsed.outlinesFormat, 'cff', 'opentype.js should identify CFF outlines');
 assert.equal(parsed.unitsPerEm, 1000);
 assert.equal(parsed.ascender, 900);
 assert.equal(parsed.descender, -300);
@@ -60,4 +62,4 @@ for (const char of ['A', 'Ё', '😀']) {
 assert.equal(parsed.charToGlyph('Ё').path.commands.filter(command => command.type === 'M').length, 2,
   'Multi-stroke glyph should retain both contours');
 
-console.log('GlyphFlow TTF smoke test passed: serialize + parse + metrics + .notdef + space + BMP/supplementary Unicode + multi-contour glyph.');
+console.log('GlyphFlow OTF smoke test passed: serialize + parse + OTTO/CFF signature + metrics + .notdef + space + BMP/supplementary Unicode + multi-contour glyph.');
