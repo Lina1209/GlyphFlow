@@ -125,7 +125,7 @@ assert.ok(Math.abs(area(nested) - 7104) < 1e-5,
   'Nested fill must alternate add/subtract at every depth');
 const nestedRecords = context.getCompoundPathRecords(nested);
 assert.equal(nestedRecords.length, 4, 'Nested topology must preserve four boundary rings');
-assert.deepEqual(nestedRecords.map(record => record.role), ['outer', 'hole', 'outer', 'hole'],
+assert.deepEqual(Array.from(nestedRecords, record => record.role), ['outer', 'hole', 'outer', 'hole'],
   'Nested rings must alternate outer/hole winding for TrueType non-zero fill');
 
 console.log('GlyphFlow geometry edge cases passed: narrow bridges, near-touching gaps, repeated samples, microscopic rejection, boundary-touching counters, and four-level nested topology.');
