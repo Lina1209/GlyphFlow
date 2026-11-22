@@ -3,12 +3,9 @@ import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const openTag = '<script type="module">';
-const start = html.indexOf(openTag);
-const end = html.indexOf('</script>', start + openTag.length);
-assert.ok(start >= 0 && end > start, 'Expected one inline ES module');
-assert.equal(html.indexOf(openTag, start + openTag.length), -1, 'Expected exactly one inline ES module');
-const moduleSource = html.slice(start + openTag.length, end);
+const moduleSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+assert.ok(html.includes('<script type="module" src="./src/main.js"></script>'), 'HTML must load the local Vite entry module');
+assert.ok(!/https?:\\/\\/(?:cdn\\.|esm\\.)/.test(html), 'HTML must not load runtime dependencies from external CDNs');
 
 const fontSmoke = readFileSync(new URL('../scripts/font-smoke-test.mjs', import.meta.url), 'utf8');
 const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', import.meta.url), 'utf8');
@@ -106,7 +103,7 @@ const requiredContracts = [
   ['TrueType outer/hole winding normalization', "role === 'outer' && signedArea > 0"],
   ['explicit contour role migration', "stroke && stroke.role === 'hole' ? 'hole' : 'outer'"],
   ['compound nonzero contour fill', "setAttribute('fill-rule', 'nonzero')"],
-  ['Boolean polygon union dependency', "import polygonClipping from 'https://esm.sh/polygon-clipping@0.15.7';"],
+  ['Boolean polygon union dependency', "import polygonClipping from 'polygon-clipping';"],
   ['explicit contour depth resolution', 'function getContourDepth(stroke)'],
   ['nested contour level grouping', 'const levels = new Map();'],
   ['alternating even-depth fill', 'if (depth % 2 === 0)'],
@@ -137,7 +134,7 @@ const requiredContracts = [
   ['trajectory point deletion', 'deleteTrajectoryPointBtn.onclick'],
   ['OpenType preview MIME type', "type: 'font/otf'"],
   ['TrueType export MIME type', "type: 'font/ttf'"],
-  ['OTF-to-TTF conversion import', "import { createFont } from 'https://esm.sh/fonteditor-core@2.6.3';"],
+  ['OTF-to-TTF conversion import', "import { createFont } from 'fonteditor-core';"],
   ['OTF parsing before conversion', "createFont(otfBuffer, {type: 'otf'})"],
   ['TrueType output conversion', "converter.write({type: 'ttf', hinting: false, kerning: false})"],
   ['TrueType sfnt signature validation', 'signature[1] !== 1'],
@@ -153,14 +150,14 @@ const requiredContracts = [
 ];
 
 for (const [label, token] of requiredContracts) {
-  assert.ok(html.includes(token), `Missing required contract: ${label}`);
+  assert.ok(html.includes(token) || moduleSource.includes(token), `Missing required contract: ${label}`);
 }
 
 assert.ok(!html.includes('font.download()'), 'Deprecated library download helper must not be used');
 assert.ok(!html.includes('Скачать .OTF'), 'The UI must provide the requested TrueType TTF export');
 assert.equal(pwaManifest.display, 'standalone', 'PWA must launch in standalone mode');
 assert.ok(pwaManifest.icons?.some(icon => icon.src === './icons/glyphflow.svg' && icon.purpose.includes('maskable')), 'PWA manifest must expose a maskable app icon');
-assert.ok(serviceWorker.includes("const CACHE_NAME = CACHE_PREFIX + 'v1';"), 'Service worker must version its app-shell cache');
+assert.ok(serviceWorker.includes("const CACHE_NAME = CACHE_PREFIX + 'v2';"), 'Service worker must version its app-shell cache');
 assert.ok(serviceWorker.includes("new URL('manifest.webmanifest', APP_SCOPE).href"), 'Service worker must cache the manifest');
 assert.ok(browserTests.includes('exposes an installable PWA manifest'), 'Browser tests must cover PWA installation metadata and shell caching');
 
