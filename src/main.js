@@ -299,24 +299,73 @@ return [...cleaned.map(point => [...point]), [...first]];
 }));
 }
 function isValidCompoundEdit(candidate, original) {
-if (!Array.isArray(candidate) || !candidate.length) return false;
-try {
-// Our editor stores rings without duplicated closing vertices. polygon-clipping
-// requires closed rings; normalize the API boundary without changing editable data.
-const closedCandidate = closePolygonClippingRings(candidate);
-const normalized = polygonClipping.union(closedCandidate);
-const normalizedSignature = compoundTopologySignature(normalized);
-const originalSignature = compoundTopologySignature(original);
-const area = multiPolygonArea(normalized);
-const valid = normalized.length > 0 && normalizedSignature === originalSignature &&
-Number.isFinite(area) && area > 1e-3;
-if (typeof drawSvg !== 'undefined') drawSvg.dataset.compoundTopologyDebug =
-JSON.stringify({normalizedSignature, originalSignature, area, polygonCount: normalized.length});
-return valid;
-} catch (err) {
-if (typeof drawSvg !== 'undefined') drawSvg.dataset.compoundTopologyDebug = String(err && err.message || err);
+const reject = reason => {
+if (typeof drawSvg !== 'undefined') drawSvg.dataset.compoundTopologyDebug = reason;
 return false;
+};
+if (!Array.isArray(candidate) || !candidate.length || !Array.isArray(original) ||
+candidate.length !== original.length) return reject('polygon-count-changed');
+const allRings = [];
+for (let polygonIndex = 0; polygonIndex < candidate.length; polygonIndex++) {
+const polygon = candidate[polygonIndex], originalPolygon = original[polygonIndex];
+if (!Array.isArray(polygon) || !Array.isArray(originalPolygon) ||
+polygon.length !== originalPolygon.length || !polygon.length) return reject('ring-count-changed');
+for (let ringIndex = 0; ringIndex < polygon.length; ringIndex++) {
+const ring = cleanPolygonRing(polygon[ringIndex]);
+const originalRing = cleanPolygonRing(originalPolygon[ringIndex]);
+if (ring.length < 3 || ring.length !== polygon[ringIndex].length ||
+ring.length !== originalRing.length ||
+Math.sign(contourSignedArea(ring)) !== Math.sign(contourSignedArea(originalRing))) {
+return reject('invalid-ring-or-winding');
 }
+for (let i = 0; i < ring.length; i++) {
+const a = ring[i], b = ring[(i + 1) % ring.length];
+for (let j = i + 1; j < ring.length; j++) {
+const next = (j + 1) % ring.length;
+if (j === i || j === (i + 1) % ring.length || next === i) continue;
+if (segmentsIntersect(a, b, ring[j], ring[next])) return reject('self-intersection');
+}
+}
+allRings.push({polygonIndex, ringIndex, ring, originalRing});
+}
+}
+const pointInsideRing = (point, ring) => {
+let inside = false;
+for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+const a = ring[i], b = ring[j];
+if ((a[1] > point[1]) !== (b[1] > point[1]) &&
+point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+}
+return inside;
+};
+const containment = rings => rings.map((item, index) =>
+rings.map((other, otherIndex) => index !== otherIndex && pointInsideRing(item.ring[0], other.ring))
+);
+for (let i = 0; i < allRings.length; i++) {
+for (let j = i + 1; j < allRings.length; j++) {
+const first = allRings[i].ring, second = allRings[j].ring;
+for (let a = 0; a < first.length; a++) {
+for (let b = 0; b < second.length; b++) {
+if (segmentsIntersect(first[a], first[(a + 1) % first.length],
+second[b], second[(b + 1) % second.length])) return reject('rings-intersect');
+}
+}
+}
+}
+const originalRings = allRings.map(item => ({
+...item,
+ring: item.originalRing
+}));
+if (JSON.stringify(containment(allRings)) !== JSON.stringify(containment(originalRings))) {
+return reject('ring-containment-changed');
+}
+const signature = compoundTopologySignature(candidate);
+if (signature !== compoundTopologySignature(original)) return reject('topology-signature-changed');
+const area = multiPolygonArea(candidate);
+if (!Number.isFinite(area) || area <= 1e-3) return reject('invalid-area');
+if (typeof drawSvg !== 'undefined') drawSvg.dataset.compoundTopologyDebug =
+JSON.stringify({signature, area, polygonCount: candidate.length});
+return true;
 }
 function segmentsIntersect(a, b, c, d) {
 const epsilon = 1e-7;
