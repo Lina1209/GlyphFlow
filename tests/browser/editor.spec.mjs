@@ -5,6 +5,13 @@ async function drawStroke(page, offset = 0) {
   const svg = page.locator('#drawSvg');
   const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
+  await page.evaluate(({x,y}) => {
+    window.__glyphFlowPointerTrace.push({
+      diagnostic: 'geometry', bounds: document.querySelector('#drawSvg').getBoundingClientRect().toJSON(),
+      viewport: {width: innerWidth, height: innerHeight},
+      hit: document.elementFromPoint(x,y)?.outerHTML?.slice(0,180)
+    });
+  }, {x: Math.round(bounds.x+90), y: Math.round(bounds.y+220)});
   const points = [
     [45, 275], [60, 235], [78, 195], [96, 155], [116, 115], [138, 80]
   ];
@@ -265,11 +272,13 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
   await page.evaluate(() => {
     window.__glyphFlowPointerTrace = [];
     const target = document.querySelector('#drawSvg');
-    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture']) {
-      target.addEventListener(type, event => window.__glyphFlowPointerTrace.push({
-        type, pointerId: event.pointerId, pointerType: event.pointerType,
-        isPrimary: event.isPrimary, x: event.clientX, y: event.clientY
-      }));
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture', 'touchstart', 'touchmove']) {
+      document.addEventListener(type, event => window.__glyphFlowPointerTrace.push({
+        type, target: event.target?.id || event.target?.tagName,
+        pointerId: event.pointerId, pointerType: event.pointerType,
+        isPrimary: event.isPrimary, x: event.clientX, y: event.clientY,
+        touches: event.touches?.length
+      }), true);
     }
   });
   const bounds = await svg.boundingBox();
