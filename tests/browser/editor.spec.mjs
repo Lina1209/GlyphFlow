@@ -277,6 +277,7 @@ test('drawing workspace fits a narrow mobile viewport', async ({ page }) => {
 
 test('contour editor assigns a hole role and preserves it in the generated font', async ({page}) => {
   await page.goto('/');
+  await page.getByRole('button', {name: 'Р', exact: true}).click();
   const svg = page.locator('#drawSvg');
   await page.locator('#brushSize').evaluate(element => {
     element.value = '36';
@@ -305,6 +306,27 @@ test('contour editor assigns a hole role and preserves it in the generated font'
   await page.locator('#downloadBtn').click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.ttf$/i);
+  const fontBytes = await readFile(await download.path());
+  const encoded = fontBytes.toString('base64');
+  const pixels = await page.evaluate(async base64 => {
+    const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+    const face = new FontFace('GlyphHoleCheck', bytes.buffer);
+    await face.load();
+    document.fonts.add(face);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1200;
+    const context = canvas.getContext('2d');
+    context.font = '1000px GlyphHoleCheck';
+    context.fillStyle = '#000';
+    context.fillText('Р', 0, 950);
+    return {
+      outerFill: context.getImageData(492, 278, 1, 1).data[3],
+      holeFill: context.getImageData(492, 550, 1, 1).data[3]
+    };
+  }, encoded);
+  expect(pixels.outerFill).toBeGreaterThan(0);
+  expect(pixels.holeFill).toBe(0);
 });
 
 test('two-finger touch gesture zooms and pans without committing a glyph', async ({ page }) => {
