@@ -1574,6 +1574,7 @@ test('restores a font-library backup atomically when a storage write fails', asy
     buffer:backupBytes
   });
   await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось восстановить библиотеку');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('недостаточно места в хранилище устройства');
   await expect(page.locator('#fontLibraryCount')).toHaveText('0');
   await page.reload();
   await expect(page.locator('#fontLibraryCount')).toHaveText('0');
