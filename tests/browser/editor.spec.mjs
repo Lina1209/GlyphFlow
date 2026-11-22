@@ -1147,6 +1147,8 @@ test('edits actual vector outline vertices with validation, undo, redo and draft
   await page.mouse.move(bounds.x + bounds.width / 2 + 12, bounds.y + bounds.height / 2 + 10, {steps: 6});
   await page.mouse.up();
   const dragState = await page.locator('#drawSvg').getAttribute('data-outline-drag-state');
+  const lastPointer = await page.locator('#drawSvg').getAttribute('data-outline-last-pointer');
+  console.log('outline drag diagnostics', {dragState, lastPointer, selectedPointIndex, before});
   expect(dragState).toBe('accepted');
   const changed = await page.locator(`#drawSvg [data-outline-index="${selectedPointIndex}"]`).evaluate(element => ({
     x: Number(element.getAttribute('cx')),
