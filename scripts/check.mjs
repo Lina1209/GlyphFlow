@@ -27,7 +27,10 @@ const nestedExportContracts = [
   ['browser test verifies depth after reload', "await page.reload();"],
   ['browser test verifies depth after switching glyphs', "Switching to another glyph and back must not lose or cross-assign depths."],
   ['browser test covers legacy hole role migration', 'migrates legacy hole roles and clamps unsupported stored contour depths'],
-  ['browser test covers invalid depth recovery', 'depth: 99']
+  ['browser test covers invalid depth recovery', 'depth: 99'],
+  ['browser test covers high-frequency pointer batching', 'batches dense live pointer input into one preview render per animation frame'],
+  ['browser test sends dense pointer stream', 'index < 400'],
+  ['browser test asserts bounded preview DOM updates', 'toBeLessThanOrEqual(4)']
 ];
 for (const [label, token] of nestedExportContracts) {
   assert.ok(fontSmoke.includes(token) || browserTests.includes(token), `Missing nested TTF export test: ${label}`);
@@ -51,6 +54,8 @@ const requiredContracts = [
   ['mouse pan gesture', 'panStart = {clientX: e.clientX, clientY: e.clientY, x: viewBox.x, y: viewBox.y};'],
   ['active pointer filtering', 'e.pointerId !== activePointerId'],
   ['pointer cancellation', "addEventListener('pointercancel'"],
+  ['animation-frame stroke preview batching', 'function scheduleStrokePreviewRender()'],
+  ['pending stroke preview cancellation', 'cancelAnimationFrame(strokeRenderFrame)'],
   ['lost pointer capture handling', "addEventListener('lostpointercapture'"],
   ['local draft persistence', 'indexedDB.open(DRAFT_DB, 1)'],
   ['draft restoration on startup', 'await restoreDraft();'],
