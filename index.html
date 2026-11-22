@@ -471,7 +471,7 @@ drawSvg.appendChild(hitPath);
 });
 }
 if (outlineEditMode && selectedStrokeIndex !== null && strokes[selectedStrokeIndex]) {
-const outlinePoints = getStrokeOutline(strokes[selectedStrokeIndex]);
+const outlinePoints = cleanPolygonRing(getStrokeOutline(strokes[selectedStrokeIndex]));
 const outlineStep = Math.max(1, Math.ceil(outlinePoints.length / 48));
 outlinePoints.forEach((point, pointIndex) => {
 if (pointIndex % outlineStep !== 0 && pointIndex !== outlinePoints.length - 1) return;
@@ -614,7 +614,7 @@ const vertex = e.target.closest?.('[data-outline-index]');
 if (vertex && selectedStrokeIndex !== null) {
 const stroke = (glyphData[currentChar] || [])[selectedStrokeIndex];
 const pointIndex = Number(vertex.getAttribute('data-outline-index'));
-const outline = stroke ? getStrokeOutline(stroke) : [];
+const outline = stroke ? cleanPolygonRing(getStrokeOutline(stroke)) : [];
 if (outline[pointIndex]) {
 selectedOutlineIndex = pointIndex;
 activeOutlineDrag = {pointerId: e.pointerId, strokeIndex: selectedStrokeIndex, pointIndex,
