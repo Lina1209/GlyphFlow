@@ -1273,3 +1273,69 @@ test('exposes an installable PWA manifest and caches the application shell', asy
   await expect(page.locator('#progressText')).toContainText('Готово: 1');
   await page.context().setOffline(false);
 });
+
+
+test('edits final Boolean compound rings with undo, redo, draft persistence and TTF export', async ({page}) => {
+  await page.goto('/');
+  await page.locator('#brushSize').evaluate(element => {
+    element.value = '36';
+    element.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  await drawClosedContour(page, [[70, 180], [205, 180]]);
+  await drawClosedContour(page, [[155, 180], [290, 180]]);
+  await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
+
+  await page.locator('#compoundEditModeBtn').click();
+  const outerRing = page.locator('#drawSvg [data-compound-polygon-index="0"][data-compound-ring-index="0"]');
+  await expect(outerRing).toBeVisible();
+  await outerRing.click();
+  const handles = page.locator('#drawSvg [data-compound-point-index]');
+  await expect(handles).toHaveCountGreaterThan(3);
+  const handle = page.locator('#drawSvg [data-compound-point-index="0"]');
+  const beforePath = await page.locator('#drawSvg .glyph-fill').getAttribute('d');
+  const bounds = await handle.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width / 2 + 7, bounds.y + bounds.height / 2 + 5);
+  await page.mouse.up();
+
+  const afterPath = await page.locator('#drawSvg .glyph-fill').getAttribute('d');
+  expect(afterPath).not.toBe(beforePath);
+  const readOverride = async () => page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('current');
+      get.onsuccess = () => resolve(get.result?.compoundOverrides?.['А'] || null);
+      get.onerror = () => reject(get.error);
+      tx.oncomplete = () => db.close();
+    };
+  }));
+  await expect.poll(readOverride).not.toBeNull();
+
+  await page.locator('#undoBtn').click();
+  await expect.poll(readOverride).toBeNull();
+  await page.locator('#redoBtn').click();
+  await expect.poll(readOverride).not.toBeNull();
+
+  await page.reload();
+  await expect(page.locator('#drawSvg path.glyph-fill')).toHaveCount(1);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const fontBytes = await readFile(await download.path());
+  const encoded = fontBytes.toString('base64');
+  const exported = await page.evaluate(base64 => {
+    const buffer = Uint8Array.from(atob(base64), character => character.charCodeAt(0)).buffer;
+    const glyph = window.opentype.parse(buffer).charToGlyph('А');
+    return {
+      contourCount: glyph.path.commands.filter(command => command.type === 'M').length,
+      commandCount: glyph.path.commands.length
+    };
+  }, encoded);
+  expect(exported.contourCount).toBeGreaterThan(0);
+  expect(exported.commandCount).toBeGreaterThan(5);
+});
