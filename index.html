@@ -787,7 +787,7 @@ const signedArea = mapped.reduce((area, current, index) => {
 const next = mapped[(index + 1) % mapped.length];
 return area + current.x * next.y - next.x * current.y;
 }, 0);
-const role = getContourRole(s);
+const role = s && s.role === 'hole' ? 'hole' : 'outer';
 if ((role === 'outer' && signedArea > 0) || (role === 'hole' && signedArea < 0)) mapped.reverse();
 fontPath.moveTo(mapped[0].x, mapped[0].y);
 for (let i = 1; i < mapped.length; i++) {
