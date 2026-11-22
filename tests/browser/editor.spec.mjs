@@ -1496,6 +1496,45 @@ test('restores a font-library backup atomically when a storage write fails', asy
 });
 
 
+test('rolls back queued font-library backup writes when IndexedDB aborts the transaction', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const fontBytes = await readFile(await download.path());
+  const fontBase64 = fontBytes.toString('base64');
+  const backupBytes = Buffer.from(JSON.stringify({
+    format: 'GlyphFlowFontLibrary',
+    version: 1,
+    fonts: [
+      {name:'Abort Restore A',format:'ttf',fileName:'abort-a.ttf',fontBase64,projectSnapshot:null},
+      {name:'Abort Restore B',format:'ttf',fileName:'abort-b.ttf',fontBase64,projectSnapshot:null}
+    ]
+  }));
+
+  await page.evaluate(() => {
+    const originalPut = IDBObjectStore.prototype.put;
+    let libraryWrites = 0;
+    IDBObjectStore.prototype.put = function (...args) {
+      const isLibraryWrite = typeof args[1] === 'string' && args[1].startsWith('font-library:');
+      const request = originalPut.apply(this, args);
+      if (isLibraryWrite && ++libraryWrites === 2) this.transaction.abort();
+      return request;
+    };
+  });
+  await page.locator('#importLibraryBackupInput').setInputFiles({
+    name:'aborted-backup.json',
+    mimeType:'application/json',
+    buffer:backupBytes
+  });
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось восстановить библиотеку');
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+  await page.reload();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+});
+
+
 test('rejects a malformed imported font file without adding it to the library', async ({ page }) => {
   await page.goto('/');
   await page.locator('#importFontInput').setInputFiles({
