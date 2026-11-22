@@ -151,6 +151,13 @@ const requiredContracts = [
   ['full Unicode code point mapping', 'char.codePointAt(0)'],
   ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"],
   ['nearest outline handle hit testing', 'candidateHandles.reduce((best, handle) =>'],
+  ['final Boolean shape editing mode', "const compoundEditModeBtn = document.getElementById('compoundEditModeBtn');"],
+  ['per-glyph final geometry overrides', 'const compoundOverrides = {};'],
+  ['compound geometry persisted in project snapshots', 'compoundOverrides: JSON.parse(JSON.stringify(compoundOverrides))'],
+  ['compound geometry topology validation', 'function isValidCompoundEdit(candidate, original)'],
+  ['compound vertex drag lifecycle', 'function finishCompoundDrag(commit)'],
+  ['TTF export uses final Boolean geometry', 'getCompoundGlyphGeometry(strokes, compoundOverrides[char])'],
+  ['browser regression for final Boolean geometry editing', 'edits final Boolean compound rings with undo, redo, draft persistence and TTF export'],
   ['PWA manifest linked from the app', 'rel="manifest"'],
   ['service worker registered by the app', "navigator.serviceWorker.register('./sw.js'"]
 ];
