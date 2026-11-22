@@ -12,6 +12,7 @@ const moduleSource = html.slice(start + openTag.length, end);
 
 const fontSmoke = readFileSync(new URL('../scripts/font-smoke-test.mjs', import.meta.url), 'utf8');
 const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', import.meta.url), 'utf8');
+const geometryPerformance = readFileSync(new URL('../scripts/geometry-performance.mjs', import.meta.url), 'utf8');
 const nestedExportContracts = [
   ['font smoke fixture includes four nested depths', "'Ы': ["],
   ['font smoke fixture reaches depth three', "thinning: 0.35, depth: 3"],
@@ -36,6 +37,17 @@ for (const [label, token] of nestedExportContracts) {
   assert.ok(fontSmoke.includes(token) || browserTests.includes(token), `Missing nested TTF export test: ${label}`);
 }
 
+const performanceContracts = [
+  ['dense trajectory fixture', 'single-dense-trajectory-512'],
+  ['Boolean union stress fixture', '32-overlapping-strokes'],
+  ['four-depth geometry fixture', 'four-depth-32-contours'],
+  ['geometry cache reuse measurement', 'cacheHitMs'],
+  ['generous CI performance budget', 'totalMs < 30000']
+];
+for (const [label, token] of performanceContracts) {
+  assert.ok(geometryPerformance.includes(token), `Missing geometry performance contract: ${label}`);
+}
+
 
 const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
   input: moduleSource,
@@ -55,9 +67,6 @@ const requiredContracts = [
   ['active pointer filtering', 'e.pointerId !== activePointerId'],
   ['pointer cancellation', "addEventListener('pointercancel'"],
   ['animation-frame stroke preview batching', 'function scheduleStrokePreviewRender()'],
-  ['geometry performance benchmark fixture', 'single-dense-trajectory-512'],
-  ['geometry performance cache reuse', 'cacheHitMs'],
-  ['geometry performance CI budget', 'totalMs < 30000'],
   ['pending stroke preview cancellation', 'cancelAnimationFrame(strokeRenderFrame)'],
   ['lost pointer capture handling', "addEventListener('lostpointercapture'"],
   ['local draft persistence', 'indexedDB.open(DRAFT_DB, 1)'],
