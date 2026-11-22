@@ -1807,6 +1807,22 @@ test('closes an existing IndexedDB connection so a schema upgrade can proceed', 
 });
 
 
+test('shows a visible error when draft autosave runs out of storage space', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const originalPut = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (...args) {
+      if (args[1] === 'current') {
+        throw new DOMException('Simulated storage quota failure', 'QuotaExceededError');
+      }
+      return originalPut.apply(this, args);
+    };
+  });
+  await drawStroke(page);
+  await expect(page.locator('#draftSyncStatus')).toContainText('Не удалось сохранить черновик');
+  await expect(page.locator('#draftSyncStatus')).toContainText('недостаточно места в хранилище устройства');
+});
+
 test('recovers a stroke after an immediate page reload without an artificial wait', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
