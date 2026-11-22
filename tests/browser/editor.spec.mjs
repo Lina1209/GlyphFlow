@@ -283,12 +283,15 @@ test('contour editor assigns a hole role and preserves it in the generated font'
     element.value = '36';
     element.dispatchEvent(new Event('input', {bubbles: true}));
   });
-  await drawClosedContour(page, [[60,60],[300,60],[300,300],[60,300],[60,60]]);
+  // Use a broad filled brush capsule as the outer region and a smaller,
+  // fully-contained capsule as the hole. A closed centerline loop would itself
+  // be an annulus and would not provide a filled pixel for this visual assertion.
+  await drawClosedContour(page, [[80,180],[280,180]]);
   await page.locator('#brushSize').evaluate(element => {
     element.value = '8';
     element.dispatchEvent(new Event('input', {bubbles: true}));
   });
-  await drawClosedContour(page, [[145,145],[215,145],[215,215],[145,215],[145,145]]);
+  await drawClosedContour(page, [[150,180],[210,180]]);
   await expect(svg.locator('.glyph-fill')).toHaveCount(1);
 
   await page.locator('#contourModeBtn').click();
