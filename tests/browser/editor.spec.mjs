@@ -186,3 +186,55 @@ test('pointer cancellation and glyph switching never commit partial strokes', as
   await expect(svg.locator('path')).toHaveCount(0);
   await page.mouse.up();
 });
+
+
+test('canvas zoom, pan and coordinate mapping stay stable', async ({ page }) => {
+  await page.goto('/');
+  const svg = page.locator('#drawSvg');
+  const initial = await svg.getAttribute('viewBox');
+  expect(initial).toBe('0 0 360 360');
+
+  await page.locator('#zoomInBtn').click();
+  await expect(page.locator('#zoomLevel')).toHaveText('125%');
+  const zoomed = (await svg.getAttribute('viewBox')).split(' ').map(Number);
+  expect(zoomed[2]).toBeCloseTo(288, 4);
+  expect(zoomed[3]).toBeCloseTo(288, 4);
+
+  await page.locator('#panRightBtn').click();
+  const panned = (await svg.getAttribute('viewBox')).split(' ').map(Number);
+  expect(panned[0]).toBeGreaterThan(zoomed[0]);
+
+  await page.locator('#zoomResetBtn').click();
+  await expect(svg).toHaveAttribute('viewBox', '0 0 360 360');
+  await page.mouse.move(180, 180);
+  await page.mouse.wheel(0, -120);
+  await expect(page.locator('#zoomLevel')).not.toHaveText('100%');
+
+  // Draw after zooming: the screen-to-SVG transform must still produce valid geometry.
+  const bounds = await svg.boundingBox();
+  if (!bounds) throw new Error('Drawing SVG has no visible bounds');
+  const start = {x: bounds.x + bounds.width * 0.35, y: bounds.y + bounds.height * 0.75};
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 18, start.y - 24, {steps: 3});
+  await page.mouse.move(start.x + 36, start.y - 48, {steps: 3});
+  await page.mouse.up();
+  await expect(svg.locator('path')).toHaveCount(1);
+  const pathData = await svg.locator('path').getAttribute('d');
+  expect(pathData).toBeTruthy();
+  const coordinates = [...pathData.matchAll(/-?\\d+(?:\\.\\d+)?/g)].map(match => Number(match[0]));
+  expect(coordinates.length).toBeGreaterThan(8);
+  expect(coordinates.every(Number.isFinite)).toBe(true);
+});
+
+test('drawing workspace fits a narrow mobile viewport', async ({ page }) => {
+  await page.setViewportSize({width: 375, height: 812});
+  await page.goto('/');
+  const canvas = await page.locator('#drawSvg').boundingBox();
+  expect(canvas).toBeTruthy();
+  expect(canvas.width).toBeLessThanOrEqual(327);
+  await expect(page.locator('#zoomInBtn')).toBeVisible();
+  await expect(page.locator('#panLeftBtn')).toBeVisible();
+  await page.locator('#zoomInBtn').click();
+  await expect(page.locator('#zoomLevel')).toHaveText('125%');
+});
