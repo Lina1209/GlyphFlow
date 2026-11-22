@@ -629,6 +629,51 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
 });
 
 
+test('migrates legacy hole roles and clamps unsupported stored contour depths', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  await expect.poll(() => page.evaluate(() => new Promise(resolve => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onsuccess = () => {
+      const db = request.result;
+      const get = db.transaction('projects', 'readonly').objectStore('projects').get('current');
+      get.onsuccess = () => { resolve(Boolean(get.result?.glyphData?.['А']?.length)); db.close(); };
+    };
+  }))).toBe(true);
+
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readwrite');
+      const store = tx.objectStore('projects');
+      const get = store.get('current');
+      get.onsuccess = () => {
+        const draft = get.result;
+        const legacyHole = {...draft.glyphData['А'][0], role: 'hole'};
+        delete legacyHole.depth;
+        const unsupportedDepth = {...draft.glyphData['А'][0], role: 'outer', depth: 99};
+        draft.glyphData['А'] = [legacyHole];
+        draft.glyphData['Б'] = [unsupportedDepth];
+        store.put(draft, 'current');
+      };
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    };
+  }));
+
+  await page.reload();
+  await page.locator('#contourModeBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await expect(page.locator('#contourRoleSelect')).toHaveValue('hole');
+
+  await page.locator('#glyphGrid button').filter({hasText: /^Б$/}).click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  await expect(page.locator('#contourRoleSelect')).toHaveValue('outer');
+});
+
 test('exports four nested contour levels with alternating transparent counters', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', {name: 'Р', exact: true}).click();
