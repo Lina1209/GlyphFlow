@@ -1104,3 +1104,21 @@ test('edits a selected stroke centerline through draggable nodes with undo suppo
   expect(restored.x).toBeCloseTo(before.x, 1);
   expect(restored.y).toBeCloseTo(before.y, 1);
 });
+
+
+test('adds and removes trajectory points with undo and redo', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  await page.locator('#nodeEditModeBtn').click();
+  await clickContourPath(page, page.locator('#drawSvg [data-contour-index="0"]'));
+  const initial = await page.locator('#drawSvg [data-node-index]').count();
+  await page.locator('#drawSvg [data-node-index]').first().click();
+  await page.locator('#addTrajectoryPointBtn').click();
+  await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial + 1);
+  await page.locator('#deleteTrajectoryPointBtn').click();
+  await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial);
+  await page.locator('#undoBtn').click();
+  await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial + 1);
+  await page.locator('#redoBtn').click();
+  await expect(page.locator('#drawSvg [data-node-index]')).toHaveCount(initial);
+});
