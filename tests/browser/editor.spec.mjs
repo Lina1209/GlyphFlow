@@ -51,20 +51,25 @@ async function drawClosedContour(page, points) {
 }
 
 async function clickContourPath(page, path) {
-  const position = await path.evaluate(element => {
-    const point = element.getPointAtLength(Math.max(1, element.getTotalLength() * 0.08));
+  const targetIndex = await path.getAttribute('data-contour-index');
+  const point = await path.evaluate(element => {
+    const length = element.getTotalLength();
     const bounds = element.getBBox();
-    return {x: point.x - bounds.x, y: point.y - bounds.y};
+    const rect = element.getBoundingClientRect();
+    const ratios = [0.08, 0.25, 0.5, 0.75, 0.92];
+    const samples = ratios.map(ratio => {
+      const local = element.getPointAtLength(Math.max(1, length * ratio));
+      const x = rect.left + (local.x - bounds.x) / Math.max(1, bounds.width) * rect.width;
+      const y = rect.top + (local.y - bounds.y) / Math.max(1, bounds.height) * rect.height;
+      const hit = document.elementFromPoint(x, y);
+      return {x, y, ratio, hitIndex: hit?.getAttribute('data-contour-index') ?? null};
+    });
+    return samples.find(sample => sample.hitIndex === element.getAttribute('data-contour-index')) || null;
   });
-  // Force the pointer action onto the requested SVG hit path at a point on
-  // its boundary; this avoids accidentally selecting a nested path at the
-  // bounding-box center.
-  await path.click({force: true, position});
+  if (!point) throw new Error(`Contour ${targetIndex} has no reachable SVG hit point`);
+  await page.mouse.click(point.x, point.y);
   const selectedIndex = await page.locator('#drawSvg').getAttribute('data-selected-contour-index');
-  console.log('contour selection', {
-    requested: await path.getAttribute('data-contour-index'),
-    selectedIndex
-  });
+  console.log('contour selection', {requested: targetIndex, selectedIndex, ratio: point.ratio});
 }
 
 test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ page }) => {
@@ -501,7 +506,7 @@ test('two separate hole contours remain distinct in the exported TTF', async ({p
     element.dispatchEvent(new Event('input', {bubbles: true}));
   });
   await drawClosedContour(page, [[120,180],[140,180]]);
-  await drawClosedContour(page, [[220,180],[240,180]]);
+  await drawClosedContour(page, [[200,180],[220,180]]);
   await page.locator('#contourModeBtn').click();
   const roleSelect = page.locator('#contourRoleSelect');
   for (const index of [1, 2]) {
