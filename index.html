@@ -701,6 +701,26 @@ console.warn('Не удалось восстановить черновик:', e
 if (db) db.close();
 }
 }
+// Undo snapshots are full-project JSON strings. Bound both their count and
+// estimated UTF-16 storage so long editing sessions cannot grow history forever.
+const MAX_HISTORY_ENTRIES = 40;
+const MAX_HISTORY_BYTES = 8 * 1024 * 1024;
+function trimHistoryToBudget() {
+let retainedBytes = 0;
+let firstRetained = history.length - 1;
+for (let index = history.length - 1; index >= 0; index--) {
+const snapshotBytes = history[index].length * 2;
+const entriesFromIndex = history.length - index;
+if (index < history.length - 1 &&
+(entriesFromIndex > MAX_HISTORY_ENTRIES || retainedBytes + snapshotBytes > MAX_HISTORY_BYTES)) break;
+retainedBytes += snapshotBytes;
+firstRetained = index;
+}
+if (firstRetained > 0) {
+history = history.slice(firstRetained);
+historyIndex = Math.max(0, historyIndex - firstRetained);
+}
+}
 function saveHistory() {
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
 const snapshot = JSON.stringify(glyphData);
@@ -708,6 +728,7 @@ if (history[historyIndex] === snapshot) return;
 history = history.slice(0, historyIndex + 1);
 history.push(snapshot);
 historyIndex = history.length - 1;
+trimHistoryToBudget();
 persistDraft();
 }
 function restoreHistory(index) {
