@@ -777,7 +777,7 @@ const depth = ({outer: 0, hole: 1, island: 2, 'nested-hole': 3})[contourRoleSele
 if (!Number.isInteger(depth)) return;
 if (depth > 0 && !isContourWithinParentDepth(selected, strokes, selectedStrokeIndex, depth)) {
 contourStatus.textContent = `Контур уровня ${depth} должен целиком находиться внутри области уровня ${depth - 1} и не касаться её границы.`;
-contourRoleSelect.value = String(getContourDepth(selected));
+contourRoleSelect.value = ['outer', 'hole', 'island', 'nested-hole'][Math.min(3, getContourDepth(selected))];
 return;
 }
 selected.depth = depth;
