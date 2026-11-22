@@ -5,13 +5,6 @@ async function drawStroke(page, offset = 0) {
   const svg = page.locator('#drawSvg');
   const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
-  await page.evaluate(({x,y}) => {
-    window.__glyphFlowPointerTrace.push({
-      diagnostic: 'geometry', bounds: document.querySelector('#drawSvg').getBoundingClientRect().toJSON(),
-      viewport: {width: innerWidth, height: innerHeight},
-      hit: document.elementFromPoint(x,y)?.outerHTML?.slice(0,180)
-    });
-  }, {x: Math.round(bounds.x+90), y: Math.round(bounds.y+220)});
   const points = [
     [45, 275], [60, 235], [78, 195], [96, 155], [116, 115], [138, 80]
   ];
@@ -266,7 +259,7 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
   await page.setViewportSize({width: 390, height: 844});
   await page.goto('/');
   const svg = page.locator('#drawSvg');
-  await svg.scrollIntoViewIfNeeded();
+  await page.evaluate(() => document.querySelector('#drawSvg').scrollIntoView({block: 'center', inline: 'center'}));
   const initialViewBox = await svg.getAttribute('viewBox');
   const session = await page.context().newCDPSession(page);
   await session.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 2});
@@ -284,6 +277,12 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
   });
   const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
+  const viewport = await page.evaluate(() => ({width: innerWidth, height: innerHeight}));
+  const firstTouch = {x: Math.round(bounds.x + 90), y: Math.round(bounds.y + 220)};
+  expect(firstTouch.x).toBeGreaterThanOrEqual(0);
+  expect(firstTouch.y).toBeGreaterThanOrEqual(0);
+  expect(firstTouch.x).toBeLessThan(viewport.width);
+  expect(firstTouch.y).toBeLessThan(viewport.height);
 
   const touch = (id, x, y) => ({
     id,
