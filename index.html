@@ -740,6 +740,7 @@ const stroke = (glyphData[currentChar] || [])[activeOutlineDrag.strokeIndex];
 if (stroke) {
 const candidate = (stroke.outlineOverride || activeOutlineDrag.originalOutline).map(point => [...point]);
 const position = getPointerPos(e);
+drawSvg.dataset.outlineLastPointer = `${position[0]},${position[1]}`;
 candidate[activeOutlineDrag.pointIndex] = [position[0], position[1]];
 if (isValidEditableRing(candidate, activeOutlineDrag.pointIndex, activeOutlineDrag.originalOutline)) {
 drawSvg.dataset.outlineDragState = 'accepted';
