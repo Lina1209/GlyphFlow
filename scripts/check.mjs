@@ -124,7 +124,7 @@ const requiredContracts = [
   ['restored role is normalized from depth parity', "role: depth % 2 ? 'hole' : 'outer'"],
   ['four-level contour selector', 'value="nested-hole"'],
   ['depth-preserving role compatibility', 'selected.depth = depth'],
-  ['nested parent containment counts actual polygon vertices', 'candidate.filter(point => pointInsideRing(point, parent)).length'],
+  ['nested parent containment checks actual polygon vertices', 'candidate.every(point => pointInsideRing(point, parent))'],
   ['nested parent containment rejects boundary contact', 'segmentsIntersect(a, b, parent[j], parent[(j + 1) % parent.length])'],
   ['segment endpoint and collinear rejection', 'return onSegment(a, c, b) || onSegment(a, d, b) || onSegment(c, a, d) || onSegment(c, b, d);'],
   ['contour role editor controls', "getElementById('contourRoleSelect')"],
