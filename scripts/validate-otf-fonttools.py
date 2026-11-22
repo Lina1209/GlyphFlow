@@ -2,7 +2,7 @@ from pathlib import Path
 from fontTools.ttLib import TTFont
 from fontTools.pens.recordingPen import RecordingPen
 
-font_path = Path("/tmp/glyphflow-fixture.ttf")
+font_path = Path("/tmp/glyphflow-fixture.otf")
 assert font_path.is_file(), "Fixture OpenType font was not written by the Node smoke test"
 
 font = TTFont(str(font_path), recalcBBoxes=True, recalcTimestamp=False)
