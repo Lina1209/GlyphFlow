@@ -237,6 +237,9 @@ return candidate;
 return null;
 }
 }
+function invalidateCompoundOverride(char = currentChar) {
+if (Object.prototype.hasOwnProperty.call(compoundOverrides, char)) delete compoundOverrides[char];
+}
 function getCompoundGlyphGeometry(strokes, override = null) {
 if (Array.isArray(override) && override.length) return override;
 if (!Array.isArray(strokes) || !strokes.length) return [];
@@ -1000,6 +1003,7 @@ strokeRenderFrame = null;
 }
 isDrawing = false;
 if (commit && currentPoints.length) {
+invalidateCompoundOverride();
 if (!glyphData[currentChar]) glyphData[currentChar] = [];
 glyphData[currentChar].push({points: currentPoints, size: Number(brushSizeInput.value), thinning: Number(brushThinningInput.value), role: 'outer'});
 saveHistory();
@@ -1060,7 +1064,10 @@ const changed = commit && finalOutline.length === drag.originalOutline.length &&
 finalOutline.some((point, index) => Math.abs(point[0] - drag.originalOutline[index][0]) > 1e-6 ||
 Math.abs(point[1] - drag.originalOutline[index][1]) > 1e-6);
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
-if (changed) saveHistory();
+if (changed) {
+invalidateCompoundOverride();
+saveHistory();
+}
 renderCanvas();
 updateLiveFont();
 updateContourTools();
@@ -1078,7 +1085,10 @@ else delete stroke.outlineOverride;
 const finalPoint = stroke && stroke.points && stroke.points[drag.pointIndex];
 const changed = Boolean(finalPoint && (Math.abs(finalPoint[0] - drag.originalPoint[0]) > 1e-6 || Math.abs(finalPoint[1] - drag.originalPoint[1]) > 1e-6));
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
-if (commit && changed) saveHistory();
+if (commit && changed) {
+invalidateCompoundOverride();
+saveHistory();
+}
 renderCanvas();
 updateLiveFont();
 updateContourTools();
@@ -1194,6 +1204,7 @@ else if (Number.isFinite(left[2])) midpoint.push(left[2]);
 else if (Number.isFinite(right[2])) midpoint.push(right[2]);
 delete stroke.outlineOverride;
 stroke.points.splice(insertAt, 0, midpoint);
+invalidateCompoundOverride();
 selectedNodeIndex = insertAt;
 glyphGeometryCache.delete(strokes);
 saveHistory();
@@ -1207,6 +1218,7 @@ const stroke = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex
 if (!nodeEditMode || !stroke || !Array.isArray(stroke.points) || stroke.points.length <= 2 || selectedNodeIndex === null) return;
 delete stroke.outlineOverride;
 stroke.points.splice(selectedNodeIndex, 1);
+invalidateCompoundOverride();
 selectedNodeIndex = Math.min(selectedNodeIndex, stroke.points.length - 1);
 glyphGeometryCache.delete(strokes);
 saveHistory();
@@ -1227,6 +1239,7 @@ return;
 }
 selected.depth = depth;
 selected.role = depth % 2 ? 'hole' : 'outer';
+invalidateCompoundOverride();
 saveHistory();
 renderCanvas();
 updateLiveFont();
@@ -1235,6 +1248,7 @@ updateContourTools();
 
 document.getElementById('clearBtn').onclick = () => {
 glyphData[currentChar] = [];
+invalidateCompoundOverride();
 selectedStrokeIndex = null;
 saveHistory();
 renderCanvas();
