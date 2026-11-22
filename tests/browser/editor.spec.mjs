@@ -90,3 +90,99 @@ test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ 
 
   expect(pageErrors, 'Browser runtime should not raise uncaught exceptions').toEqual([]);
 });
+
+
+test('touch input commits strokes and cancels interrupted gestures safely', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  await page.goto('/');
+
+  const session = await page.context().newCDPSession(page);
+  await session.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+  const svg = page.locator('#drawSvg');
+  const bounds = await svg.boundingBox();
+  if (!bounds) throw new Error('Drawing SVG has no visible bounds');
+
+  const point = (x, y) => ({
+    x: Math.round(bounds.x + x),
+    y: Math.round(bounds.y + y),
+    id: 1,
+    radiusX: 2,
+    radiusY: 2,
+    force: 0.7
+  });
+
+  // An interrupted touch must discard the in-progress stroke, not save it.
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [point(55, 280)]
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [point(80, 220)]
+  });
+  await expect(svg.locator('path')).toHaveCount(1);
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchCancel',
+    touchPoints: []
+  });
+  await expect(svg.locator('path')).toHaveCount(0);
+
+  // A new touch gesture must still be accepted and committed normally.
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [point(65, 280)]
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [point(95, 220)]
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [point(125, 160)]
+  });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: []
+  });
+  await expect(svg.locator('path')).toHaveCount(1);
+  await expect(page.locator('#progressText')).toContainText('1 /');
+  expect(pageErrors, 'Touch interaction should not raise uncaught exceptions').toEqual([]);
+  await session.detach();
+});
+
+test('pointer cancellation and glyph switching never commit partial strokes', async ({ page }) => {
+  await page.goto('/');
+  const svg = page.locator('#drawSvg');
+  const bounds = await svg.boundingBox();
+  if (!bounds) throw new Error('Drawing SVG has no visible bounds');
+
+  await page.mouse.move(bounds.x + 55, bounds.y + 280);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 90, bounds.y + 220, { steps: 3 });
+  await expect(svg.locator('path')).toHaveCount(1);
+  await page.evaluate(() => {
+    const svgElement = document.querySelector('#drawSvg');
+    svgElement.dispatchEvent(new PointerEvent('pointercancel', {
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      bubbles: true
+    }));
+  });
+  await expect(svg.locator('path')).toHaveCount(0);
+  await page.mouse.up();
+
+  // Start another gesture, then switch glyph through the editor's selection handler.
+  await page.mouse.move(bounds.x + 55, bounds.y + 280);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 90, bounds.y + 220, { steps: 3 });
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll('#glyphGrid button')]
+      .find(item => item.textContent === 'Б');
+    button?.click();
+  });
+  await expect(page.locator('#currentCharLabel')).toHaveText('Б');
+  await expect(svg.locator('path')).toHaveCount(0);
+  await page.mouse.up();
+});
