@@ -526,3 +526,12 @@ Playwright проверяет миграцию старого отверстия
 - Предыдущий CI run 45077443798 на коммите 554d12c завершился success: static checks success и 29/29 production browser tests passed. Атомарное восстановление — новое изменение и требует отдельного CI подтверждения.
 - В том же успешном CI журнал установки npm сообщил об одной уязвимости высокого уровня, но краткий вывод не назвал пакет и advisory. Нельзя безопасно выбирать обновление вслепую: следующий этап — получить полный npm audit report на том же dependency tree, определить затронутую транзитивную зависимость и только затем выбрать совместимое исправление.
 - Production build также предупреждает о JS chunk размером около 535 KiB (gzip около 165 KiB). Это не блокирует сборку, но остаётся задачей оптимизации разбиения кода после проверки влияния на initial load и offline cache.
+
+
+## Security dependency review and atomic restore follow-up
+
+- CI run 45077443798 completed with both jobs successful and all 29 production browser tests passing.
+- The next audit change replaces sequential backup writes with a single IndexedDB readwrite transaction. A regression test now simulates a failure on the second font record and verifies rollback of the entire import. This new test must pass in the latest CI run before the atomicity fix is considered verified.
+- The dependency installation summary reported one high-severity advisory. The pinned Vite 6.3.5 release also falls within published vulnerable ranges for Vite 6; Vite 6.4.6 is the current patched release on the same major line. The project dependency was updated to 6.4.6 without moving to a new major version.
+- CI now runs npm audit with --no-package-lock and prints each affected package, severity, direct/transitive status and fix availability. This is diagnostic output, not yet a hard failure gate. Review the report before considering the dependency audit closed.
+- The production bundle currently emits a non-blocking large-chunk warning (about 535 KiB uncompressed / 165 KiB gzip). Code splitting is a follow-up performance task; it must preserve first-load reliability and offline PWA caching.
