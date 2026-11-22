@@ -80,6 +80,20 @@ const nestedStrokes = Array.from({length: 32}, (_, index) => {
 });
 const nested = timed('four-depth-32-contours', nestedStrokes);
 
-const totalMs = dense + multi + nested;
+
+// Larger trajectories: measure actual input-size scaling before choosing product limits.
+const large2k = timed('single-dense-trajectory-2000', [makeStroke(0, 2000)]);
+const large5k = timed('single-dense-trajectory-5000', [makeStroke(0, 5000)]);
+const large10k = timed('single-dense-trajectory-10000', [makeStroke(0, 10000)]);
+
+// Many short, overlapping strokes exercise the union path with higher object counts.
+const strokes64 = timed('64-overlapping-strokes', Array.from(
+  {length: 64}, (_, index) => makeStroke(index, 16)
+));
+const strokes128 = timed('128-overlapping-strokes', Array.from(
+  {length: 128}, (_, index) => makeStroke(index, 16)
+));
+
+const totalMs = dense + multi + nested + large2k + large5k + large10k + strokes64 + strokes128;
 console.log(JSON.stringify({summary: 'GlyphFlow geometry performance smoke passed', totalComputeMs: Number(totalMs.toFixed(2))}));
-assert.ok(totalMs < 30000, 'Geometry smoke exceeded the generous 30-second CI budget');
+assert.ok(totalMs < 90000, 'Geometry stress exceeded the generous 90-second CI budget');
