@@ -16,7 +16,8 @@ assert.ok(start >= 0 && end > start, 'Could not extract the live geometry pipeli
 const context = { getStroke, polygonClipping };
 vm.runInNewContext(
   html.slice(start, end) +
-  '\nthis.getCompoundGlyphGeometry = getCompoundGlyphGeometry;' +
+  '\nthis.getCompoundGlyphGeometry = getCompoundGlyphGeometry;
+this.buildNestedContourGeometry = buildNestedContourGeometry;' +
   '\nthis.getCompoundPathRecords = getCompoundPathRecords;' +
   '\nthis.getStrokeOutline = getStrokeOutline;' +
   '\nthis.multiPolygonArea = multiPolygonArea;' +
@@ -109,4 +110,22 @@ assert.ok(boundaryCrossing, 'Boundary-touching counter fixture must actually int
 assert.equal(context.isHoleWithinOuterBounds(touchingHole[1], touchingHole, 1), false,
   'The live hole validator must reject a counter that touches the outer boundary');
 
-console.log('GlyphFlow geometry edge cases passed: narrow connected bridge, preserved near-touching gap, repeated samples, microscopic stroke rejection, and boundary-touching counter detection.');
+
+// Explicit nested topology: outer -> counter -> island -> nested counter.
+const rect = (x1, y1, x2, y2) => [[x1,y1],[x2,y1],[x2,y2],[x1,y2],[x1,y1]];
+const nested = context.buildNestedContourGeometry([
+  { depth: 0, ring: rect(0, 0, 100, 100) },
+  { depth: 1, ring: rect(20, 20, 80, 80) },
+  { depth: 2, ring: rect(35, 35, 65, 65) },
+  { depth: 3, ring: rect(43, 43, 57, 57) }
+]);
+assertFiniteGeometry(nested, 'four-level nested topology');
+assert.equal(nested.length, 1, 'Nested island remains connected to outer component as one polygon');
+assert.ok(Math.abs(area(nested) - 7304) < 1e-5,
+  'Nested fill must alternate add/subtract at every depth');
+const nestedRecords = context.getCompoundPathRecords(nested);
+assert.equal(nestedRecords.length, 4, 'Nested topology must preserve four boundary rings');
+assert.deepEqual(nestedRecords.map(record => record.role), ['outer', 'hole', 'outer', 'hole'],
+  'Nested rings must alternate outer/hole winding for TrueType non-zero fill');
+
+console.log('GlyphFlow geometry edge cases passed: narrow bridges, near-touching gaps, repeated samples, microscopic rejection, boundary-touching counters, and four-level nested topology.');
