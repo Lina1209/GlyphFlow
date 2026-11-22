@@ -50,7 +50,7 @@ const assertFiniteGeometry = (geometry, label) => {
 const narrowBridge = [
   stroke([[110, 95], [110, 265]], 22),
   stroke([[250, 95], [250, 265]], 22),
-  stroke([[115, 180], [245, 180]], 5)
+  stroke([[90, 180], [270, 180]], 3)
 ];
 const bridged = context.getCompoundGlyphGeometry(narrowBridge);
 assertFiniteGeometry(bridged, 'narrow bridge');
