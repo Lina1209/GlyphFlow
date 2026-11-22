@@ -39,6 +39,11 @@ for (const [label, token] of nestedExportContracts) {
 
 const performanceContracts = [
   ['dense trajectory fixture', 'single-dense-trajectory-512'],
+  ['2k trajectory fixture', 'single-dense-trajectory-2000'],
+  ['5k trajectory fixture', 'single-dense-trajectory-5000'],
+  ['10k trajectory fixture', 'single-dense-trajectory-10000'],
+  ['64-stroke fixture', '64-overlapping-strokes'],
+  ['128-stroke fixture', '128-overlapping-strokes'],
   ['Boolean union stress fixture', '32-overlapping-strokes'],
   ['four-depth geometry fixture', 'four-depth-32-contours'],
   ['geometry cache reuse measurement', 'cacheHitMs'],
@@ -46,6 +51,17 @@ const performanceContracts = [
 ];
 for (const [label, token] of performanceContracts) {
   assert.ok(geometryPerformance.includes(token), `Missing geometry performance contract: ${label}`);
+}
+
+const browserEnduranceContracts = [
+  ['mobile viewport endurance test', 'repeated editing across narrow mobile viewport sizes'],
+  ['mobile 320px viewport', '{width: 320, height: 640}'],
+  ['mobile 412px viewport', '{width: 412, height: 915}'],
+  ['long-session glyph isolation', "toEqual({A: 18, B: 6})"],
+  ['long-session undo redo', "for (let index = 0; index < 4; index++) await page.locator('#undoBtn').click()"]
+];
+for (const [label, token] of browserEnduranceContracts) {
+  assert.ok(browserTests.includes(token), `Missing browser endurance contract: ${label}`);
 }
 
 
@@ -70,9 +86,6 @@ const requiredContracts = [
   ['bounded undo snapshot count', 'const MAX_HISTORY_ENTRIES = 40;'],
   ['bounded undo snapshot memory', 'const MAX_HISTORY_BYTES = 8 * 1024 * 1024;'],
   ['download Blob URL timer captures stable URL', 'const completedDownloadUrl = downloadUrl;'],
-  ['large trajectory performance fixtures', "single-dense-trajectory-10000"],
-  ['high stroke-count performance fixtures', "128-overlapping-strokes"],
-  ['mobile viewport endurance test', "repeated editing across narrow mobile viewport sizes"],
   ['history trimming before retaining snapshots', 'function trimHistoryToBudget()'],
   ['pending stroke preview cancellation', 'cancelAnimationFrame(strokeRenderFrame)'],
   ['lost pointer capture handling', "addEventListener('lostpointercapture'"],
