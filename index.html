@@ -616,8 +616,9 @@ if (index < 0 || index >= history.length) return;
 Object.keys(glyphData).forEach(key => delete glyphData[key]);
 Object.assign(glyphData, JSON.parse(history[index]));
 historyIndex = index;
+selectedStrokeIndex = null;
 persistDraft();
-renderCanvas(); renderGrid(); updateLiveFont();
+renderCanvas(); renderGrid(); updateLiveFont(); updateContourTools();
 }
 function finishStroke(commit = true, releaseCapture = true) {
 if (!isDrawing) return;
@@ -695,10 +696,12 @@ updateContourTools();
 
 document.getElementById('clearBtn').onclick = () => {
 glyphData[currentChar] = [];
+selectedStrokeIndex = null;
 saveHistory();
 renderCanvas();
 renderGrid();
 updateLiveFont();
+updateContourTools();
 };
 
 brushSizeInput.oninput = () => sizeVal.textContent = brushSizeInput.value + 'px';
@@ -891,6 +894,7 @@ await restoreDraft();
 renderGrid();
 renderCanvas();
 updateLiveFont();
+updateContourTools();
 </script>
 </body>
 </html>
