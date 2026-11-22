@@ -981,6 +981,7 @@ function finishOutlineDrag(commit) {
 if (!activeOutlineDrag) return;
 const drag = activeOutlineDrag;
 activeOutlineDrag = null;
+drawSvg.dataset.outlineFinishCommit = String(Boolean(commit));
 const stroke = (glyphData[currentChar] || [])[drag.strokeIndex];
 if (!stroke) return;
 if (!commit) {
@@ -992,6 +993,8 @@ const changed = commit && finalOutline.length === drag.originalOutline.length &&
 finalOutline.some((point, index) => Math.abs(point[0] - drag.originalOutline[index][0]) > 1e-6 ||
 Math.abs(point[1] - drag.originalOutline[index][1]) > 1e-6);
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
+drawSvg.dataset.outlineFinishChanged = String(Boolean(changed));
+drawSvg.dataset.outlineFinishPoint = finalOutline[drag.pointIndex] ? finalOutline[drag.pointIndex].join(',') : 'missing';
 if (changed) saveHistory();
 renderCanvas();
 updateLiveFont();
@@ -1036,6 +1039,7 @@ if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return
 if (e.pointerId === activePointerId) finishStroke(false);
 });
 drawSvg.addEventListener('lostpointercapture', (e) => {
+if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) drawSvg.dataset.outlineLostCapture = 'true';
 if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(false); return; }
 if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(false); return; }
 if (finishTouchPointer(e, true)) {
