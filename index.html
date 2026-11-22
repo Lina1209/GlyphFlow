@@ -483,7 +483,6 @@ node.setAttribute('fill', pointIndex === selectedOutlineIndex ? '#22c55e' : '#38
 node.setAttribute('stroke', '#ffffff');
 node.setAttribute('stroke-width', '1.5');
 node.setAttribute('data-outline-index', String(pointIndex));
-if (pointIndex === selectedOutlineIndex) drawSvg.dataset.outlineRenderedPoint = point.join(',');
 node.setAttribute('role', 'slider');
 node.setAttribute('aria-label', `Вершина границы ${pointIndex + 1}`);
 node.setAttribute('pointer-events', 'all');
@@ -629,9 +628,8 @@ selectedOutlineIndex = pointIndex;
 activeOutlineDrag = {pointerId: e.pointerId, strokeIndex: selectedStrokeIndex, pointIndex,
 originalOutline: outline.map(point => [...point]),
 originalOverride: Array.isArray(stroke.outlineOverride) ? stroke.outlineOverride.map(point => [...point]) : null};
-drawSvg.dataset.outlineDragState = 'pressed';
-try { drawSvg.setPointerCapture(e.pointerId); drawSvg.dataset.outlineDragState = 'captured'; }
-catch (err) { drawSvg.dataset.outlineDragState = 'capture-failed'; activeOutlineDrag = null; e.preventDefault(); return; }
+try { drawSvg.setPointerCapture(e.pointerId); }
+catch (err) { activeOutlineDrag = null; e.preventDefault(); return; }
 vertex.setAttribute('fill', '#22c55e');
 updateContourTools();
 e.preventDefault();
@@ -749,15 +747,10 @@ const stroke = (glyphData[currentChar] || [])[activeOutlineDrag.strokeIndex];
 if (stroke) {
 const candidate = (stroke.outlineOverride || activeOutlineDrag.originalOutline).map(point => [...point]);
 const position = getPointerPos(e);
-drawSvg.dataset.outlineLastPointer = `${position[0]},${position[1]}`;
 candidate[activeOutlineDrag.pointIndex] = [position[0], position[1]];
 if (isValidEditableRing(candidate, activeOutlineDrag.pointIndex, activeOutlineDrag.originalOutline)) {
-drawSvg.dataset.outlineDragState = 'accepted';
 stroke.outlineOverride = candidate;
-drawSvg.dataset.outlineStoredPoint = candidate[activeOutlineDrag.pointIndex].join(',');
-drawSvg.dataset.outlineStoredLength = String(candidate.length);
 } else {
-drawSvg.dataset.outlineDragState = 'rejected';
 }
 if (drawSvg.dataset.outlineDragState === 'accepted') {
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
@@ -989,7 +982,6 @@ function finishOutlineDrag(commit) {
 if (!activeOutlineDrag) return;
 const drag = activeOutlineDrag;
 activeOutlineDrag = null;
-drawSvg.dataset.outlineFinishCommit = String(Boolean(commit));
 const stroke = (glyphData[currentChar] || [])[drag.strokeIndex];
 if (!stroke) return;
 if (!commit) {
@@ -1001,15 +993,8 @@ const changed = commit && finalOutline.length === drag.originalOutline.length &&
 finalOutline.some((point, index) => Math.abs(point[0] - drag.originalOutline[index][0]) > 1e-6 ||
 Math.abs(point[1] - drag.originalOutline[index][1]) > 1e-6);
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
-drawSvg.dataset.outlineFinishChanged = String(Boolean(changed));
-drawSvg.dataset.outlineFinishPoint = finalOutline[drag.pointIndex] ? finalOutline[drag.pointIndex].join(',') : 'missing';
 if (changed) saveHistory();
 renderCanvas();
-const committedHandle = drawSvg.querySelector(`[data-outline-index="${drag.pointIndex}"]`);
-drawSvg.dataset.outlineFinalHandlePoint = committedHandle
-? `${committedHandle.getAttribute('cx')},${committedHandle.getAttribute('cy')}`
-: 'missing';
-drawSvg.dataset.outlineSelectedAfterRender = String(selectedOutlineIndex);
 updateLiveFont();
 updateContourTools();
 }
@@ -1052,7 +1037,6 @@ if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return
 if (e.pointerId === activePointerId) finishStroke(false);
 });
 drawSvg.addEventListener('lostpointercapture', (e) => {
-if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) drawSvg.dataset.outlineLostCapture = 'true';
 if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) { finishNodeDrag(false); return; }
 if (activeOutlineDrag && e.pointerId === activeOutlineDrag.pointerId) { finishOutlineDrag(false); return; }
 if (finishTouchPointer(e, true)) {
