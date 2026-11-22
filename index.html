@@ -54,7 +54,7 @@ class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 roun
 </div>
 
 <!-- Контейнер холста с направляющими -->
-<div class="relative w-[360px] h-[360px] bg-white rounded-xl shadow-inner overflow-hidden cursor-crosshair select-none border-2 border-slate-600">
+<div class="relative w-full max-w-[360px] aspect-square bg-white rounded-xl shadow-inner overflow-hidden cursor-crosshair select-none border-2 border-slate-600">
 <!-- Типографские линии (SVG сетка) -->
 <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 360 360">
 <!-- Линия прописных (Cap Height) -->
@@ -71,6 +71,20 @@ class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 roun
 </svg>
 <!-- Интерактивный SVG для рисования -->
 <svg id="drawSvg" class="relative z-10 w-full h-full touch-none" viewBox="0 0 360 360"></svg>
+</div>
+<div class="w-full max-w-[360px] flex flex-wrap items-center justify-between gap-2 mt-2" aria-label="Управление масштабом холста">
+  <div class="flex items-center gap-1">
+    <button id="zoomOutBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-sm" aria-label="Уменьшить масштаб">−</button>
+    <span id="zoomLevel" class="text-xs text-slate-400 min-w-12 text-center">100%</span>
+    <button id="zoomInBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-sm" aria-label="Увеличить масштаб">+</button>
+    <button id="zoomResetBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-xs">Сброс</button>
+  </div>
+  <div class="flex items-center gap-1" aria-label="Перемещение холста">
+    <button id="panLeftBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-sm" aria-label="Сдвинуть влево">←</button>
+    <button id="panUpBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-sm" aria-label="Сдвинуть вверх">↑</button>
+    <button id="panDownBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-sm" aria-label="Сдвинуть вниз">↓</button>
+    <button id="panRightBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-sm" aria-label="Сдвинуть вправо">→</button>
+  </div>
 </div>
 
 <!-- Настройки кисти -->
@@ -127,6 +141,9 @@ let currentChar = 'А';
 let currentPoints = [];
 let isDrawing = false;
 let activePointerId = null;
+let panPointerId = null;
+let panStart = null;
+let viewBox = { x: 0, y: 0, size: 360 };
 let history = [JSON.stringify(glyphData)];
 let historyIndex = 0;
 let previewFontUrl = null;
@@ -221,17 +238,70 @@ drawSvg.appendChild(path);
 }
 }
 
-// Получение точных координат внутри SVG 360x360
+// Масштабирование и перемещение выполняются через viewBox, поэтому координаты штрихов
+// остаются в исходной системе 360x360 и не меняют геометрию при зуме.
+const MIN_VIEW_SIZE = 120;
+const MAX_VIEW_SIZE = 720;
+const zoomLevel = document.getElementById('zoomLevel');
+function clampViewBox() {
+viewBox.x = Math.max(-180, Math.min(540 - viewBox.size, viewBox.x));
+viewBox.y = Math.max(-180, Math.min(540 - viewBox.size, viewBox.y));
+}
+function applyViewBox() {
+clampViewBox();
+drawSvg.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.size} ${viewBox.size}`);
+zoomLevel.textContent = `${Math.round(360 / viewBox.size * 100)}%`;
+}
+function svgPointFromClient(clientX, clientY) {
+const point = drawSvg.createSVGPoint();
+point.x = clientX;
+point.y = clientY;
+return point.matrixTransform(drawSvg.getScreenCTM().inverse());
+}
+function zoomAt(factor, clientX, clientY) {
+const anchor = clientX == null ? {x: viewBox.x + viewBox.size / 2, y: viewBox.y + viewBox.size / 2} : svgPointFromClient(clientX, clientY);
+const nextSize = Math.max(MIN_VIEW_SIZE, Math.min(MAX_VIEW_SIZE, viewBox.size * factor));
+const ratioX = (anchor.x - viewBox.x) / viewBox.size;
+const ratioY = (anchor.y - viewBox.y) / viewBox.size;
+viewBox.size = nextSize;
+viewBox.x = anchor.x - ratioX * nextSize;
+viewBox.y = anchor.y - ratioY * nextSize;
+applyViewBox();
+}
+function panView(dx, dy) {
+viewBox.x += dx;
+viewBox.y += dy;
+applyViewBox();
+}
+document.getElementById('zoomInBtn').onclick = () => zoomAt(0.8);
+document.getElementById('zoomOutBtn').onclick = () => zoomAt(1.25);
+document.getElementById('zoomResetBtn').onclick = () => { viewBox = {x: 0, y: 0, size: 360}; applyViewBox(); };
+document.getElementById('panLeftBtn').onclick = () => panView(-40, 0);
+document.getElementById('panRightBtn').onclick = () => panView(40, 0);
+document.getElementById('panUpBtn').onclick = () => panView(0, -40);
+document.getElementById('panDownBtn').onclick = () => panView(0, 40);
+drawSvg.addEventListener('wheel', e => {
+e.preventDefault();
+zoomAt(e.deltaY < 0 ? 0.9 : 1.1, e.clientX, e.clientY);
+}, {passive: false});
+drawSvg.addEventListener('contextmenu', e => e.preventDefault());
+
+// Получение точных координат SVG с учётом текущего масштаба и положения viewBox.
 function getPointerPos(e) {
-const rect = drawSvg.getBoundingClientRect();
-const x = ((e.clientX - rect.left) / rect.width) * 360;
-const y = ((e.clientY - rect.top) / rect.height) * 360;
-return [x, y, e.pressure || 0.5];
+const point = svgPointFromClient(e.clientX, e.clientY);
+return [point.x, point.y, e.pressure || 0.5];
 }
 
-// События рисования
+// События рисования и перетаскивания холста мышью (Alt + перетаскивание или средняя кнопка).
 drawSvg.addEventListener('pointerdown', (e) => {
-if (!e.isPrimary || isDrawing) return;
+if (e.button === 1 || e.button === 2 || e.altKey) {
+e.preventDefault();
+panPointerId = e.pointerId;
+panStart = {clientX: e.clientX, clientY: e.clientY, x: viewBox.x, y: viewBox.y};
+try { drawSvg.setPointerCapture(e.pointerId); } catch (err) { panPointerId = null; panStart = null; }
+return;
+}
+if (e.button !== 0 || !e.isPrimary || isDrawing || panPointerId !== null) return;
 try {
 drawSvg.setPointerCapture(e.pointerId);
 } catch (err) {
@@ -245,6 +315,14 @@ renderCanvas();
 });
 
 drawSvg.addEventListener('pointermove', (e) => {
+if (e.pointerId === panPointerId && panStart) {
+const rect = drawSvg.getBoundingClientRect();
+const factor = viewBox.size / Math.max(1, rect.width);
+viewBox.x = panStart.x - (e.clientX - panStart.clientX) * factor;
+viewBox.y = panStart.y - (e.clientY - panStart.clientY) * factor;
+applyViewBox();
+return;
+}
 if (!isDrawing || e.pointerId !== activePointerId) return;
 currentPoints.push(getPointerPos(e));
 renderCanvas();
@@ -368,9 +446,18 @@ if (activePointerId !== null && drawSvg.hasPointerCapture(activePointerId)) draw
 activePointerId = null;
 renderCanvas(); renderGrid(); updateLiveFont();
 }
-drawSvg.addEventListener('pointerup', (e) => { if (e.pointerId === activePointerId) finishStroke(true); });
-drawSvg.addEventListener('pointercancel', (e) => { if (e.pointerId === activePointerId) finishStroke(false); });
-drawSvg.addEventListener('lostpointercapture', () => { if (isDrawing) finishStroke(false); });
+drawSvg.addEventListener('pointerup', (e) => {
+if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return; }
+if (e.pointerId === activePointerId) finishStroke(true);
+});
+drawSvg.addEventListener('pointercancel', (e) => {
+if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; return; }
+if (e.pointerId === activePointerId) finishStroke(false);
+});
+drawSvg.addEventListener('lostpointercapture', (e) => {
+if (e.pointerId === panPointerId) { panPointerId = null; panStart = null; }
+if (e.pointerId === activePointerId && isDrawing) finishStroke(false);
+});
 
 // Кнопки управления
 document.getElementById('undoBtn').onclick = () => restoreHistory(historyIndex - 1);
