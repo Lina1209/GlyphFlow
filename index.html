@@ -995,7 +995,8 @@ link.download = familyName + '-Regular.ttf';
 document.body.appendChild(link);
 link.click();
 link.remove();
-window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
+const completedDownloadUrl = downloadUrl;
+window.setTimeout(() => URL.revokeObjectURL(completedDownloadUrl), 1500);
 downloadUrl = null;
 } catch (err) {
 if (downloadUrl) URL.revokeObjectURL(downloadUrl);
