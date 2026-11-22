@@ -21,6 +21,7 @@ const glyphData = {};
 const compoundOverrides = {};
 let currentChar = 'А';
 let currentPoints = [];
+let activeProjectPointCount = 0;
 let isDrawing = false;
 let activePointerId = null;
 let contourEditMode = false;
@@ -960,6 +961,7 @@ if (existingProjectPoints >= MAX_PROJECT_POINTS) {
 contourStatus.textContent = 'Достигнут лимит точек проекта. Сохраните резервную копию и начните отдельный проект.';
 return;
 }
+activeProjectPointCount = existingProjectPoints;
 try {
 if (e.pointerType !== 'touch') drawSvg.setPointerCapture(e.pointerId);
 } catch (err) {
@@ -1060,7 +1062,7 @@ if (currentPoints.length >= MAX_STROKE_POINTS) {
 contourStatus.textContent = 'Достигнут лимит ' + MAX_STROKE_POINTS + ' точек на штрих. Завершите штрих и продолжайте новым.';
 return;
 }
-if (existingProjectPoints + currentPoints.length >= MAX_PROJECT_POINTS) {
+if (activeProjectPointCount + currentPoints.length >= MAX_PROJECT_POINTS) {
 contourStatus.textContent = 'Достигнут лимит точек проекта. Сохраните резервную копию и начните отдельный проект.';
 return;
 }
