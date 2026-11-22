@@ -69,6 +69,7 @@ const requiredContracts = [
   ['animation-frame stroke preview batching', 'function scheduleStrokePreviewRender()'],
   ['bounded undo snapshot count', 'const MAX_HISTORY_ENTRIES = 40;'],
   ['bounded undo snapshot memory', 'const MAX_HISTORY_BYTES = 8 * 1024 * 1024;'],
+  ['download Blob URL timer captures stable URL', 'const completedDownloadUrl = downloadUrl;'],
   ['history trimming before retaining snapshots', 'function trimHistoryToBudget()'],
   ['pending stroke preview cancellation', 'cancelAnimationFrame(strokeRenderFrame)'],
   ['lost pointer capture handling', "addEventListener('lostpointercapture'"],
