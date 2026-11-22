@@ -629,8 +629,9 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
 });
 
 
-test('assigns four nested contour levels through the editor', async ({ page }) => {
+test('exports four nested contour levels with alternating transparent counters', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', {name: 'Р', exact: true}).click();
   const sizes = [36, 22, 14, 8];
   const spans = [[55, 305], [100, 260], [135, 225], [155, 205]];
   for (let i = 0; i < sizes.length; i++) {
@@ -656,6 +657,79 @@ test('assigns four nested contour levels through the editor', async ({ page }) =
     await page.locator('#applyContourRoleBtn').click();
     await expect(selector).toHaveValue(level);
   }
-  await expect(page.locator('#drawSvg .glyph-fill')).toHaveCount(1);
   await expect(page.locator('#contourStatus')).toContainText('Уровень 3');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\\.ttf$/i);
+  const bytes = await readFile(await download.path());
+  expect(bytes.subarray(0, 4).toString('hex')).toBe('00010000');
+  const result = await page.evaluate(async base64 => {
+    const buffer = Uint8Array.from(atob(base64), character => character.charCodeAt(0)).buffer;
+    const glyph = window.opentype.parse(buffer).charToGlyph('Р');
+    const contours = [];
+    let active = [];
+    for (const command of glyph.path.commands) {
+      if (command.type === 'M') {
+        if (active.length) contours.push(active);
+        active = [{x: command.x, y: command.y}];
+      } else if (command.type === 'Z') {
+        if (active.length) contours.push(active);
+        active = [];
+      } else if (Number.isFinite(command.x) && Number.isFinite(command.y)) {
+        active.push({x: command.x, y: command.y});
+      }
+    }
+    if (active.length) contours.push(active);
+    const inside = (point, polygon) => {
+      let result = false;
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const a = polygon[i], b = polygon[j];
+        if ((a.y > point.y) !== (b.y > point.y) &&
+          point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) result = !result;
+      }
+      return result;
+    };
+    const bounds = contours[0].reduce((box, point) => ({
+      minX: Math.min(box.minX, point.x), minY: Math.min(box.minY, point.y),
+      maxX: Math.max(box.maxX, point.x), maxY: Math.max(box.maxY, point.y)
+    }), {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity});
+    const patterns = [[true,false,false,false], [true,true,false,false],
+      [true,true,true,false], [true,true,true,true]];
+    const samples = patterns.map(pattern => {
+      for (let yi = 1; yi < 100; yi++) {
+        for (let xi = 1; xi < 100; xi++) {
+          const point = {
+            x: bounds.minX + (bounds.maxX - bounds.minX) * xi / 100,
+            y: bounds.minY + (bounds.maxY - bounds.minY) * yi / 100
+          };
+          if (contours.map(contour => inside(point, contour)).every((value, index) => value === pattern[index])) {
+            return point;
+          }
+        }
+      }
+      throw new Error('Could not find a stable sample for nested fill pattern ' + pattern.join(','));
+    });
+    const face = new FontFace('GlyphFlowNestedDepthCheck', buffer);
+    await face.load();
+    document.fonts.add(face);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1400;
+    canvas.height = 1200;
+    const context = canvas.getContext('2d');
+    context.font = '1000px GlyphFlowNestedDepthCheck';
+    context.fillStyle = '#000';
+    context.fillText('Р', 0, 950);
+    const alpha = samples.map(point => context.getImageData(
+      Math.round(point.x), Math.round(950 - point.y), 1, 1
+    ).data[3]);
+    return {contourCount: contours.length, alpha, samples};
+  }, bytes.toString('base64'));
+
+  expect(result.contourCount, JSON.stringify(result)).toBe(4);
+  expect(result.alpha[0], JSON.stringify(result)).toBeGreaterThan(0);
+  expect(result.alpha[1], JSON.stringify(result)).toBe(0);
+  expect(result.alpha[2], JSON.stringify(result)).toBeGreaterThan(0);
+  expect(result.alpha[3], JSON.stringify(result)).toBe(0);
 });
