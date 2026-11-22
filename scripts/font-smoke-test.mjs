@@ -31,6 +31,22 @@ const glyphData = {
   '😀': [{
     points: [[210, 180, 0.5], [230, 145, 0.6], [265, 130, 0.7], [300, 145, 0.6], [320, 180, 0.5], [300, 215, 0.6], [265, 230, 0.7], [230, 215, 0.6], [210, 180, 0.5]],
     size: 14, thinning: 0.5
+  }],
+  // Closed loop: exercises a real brush outline around an O-shaped trajectory.
+  'О': [{
+    points: [[190, 180, 0.5], [180, 135, 0.6], [195, 90, 0.7], [235, 65, 0.7], [280, 75, 0.6], [310, 115, 0.5], [315, 165, 0.6], [290, 210, 0.7], [245, 230, 0.6], [205, 210, 0.5], [190, 180, 0.5]],
+    size: 16, thinning: 0.45
+  }],
+  // Three intersecting brush strokes approximate a handwritten Ж skeleton.
+  'Ж': [
+    { points: [[250, 45, 0.5], [250, 130, 0.6], [250, 220, 0.5]], size: 16, thinning: 0.45 },
+    { points: [[165, 65, 0.5], [205, 125, 0.6], [250, 175, 0.5], [295, 125, 0.6], [335, 65, 0.5]], size: 16, thinning: 0.45 },
+    { points: [[165, 235, 0.5], [205, 185, 0.6], [250, 140, 0.5], [295, 185, 0.6], [335, 235, 0.5]], size: 16, thinning: 0.45 }
+  ],
+  // A self-crossing figure-eight trajectory probes outline stability at crossings.
+  '∞': [{
+    points: [[150, 150, 0.5], [180, 105, 0.6], [225, 105, 0.6], [255, 150, 0.5], [285, 195, 0.6], [330, 195, 0.6], [360, 150, 0.5], [330, 105, 0.6], [285, 105, 0.6], [255, 150, 0.5], [225, 195, 0.6], [180, 195, 0.6], [150, 150, 0.5]],
+    size: 14, thinning: 0.45
   }]
 };
 const context = {
@@ -56,7 +72,7 @@ const notdef = parsed.glyphs.get(0);
 assert.equal(notdef.name, '.notdef', 'Glyph zero must be .notdef');
 assert.equal(parsed.charToGlyph(' ').advanceWidth, 350, 'Space advance width must be preserved');
 
-for (const char of ['A', 'Ё', '😀']) {
+for (const char of ['A', 'Ё', '😀', 'О', 'Ж', '∞']) {
   const glyph = parsed.charToGlyph(char);
   assert.ok(glyph && glyph.index > 0, `Missing cmap entry for ${char}`);
   assert.equal(glyph.unicode, char.codePointAt(0), `Incorrect Unicode mapping for ${char}`);
@@ -84,7 +100,19 @@ assert.equal(reparsedTtf.outlinesFormat, 'truetype', 'Converted font must use Tr
 assert.equal(reparsedTtf.charToGlyph('A').unicode, 65);
 assert.equal(reparsedTtf.charToGlyph('Ё').unicode, 0x401);
 assert.equal(reparsedTtf.charToGlyph('😀').unicode, 0x1F600);
+assert.equal(reparsedTtf.charToGlyph('О').unicode, 0x41E);
+assert.equal(reparsedTtf.charToGlyph('Ж').unicode, 0x416);
+assert.equal(reparsedTtf.charToGlyph('∞').unicode, 0x221E);
 assert.equal(reparsedTtf.charToGlyph('Ё').path.commands.filter(command => command.type === 'M').length, 2,
   'TTF conversion must preserve multi-contour glyphs');
+for (const char of ['О', '∞']) {
+  const glyph = reparsedTtf.charToGlyph(char);
+  assert.ok(glyph.path.commands.filter(command => command.type === 'M').length >= 1,
+    `Closed/self-crossing glyph ${char} must retain an outline`);
+  assert.ok(glyph.path.commands.filter(command => command.type === 'Z').length >= 1,
+    `Closed/self-crossing glyph ${char} must retain closed contours`);
+}
+assert.equal(reparsedTtf.charToGlyph('Ж').path.commands.filter(command => command.type === 'M').length, 3,
+  'Intersecting multi-stroke glyph must preserve its three brush contours');
 
-console.log('GlyphFlow font pipeline passed: opentype.js OTF generation + fonteditor-core OTF-to-TTF conversion + TrueType reparse + Unicode + multi-contour glyph.');
+console.log('GlyphFlow font pipeline passed: real perfect-freehand curves, closed loop, intersecting multi-stroke glyph, self-crossing trajectory, OTF-to-TTF conversion, Unicode and multi-contour preservation.');
