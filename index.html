@@ -91,6 +91,8 @@ class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-1.5 roun
   <div class="flex flex-wrap items-center gap-2">
     <button id="contourModeBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-xs font-medium">Выбрать контур</button>
     <button id="nodeEditModeBtn" type="button" class="bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-2 text-xs font-medium" aria-pressed="false">Редактировать узлы</button>
+    <button id="addTrajectoryPointBtn" type="button" disabled class="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded-lg px-3 py-2 text-xs font-medium">Добавить точку</button>
+    <button id="deleteTrajectoryPointBtn" type="button" disabled class="bg-rose-900 hover:bg-rose-800 disabled:opacity-40 rounded-lg px-3 py-2 text-xs font-medium">Удалить точку</button>
     <label for="contourRoleSelect" class="text-xs text-slate-400">Тип:</label>
     <select id="contourRoleSelect" disabled class="min-w-0 flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-xs disabled:opacity-50">
       <option value="outer">Внешняя область (уровень 0)</option>
@@ -161,6 +163,7 @@ let activePointerId = null;
 let contourEditMode = false;
 let nodeEditMode = false;
 let activeNodeDrag = null;
+let selectedNodeIndex = null;
 let selectedStrokeIndex = null;
 let panPointerId = null;
 let panStart = null;
@@ -187,6 +190,8 @@ const livePreviewOutput = document.getElementById('livePreviewOutput');
 const progressText = document.getElementById('progressText');
 const contourModeBtn = document.getElementById('contourModeBtn');
 const nodeEditModeBtn = document.getElementById('nodeEditModeBtn');
+const addTrajectoryPointBtn = document.getElementById('addTrajectoryPointBtn');
+const deleteTrajectoryPointBtn = document.getElementById('deleteTrajectoryPointBtn');
 const contourRoleSelect = document.getElementById('contourRoleSelect');
 const applyContourRoleBtn = document.getElementById('applyContourRoleBtn');
 const contourStatus = document.getElementById('contourStatus');
@@ -390,6 +395,9 @@ contourModeBtn.textContent = contourEditMode ? 'Завершить выбор' :
 contourModeBtn.classList.toggle('bg-amber-700', contourEditMode);
 nodeEditModeBtn.classList.toggle('bg-amber-700', nodeEditMode);
 nodeEditModeBtn.setAttribute('aria-pressed', String(nodeEditMode));
+const selectedPoints = selected ? (selected.points || []) : [];
+addTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length < 2;
+deleteTrajectoryPointBtn.disabled = !nodeEditMode || !selected || selectedPoints.length <= 2 || selectedNodeIndex === null;
 contourRoleSelect.disabled = !contourEditMode || !selected;
 applyContourRoleBtn.disabled = !contourEditMode || !selected;
 if (nodeEditMode) {
@@ -454,7 +462,7 @@ const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
 node.setAttribute('cx', String(point[0]));
 node.setAttribute('cy', String(point[1]));
 node.setAttribute('r', '4');
-node.setAttribute('fill', '#f59e0b');
+node.setAttribute('fill', pointIndex === selectedNodeIndex ? '#22c55e' : '#f59e0b');
 node.setAttribute('stroke', '#ffffff');
 node.setAttribute('stroke-width', '1.5');
 node.setAttribute('data-node-index', String(pointIndex));
@@ -569,12 +577,15 @@ if (node && selectedStrokeIndex !== null) {
 const stroke = (glyphData[currentChar] || [])[selectedStrokeIndex];
 const pointIndex = Number(node.getAttribute('data-node-index'));
 if (stroke && stroke.points && stroke.points[pointIndex]) {
+selectedNodeIndex = pointIndex;
 activeNodeDrag = {
 pointerId: e.pointerId,
 strokeIndex: selectedStrokeIndex,
 pointIndex,
 originalPoint: [...stroke.points[pointIndex]]
 };
+updateContourTools();
+renderCanvas();
 try { drawSvg.setPointerCapture(e.pointerId); } catch (err) { activeNodeDrag = null; }
 e.preventDefault();
 return;
@@ -583,6 +594,7 @@ return;
 const hit = e.target.closest?.('[data-contour-index]');
 if (hit) {
 selectedStrokeIndex = Number(hit.getAttribute('data-contour-index'));
+selectedNodeIndex = null;
 updateContourTools();
 renderCanvas();
 }
@@ -852,8 +864,10 @@ const stroke = (glyphData[currentChar] || [])[drag.strokeIndex];
 if (!commit && stroke && stroke.points && stroke.points[drag.pointIndex]) {
 stroke.points[drag.pointIndex] = drag.originalPoint;
 }
+const finalPoint = stroke && stroke.points && stroke.points[drag.pointIndex];
+const changed = Boolean(finalPoint && (Math.abs(finalPoint[0] - drag.originalPoint[0]) > 1e-6 || Math.abs(finalPoint[1] - drag.originalPoint[1]) > 1e-6));
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
-if (commit) saveHistory();
+if (commit && changed) saveHistory();
 renderCanvas();
 updateLiveFont();
 updateContourTools();
@@ -902,6 +916,7 @@ contourModeBtn.onclick = () => {
 contourEditMode = !contourEditMode;
 nodeEditMode = false;
 selectedStrokeIndex = null;
+selectedNodeIndex = null;
 updateContourTools();
 renderCanvas();
 };
@@ -910,8 +925,39 @@ if (activeNodeDrag) finishNodeDrag(false);
 nodeEditMode = !nodeEditMode;
 contourEditMode = false;
 selectedStrokeIndex = null;
+selectedNodeIndex = null;
 updateContourTools();
 renderCanvas();
+};
+addTrajectoryPointBtn.onclick = () => {
+const strokes = glyphData[currentChar] || [];
+const stroke = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
+if (!nodeEditMode || !stroke || !Array.isArray(stroke.points) || stroke.points.length < 2) return;
+const insertAt = selectedNodeIndex === null
+? stroke.points.length - 1
+: Math.min(selectedNodeIndex + 1, stroke.points.length - 1);
+const left = stroke.points[insertAt - 1];
+const right = stroke.points[insertAt];
+if (!left || !right) return;
+stroke.points.splice(insertAt, 0, [(left[0] + right[0]) / 2, (left[1] + right[1]) / 2]);
+selectedNodeIndex = insertAt;
+glyphGeometryCache.delete(strokes);
+saveHistory();
+renderCanvas();
+updateLiveFont();
+updateContourTools();
+};
+deleteTrajectoryPointBtn.onclick = () => {
+const strokes = glyphData[currentChar] || [];
+const stroke = selectedStrokeIndex === null ? null : strokes[selectedStrokeIndex];
+if (!nodeEditMode || !stroke || !Array.isArray(stroke.points) || stroke.points.length <= 2 || selectedNodeIndex === null) return;
+stroke.points.splice(selectedNodeIndex, 1);
+selectedNodeIndex = Math.min(selectedNodeIndex, stroke.points.length - 1);
+glyphGeometryCache.delete(strokes);
+saveHistory();
+renderCanvas();
+updateLiveFont();
+updateContourTools();
 };
 applyContourRoleBtn.onclick = () => {
 const strokes = glyphData[currentChar] || [];
