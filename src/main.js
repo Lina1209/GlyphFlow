@@ -394,10 +394,9 @@ if (depth === 0) return true;
 const candidate = cleanPolygonRing(getStrokeOutline(candidateStroke));
 if (candidate.length < 3) return false;
 const parentRings = strokes
-.map((stroke, index) => ({stroke, index, depth: getContourDepth(stroke)}))
-.filter(item => item.index !== candidateIndex && item.depth === depth - 1)
-.map(item => ({...item, ring: cleanPolygonRing(getStrokeOutline(item.stroke))}))
-.filter(item => item.ring.length >= 3);
+.filter((stroke, index) => index !== candidateIndex && getContourDepth(stroke) === depth - 1)
+.map(stroke => cleanPolygonRing(getStrokeOutline(stroke)))
+.filter(ring => ring.length >= 3);
 if (!parentRings.length) return false;
 // A contour at depth N must fit inside one complete contour at depth N-1.
 // Checking the actual polygon vertices and every edge avoids bounding-box
@@ -411,21 +410,16 @@ point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !i
 }
 return inside;
 };
-const diagnostics = parentRings.map((item, parentIndex) => {
-const parent = item.ring;
-const insideCount = candidate.filter(point => pointInsideRing(point, parent)).length;
-let intersections = 0;
+return parentRings.some(parent => {
+if (!candidate.every(point => pointInsideRing(point, parent))) return false;
 for (let i = 0; i < candidate.length; i++) {
 const a = candidate[i], b = candidate[(i + 1) % candidate.length];
 for (let j = 0; j < parent.length; j++) {
-if (segmentsIntersect(a, b, parent[j], parent[(j + 1) % parent.length])) intersections++;
+if (segmentsIntersect(a, b, parent[j], parent[(j + 1) % parent.length])) return false;
 }
 }
-return {parentIndex, parentStrokeIndex: item.index, parentDepth: item.depth,
-candidateCount: candidate.length, insideCount, intersections};
+return true;
 });
-if (typeof drawSvg !== 'undefined') drawSvg.dataset.contourContainmentDebug = JSON.stringify(diagnostics);
-return diagnostics.some(item => item.insideCount === item.candidateCount && item.intersections === 0);
 }
 function isHoleWithinOuterBounds(holeStroke, strokes, holeIndex) {
 return isContourWithinParentDepth(holeStroke, strokes, holeIndex, 1);
@@ -823,7 +817,6 @@ if (contourEditMode) {
 const hit = e.target.closest?.('[data-contour-index]');
 if (hit) {
 selectedStrokeIndex = Number(hit.getAttribute('data-contour-index'));
-drawSvg.dataset.selectedContourIndex = String(selectedStrokeIndex);
 updateContourTools();
 renderCanvas();
 }
