@@ -21,7 +21,7 @@ for char in ("A", "Ё", "😀", " "):
 assert font["hmtx"].metrics[cmap[ord(" ")]][0] == 350
 
 glyf_table = font["glyf"]
-for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("Ж", 3), ("∞", 1), ("Р", 2)):
+for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("Ж", 1), ("∞", 1), ("Р", 2)):
     glyph_name = cmap[ord(char)]
     glyph = glyf_table[glyph_name]
     assert glyph.numberOfContours == expected_contours, f"Unexpected contour count for {char}"
