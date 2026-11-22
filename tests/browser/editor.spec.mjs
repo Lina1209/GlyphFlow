@@ -79,7 +79,7 @@ test('prevents a second tab from overwriting a newer saved draft', async ({ page
         const request = tx.objectStore('projects').get('current');
         request.onsuccess = () => {
           const data = request.result?.glyphData || {};
-          resolve(Object.values(data).reduce((sum, glyph) => sum + (Array.isArray(glyph?.strokes) ? glyph.strokes.length : 0), 0));
+          resolve(Object.values(data).reduce((sum, glyphStrokes) => sum + (Array.isArray(glyphStrokes) ? glyphStrokes.length : 0), 0));
         };
         request.onerror = () => reject(request.error);
       });
