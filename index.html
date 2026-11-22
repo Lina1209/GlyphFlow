@@ -420,9 +420,15 @@ fontPath.close();
 
 const glyphWidth = Math.max(1, (maxX - minX) * scale);
 const advanceWidth = Math.ceil(glyphWidth + sideBearing * 2);
+const codePoint = char.codePointAt(0);
+if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10FFFF) return;
+const glyphName = codePoint <= 0xFFFF
+? 'uni' + codePoint.toString(16).toUpperCase().padStart(4, '0')
+: 'u' + codePoint.toString(16).toUpperCase().padStart(5, '0');
+
 glyphs.push(new opentype.Glyph({
-name: 'uni' + char.charCodeAt(0).toString(16).toUpperCase(),
-unicode: char.charCodeAt(0),
+name: glyphName,
+unicode: codePoint,
 advanceWidth,
 path: fontPath
 }));
