@@ -51,8 +51,9 @@ const glyphData = {
   ],
   // An explicitly assigned inner contour must keep opposite winding after TTF conversion.
   'Р': [
-    { points: [[85, 180, 0.5], [85, 115, 0.5], [145, 75, 0.5], [220, 75, 0.5], [275, 115, 0.5], [275, 180, 0.5], [220, 220, 0.5], [145, 220, 0.5], [85, 180, 0.5]], size: 22, thinning: 0.35, role: 'outer' },
-    { points: [[145, 145, 0.5], [175, 120, 0.5], [215, 120, 0.5], [235, 145, 0.5], [215, 170, 0.5], [175, 170, 0.5], [145, 145, 0.5]], size: 8, thinning: 0.3, role: 'hole' }
+    // A solid outer capsule and a smaller inner capsule provide a true subtraction fixture.
+    { points: [[80, 180, 0.5], [280, 180, 0.5]], size: 36, thinning: 0.35, role: 'outer' },
+    { points: [[150, 180, 0.5], [210, 180, 0.5]], size: 8, thinning: 0.3, role: 'hole' }
   ],
   // A self-crossing figure-eight trajectory probes outline stability at crossings.
   '∞': [{
