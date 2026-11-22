@@ -5,6 +5,9 @@ import { getStroke } from 'perfect-freehand';
 import { createFont } from 'fonteditor-core';
 import polygonClipping from 'polygon-clipping';
 
+// Keep the historical browser parser API available for font inspection and integrations.
+window.opentype = opentype;
+
 // Набор символов для старта (Кириллица + Латиница + Цифры)
 const CHARS = [
 ...'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ',
