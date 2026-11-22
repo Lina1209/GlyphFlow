@@ -593,6 +593,46 @@ viewBox.y = anchorY - nextRatioY * nextSize;
 applyViewBox();
 }
 drawSvg.addEventListener('pointerdown', (e) => {
+if (compoundEditMode) {
+const handle = e.target.closest?.('[data-compound-point-index]');
+if (handle && selectedCompoundRing) {
+const geometry = cloneCompoundGeometry(getCompoundGlyphGeometry(glyphData[currentChar] || [], compoundOverrides[currentChar]));
+const polygonIndex = selectedCompoundRing.polygonIndex;
+const ringIndex = selectedCompoundRing.ringIndex;
+const pointIndex = Number(handle.getAttribute('data-compound-point-index'));
+const ring = geometry[polygonIndex]?.[ringIndex];
+if (ring && ring[pointIndex]) {
+activeCompoundDrag = {
+pointerId: e.pointerId,
+char: currentChar,
+polygonIndex,
+ringIndex,
+pointIndex,
+originalGeometry: cloneCompoundGeometry(geometry),
+originalRing: ring.map(point => [...point]),
+originalOverride: compoundOverrides[currentChar] ? cloneCompoundGeometry(compoundOverrides[currentChar]) : null
+};
+selectedCompoundRing = {...selectedCompoundRing, pointIndex};
+try { drawSvg.setPointerCapture(e.pointerId); }
+catch (err) { activeCompoundDrag = null; e.preventDefault(); return; }
+updateContourTools();
+e.preventDefault();
+return;
+}
+}
+const hit = e.target.closest?.('[data-compound-polygon-index]');
+if (hit) {
+selectedCompoundRing = {
+polygonIndex: Number(hit.getAttribute('data-compound-polygon-index')),
+ringIndex: Number(hit.getAttribute('data-compound-ring-index')),
+pointIndex: null
+};
+updateContourTools();
+renderCanvas();
+}
+e.preventDefault();
+return;
+}
 if (outlineEditMode) {
 const vertex = e.target.closest?.('[data-outline-index]');
 if (vertex && selectedStrokeIndex !== null) {
@@ -715,6 +755,25 @@ renderCanvas();
 });
 
 drawSvg.addEventListener('pointermove', (e) => {
+if (activeCompoundDrag && e.pointerId === activeCompoundDrag.pointerId) {
+const drag = activeCompoundDrag;
+const candidate = cloneCompoundGeometry(compoundOverrides[drag.char] || drag.originalGeometry);
+const ring = candidate[drag.polygonIndex]?.[drag.ringIndex];
+if (ring && ring[drag.pointIndex]) {
+const position = getPointerPos(e);
+ring[drag.pointIndex] = [position[0], position[1]];
+if (isValidEditableRing(ring, drag.pointIndex, drag.originalRing) &&
+isSimpleRingAfterVertexMove(ring, drag.pointIndex) &&
+isValidCompoundEdit(candidate, drag.originalGeometry)) {
+compoundOverrides[drag.char] = candidate;
+selectedCompoundRing = {...selectedCompoundRing, pointIndex: drag.pointIndex};
+renderCanvas();
+updateLiveFont();
+}
+}
+e.preventDefault();
+return;
+}
 if (activeNodeDrag && e.pointerId === activeNodeDrag.pointerId) {
 const stroke = (glyphData[currentChar] || [])[activeNodeDrag.strokeIndex];
 if (stroke && stroke.points && stroke.points[activeNodeDrag.pointIndex]) {
