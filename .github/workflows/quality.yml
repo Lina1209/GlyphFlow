@@ -23,7 +23,7 @@ jobs:
       - name: Check inline module and project contracts
         run: node scripts/check.mjs
       - name: Install OpenType.js test dependency
-        run: npm install --no-save --no-package-lock opentype.js@1.3.4 fonteditor-core@2.6.3 perfect-freehand@1.2.0
+        run: npm install --no-save --no-package-lock opentype.js@1.3.4 fonteditor-core@2.6.3 perfect-freehand@1.2.0 polygon-clipping@0.15.7
       - name: Generate, convert, and parse a fixture TTF
         run: node scripts/font-smoke-test.mjs
       - name: Install independent FontTools parser
