@@ -1261,8 +1261,8 @@ test('exposes an installable PWA manifest and caches the application shell', asy
   expect(pwa.cachedUrls.some(url => url.endsWith('/index.html') || url.endsWith('/'))).toBe(true);
   expect(pwa.cachedUrls.some(url => url.endsWith('/manifest.webmanifest'))).toBe(true);
   expect(pwa.cachedUrls.some(url => url.endsWith('/icons/glyphflow.svg'))).toBe(true);
-  expect(pwa.cachedUrls.some(url => /\\/assets\\/.*\\.js$/.test(url))).toBe(true);
-  expect(pwa.cachedUrls.some(url => /\\/assets\\/.*\\.css$/.test(url))).toBe(true);
+  expect(pwa.cachedUrls.some(url => /\/assets\/.*\.js$/.test(url))).toBe(true);
+  expect(pwa.cachedUrls.some(url => /\/assets\/.*\.css$/.test(url))).toBe(true);
   const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name));
   expect(resources.filter(url => new URL(url).origin !== location.origin)).toEqual([]);
   await page.context().setOffline(true);
