@@ -1915,6 +1915,26 @@ librarySearch.addEventListener('input', renderFontLibrary);
 document.getElementById('exportFontLibraryBtn').addEventListener('click', async () => {
 try {
 const records = await getFontLibraryRecords();
+const MAX_BACKUP_BYTES = 40 * 1024 * 1024;
+if (records.length > 500) throw new Error('В библиотеке слишком много записей для одной резервной копии.');
+let estimatedBackupBytes = new TextEncoder().encode(JSON.stringify({
+  format:'GlyphFlowFontLibrary',version:1,exportedAt:new Date().toISOString(),fonts:[]
+})).byteLength + 2;
+for (const record of records) {
+  if (record.projectSnapshot && record.projectSnapshot.length > MAX_PROJECT_SNAPSHOT_CHARS) {
+    throw new Error('Снимок проекта «' + record.name + '» превышает безопасный лимит.');
+  }
+  const fontBytes = Number(record.blob?.size);
+  if (!Number.isSafeInteger(fontBytes) || fontBytes < 1 || fontBytes > MAX_IMPORTED_FONT_BYTES) {
+    throw new Error('Файл шрифта «' + record.name + '» имеет недопустимый размер.');
+  }
+  const metadata = {...record, blob:undefined, fontBase64:''};
+  estimatedBackupBytes += new TextEncoder().encode(JSON.stringify(metadata)).byteLength +
+    Math.ceil(fontBytes / 3) * 4 + 2;
+  if (estimatedBackupBytes > MAX_BACKUP_BYTES) {
+    throw new Error('Резервная копия превысит лимит 40 МБ. Разделите библиотеку на несколько частей.');
+  }
+}
 const payload = [];
 for (const record of records) {
 const bytes = new Uint8Array(await record.blob.arrayBuffer());
@@ -1923,6 +1943,7 @@ for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.f
 payload.push({...record, blob:undefined, fontBase64:btoa(binary)});
 }
 const backup = new Blob([JSON.stringify({format:'GlyphFlowFontLibrary',version:1,exportedAt:new Date().toISOString(),fonts:payload})],{type:'application/json'});
+if (backup.size > MAX_BACKUP_BYTES) throw new Error('Резервная копия превысила лимит 40 МБ.');
 triggerFontDownload(backup,'GlyphFlow-font-library-backup.json');
 libraryStatus.textContent = 'Резервная копия библиотеки подготовлена.';
 } catch (err) {
