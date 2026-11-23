@@ -1,13 +1,19 @@
 import assert from 'node:assert/strict';
 import { addSfntTable } from '../src/sfnt.js';
-import { createFont } from 'fonteditor-core';
-
-const font = createFont({
-  type:'ttf',
-  buffer: new Uint8Array([0,1,0,0,0,1,0,16,0,1,0,0,104,101,97,100,0,0,0,0,0,0,0,28,0,0,0,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]).buffer
-});
-const built = font.write({type:'ttf', hinting:false, kerning:false});
-const source = built instanceof ArrayBuffer ? built : built.buffer.slice(built.byteOffset,built.byteOffset+built.byteLength);
+// Minimal synthetic SFNT with a valid directory and 54-byte head table.
+const sourceBytes = new Uint8Array(12 + 16 + 56);
+const sourceView = new DataView(sourceBytes.buffer);
+sourceView.setUint32(0, 0x00010000, false);
+sourceView.setUint16(4, 1, false);
+sourceView.setUint16(6, 16, false);
+sourceView.setUint16(8, 0, false);
+sourceView.setUint16(10, 0, false);
+sourceBytes.set([104,101,97,100], 12);
+sourceView.setUint32(16, 0, false);
+sourceView.setUint32(20, 28, false);
+sourceView.setUint32(24, 54, false);
+sourceView.setUint32(28 + 8, 0, false);
+const source = sourceBytes.buffer;
 const payload = Uint8Array.from([0,1,2,3,4,5,6,7]);
 const result = addSfntTable(source,'GPOS',payload);
 const view = new DataView(result);
