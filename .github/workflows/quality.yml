@@ -62,7 +62,7 @@ jobs:
       - name: Run independent OpenType profile on generated TTF fixture
         run: |
           mkdir -p reports
-          fontspector --profile opentype --error-code-on error --html reports/fontspector-opentype.html --json reports/fontspector-opentype.json /tmp/glyphflow-fixture.ttf
+          fontspector --profile opentype --error-code-on fail --html reports/fontspector-opentype.html --json reports/fontspector-opentype.json /tmp/glyphflow-fixture.ttf
       - name: Upload Fontspector reports
         if: always()
         uses: actions/upload-artifact@v4
