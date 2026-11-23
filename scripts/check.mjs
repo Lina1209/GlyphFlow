@@ -33,9 +33,9 @@ assert.ok(unicodeParser.includes('combiningClass') && unicodeImporter.includes('
 assert.ok(unicodeImporter.includes('https://www.unicode.org/license.txt'), 'Unicode catalog must include official license reference');
 assert.ok(packageJson.scripts['unicode:catalog:test'] === 'node scripts/unicode-catalog-parser-test.mjs', 'Unicode parser regression test command must be available');
 assert.ok(packageJson.scripts['unicode:metadata:test'] === 'node scripts/glyph-metadata-test.mjs', 'Unicode runtime metadata regression test command must be available');
-assert.ok(qualityWorkflow.includes('run: npm run unicode:metadata:test'), 'CI must run Unicode runtime metadata tests');
 const unicodeCatalogValidator = readFileSync(new URL('../scripts/validate-unicode-catalog.mjs', import.meta.url), 'utf8');
 const qualityWorkflow = readFileSync(new URL('../.github/workflows/quality.yml', import.meta.url), 'utf8');
+assert.ok(qualityWorkflow.includes('run: npm run unicode:metadata:test'), 'CI must run Unicode runtime metadata tests');
 assert.ok(packageJson.scripts['unicode:catalog:validate'] === 'node scripts/validate-unicode-catalog.mjs 18.0.0', 'Full Unicode catalog validator must use the pinned UCD version');
 assert.ok(unicodeCatalogValidator.includes('CYRILLIC CAPITAL LETTER IO') && unicodeCatalogValidator.includes('combiningClass'), 'Full Unicode validator must verify representative Cyrillic and combining metadata');
 assert.ok(qualityWorkflow.includes('run: npm run unicode:catalog') && qualityWorkflow.includes('run: npm run unicode:catalog:validate'), 'CI must import and validate the complete pinned UCD, not only parser fixtures');
