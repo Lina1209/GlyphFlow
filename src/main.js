@@ -43,8 +43,51 @@ const touchPointers = new Map();
 let pinchStart = null;
 let touchGestureConsumed = false;
 let viewBox = { x: 0, y: 0, size: 360 };
+const FONT_METADATA_LIMITS = {
+designer: 128, manufacturer: 128, version: 32, description: 1024,
+copyright: 512, trademark: 256, license: 2048,
+licenseURL: 512, designerURL: 512, manufacturerURL: 512
+};
+const FONT_METADATA_FIELDS = Object.keys(FONT_METADATA_LIMITS);
+function sanitizeFontMetadata(source = {}) {
+if (!source || typeof source !== 'object' || Array.isArray(source)) {
+throw new Error('Метаданные шрифта имеют неверную структуру.');
+}
+const clean = {};
+for (const key of FONT_METADATA_FIELDS) {
+const value = source[key] === undefined || source[key] === null ? '' : source[key];
+if (typeof value !== 'string' || value.length > FONT_METADATA_LIMITS[key]) {
+throw new Error('Поле метаданных «' + key + '» имеет неверный тип или превышает лимит длины.');
+}
+const normalized = value.trim();
+if (key.endsWith('URL') && normalized) {
+let url;
+try { url = new URL(normalized); } catch { throw new Error('Некорректная ссылка в метаданных «' + key + '».'); }
+if (!['https:', 'http:'].includes(url.protocol)) {
+throw new Error('Ссылки в метаданных должны использовать HTTP или HTTPS.');
+}
+}
+clean[key] = normalized;
+}
+return clean;
+}
+function getFontMetadata() {
+const values = {};
+for (const key of FONT_METADATA_FIELDS) {
+const field = document.getElementById('font' + key[0].toUpperCase() + key.slice(1));
+values[key] = field?.value || '';
+}
+return sanitizeFontMetadata(values);
+}
+function applyFontMetadata(metadata) {
+const clean = sanitizeFontMetadata(metadata || {});
+for (const key of FONT_METADATA_FIELDS) {
+const field = document.getElementById('font' + key[0].toUpperCase() + key.slice(1));
+if (field) field.value = clean[key];
+}
+}
 function serializeProjectSnapshot() {
-return JSON.stringify({version: 2, glyphData, compoundOverrides});
+return JSON.stringify({version: 2, glyphData, compoundOverrides, fontMetadata: getFontMetadata()});
 }
 const MAX_STROKE_POINTS = 10000;
 const MAX_STROKES_PER_GLYPH = 256;
@@ -141,7 +184,8 @@ const valid = sanitizeCompoundGeometry(geometry);
 if (!valid) throw new Error('Не удалось проверить составной контур символа «' + char + '».');
 cleanOverrides[char] = valid;
 }
-return {glyphData: cleanGlyphs, compoundOverrides: cleanOverrides};
+const cleanFontMetadata = sanitizeFontMetadata(parsed.fontMetadata || {});
+return {glyphData: cleanGlyphs, compoundOverrides: cleanOverrides, fontMetadata: cleanFontMetadata};
 }
 
 function restoreProjectSnapshot(snapshot) {
@@ -154,6 +198,7 @@ Object.keys(glyphData).forEach(key => delete glyphData[key]);
 Object.entries(clean.glyphData).forEach(([char, strokes]) => { glyphData[char] = strokes; });
 Object.keys(compoundOverrides).forEach(key => delete compoundOverrides[key]);
 Object.entries(clean.compoundOverrides).forEach(([char, geometry]) => { compoundOverrides[char] = geometry; });
+applyFontMetadata(clean.fontMetadata);
 }
 let history = [serializeProjectSnapshot()];
 let historyIndex = 0;
@@ -1230,6 +1275,7 @@ snapshot = {
 glyphData: JSON.parse(JSON.stringify(glyphData)),
 compoundOverrides: JSON.parse(JSON.stringify(compoundOverrides)),
 fontName: document.getElementById('fontName').value,
+fontMetadata: getFontMetadata(),
 savedAt: Math.max(Date.now(), lastDraftSavedAt + 1)
 };
 } catch (err) {
@@ -1302,7 +1348,8 @@ throw new Error('Сохранённый черновик имеет неверн
 restoreProjectSnapshot(JSON.stringify({
 version: 2,
 glyphData: draft.glyphData,
-compoundOverrides: draft.compoundOverrides || {}
+compoundOverrides: draft.compoundOverrides || {},
+fontMetadata: draft.fontMetadata || {}
 }));
 lastDraftSavedAt = Number.isFinite(Number(draft.savedAt)) ? Number(draft.savedAt) : 0;
 if (typeof draft.fontName === 'string' && draft.fontName.trim()) {
@@ -1639,6 +1686,20 @@ brushSizeInput.oninput = () => sizeVal.textContent = brushSizeInput.value + 'px'
 brushThinningInput.oninput = () => thinningVal.textContent = brushThinningInput.value;
 previewInput.oninput = () => livePreviewOutput.textContent = previewInput.value;
 document.getElementById('fontName').addEventListener('change', () => { updateLiveFont(); persistDraft(); });
+for (const key of FONT_METADATA_FIELDS) {
+const field = document.getElementById('font' + key[0].toUpperCase() + key.slice(1));
+field?.addEventListener('change', () => {
+try {
+getFontMetadata();
+saveHistory();
+updateLiveFont();
+} catch (err) {
+field.setCustomValidity(err.message);
+field.reportValidity();
+}
+});
+field?.addEventListener('input', () => field.setCustomValidity(''));
+}
 
 // Генерация объекта шрифта opentype.js
 function buildOpenTypeFont() {
@@ -1734,9 +1795,23 @@ path: fontPath
 
 const rawFamilyName = document.getElementById('fontName').value.trim() || 'MyHandwriting';
 const familyName = rawFamilyName.replace(/[\\{};\n\r]/g, '').slice(0, 48) || 'MyHandwriting';
+const metadata = getFontMetadata();
+const safePostScriptFamily = familyName.replace(/[^a-zA-Z0-9-]/g, '') || 'MyHandwriting';
 return new opentype.Font({
 familyName,
 styleName: 'Regular',
+fullName: familyName + ' Regular',
+postScriptName: safePostScriptFamily + '-Regular',
+designer: metadata.designer,
+manufacturer: metadata.manufacturer,
+version: metadata.version || 'Version 1.000',
+description: metadata.description,
+copyright: metadata.copyright,
+trademark: metadata.trademark,
+license: metadata.license,
+licenseURL: metadata.licenseURL,
+designerURL: metadata.designerURL,
+manufacturerURL: metadata.manufacturerURL,
 unitsPerEm,
 ascender,
 descender,
