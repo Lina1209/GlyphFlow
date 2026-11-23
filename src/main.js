@@ -1946,6 +1946,9 @@ throw new Error('В резервной копии найден некоррек�
 }
 if (item.projectSnapshot !== null && item.projectSnapshot !== undefined) {
 if (typeof item.projectSnapshot !== 'string') throw new Error('Снимок проекта в резервной копии повреждён.');
+if (item.projectSnapshot.length > MAX_PROJECT_SNAPSHOT_CHARS) {
+  throw new Error('Снимок проекта в резервной копии превышает безопасный лимит.');
+}
 const parsedSnapshot = JSON.parse(item.projectSnapshot);
 sanitizeProjectModel(parsedSnapshot);
 }
