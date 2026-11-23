@@ -31,7 +31,7 @@ const runtimeCatalog = {
   unicodeVersion:'18.0.0',
   source:'https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt',
   records,
-  ranges:[[0x3400,0x4DBF,'<CJK Ideograph Extension A','Lo',0,'Han'],[0xAC00,0xD7A3,'<Hangul Syllable','Lo',0,'Hangul'],[0x17000,0x187F7,'<Tangut Ideograph','Lo',0,'Tangut'],[0x18B00,0x18CD5,'<Khitan Small Script Character','Lo',0,'Khitan_Small_Script'],[0x1B170,0x1B2FB,'<Nushu Character','Lo',0,'Nushu']]
+  ranges:[[0x3400,0x4DBF,'<CJK Ideograph Extension A','Lo',0,'Han'],[0xAC00,0xD7A3,'<Hangul Syllable','Lo',0,'Hangul'],[0x13460,0x143FA,'<Egyptian Hieroglyph','Lo',0,'Egyptian_Hieroglyphs'],[0x17000,0x187FF,'<Tangut Ideograph','Lo',0,'Tangut'],[0x18B00,0x18CDA,'<Khitan Small Script Character','Lo',0,'Khitan_Small_Script'],[0x18E00,0x19191,'<Jurchen Character','Lo',0,'Jurchen'],[0x1B170,0x1B2FB,'<Nushu Character','Lo',0,'Nushu'],[0x3D000,0x3FC3F,'<Small Seal Character','Lo',0,'Small_Seal']]
 };
 let fetchCount = 0;
 const fetcher = async url => {
@@ -79,6 +79,9 @@ assert.equal(hangul.script,'Hangul');
 assert.equal(getGlyphMetadata(String.fromCodePoint(0x17001)).unicodeName,'TANGUT IDEOGRAPH-17001');
 assert.equal(getGlyphMetadata(String.fromCodePoint(0x18B01)).unicodeName,'KHITAN SMALL SCRIPT CHARACTER-18B01');
 assert.equal(getGlyphMetadata(String.fromCodePoint(0x1B171)).unicodeName,'NUSHU CHARACTER-1B171');
+assert.equal(getGlyphMetadata(String.fromCodePoint(0x13461)).unicodeName,'EGYPTIAN HIEROGLYPH-13461');
+assert.equal(getGlyphMetadata(String.fromCodePoint(0x18E01)).unicodeName,'JURCHEN CHARACTER-18E01');
+assert.equal(getGlyphMetadata(String.fromCodePoint(0x3D001)).unicodeName,'SMALL SEAL CHARACTER-3D001');
 
 assert.equal(getGlyphMetadata('AB'),null);
 console.log('Glyph metadata tests passed: local fallback, pinned UCD loading, fetch reuse, official names, categories, scripts, combining classes and algorithmic ranges.');
