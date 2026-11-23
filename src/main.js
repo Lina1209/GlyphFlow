@@ -1782,6 +1782,51 @@ const familyName = (font.getEnglishName('fontFamily') || document.getElementById
 .replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'GlyphFlow';
 return {blob: new Blob([ttfBuffer], {type: 'font/ttf'}), fileName: familyName + '-Regular.ttf', familyName};
 }
+function createGlyphCatalogBlob() {
+const entries = Object.entries(glyphData).filter(([, strokes]) => Array.isArray(strokes) && strokes.length > 0);
+if (!entries.length) throw new Error('Сначала нарисуйте хотя бы один символ.');
+const fontName = document.getElementById('fontName')?.value.trim() || 'GlyphFlow';
+const glyphs = entries.map(([character]) => {
+const codePoints = [...character].map(value => value.codePointAt(0));
+const singleCodePoint = codePoints.length === 1;
+const metadata = singleCodePoint ? getGlyphMetadata(character) : null;
+const knownUnicodeName = Boolean(metadata?.unicodeName);
+return {
+character,
+codePoint: singleCodePoint ? metadata?.codePoint || null : null,
+codePoints: codePoints.map(value => 'U+' + value.toString(16).toUpperCase().padStart(4, '0')),
+unicodeName: knownUnicodeName ? metadata.unicodeName : null,
+glyphName: singleCodePoint
+? (metadata?.glyphName || 'uni' + codePoints[0].toString(16).toUpperCase().padStart(4, '0'))
+: 'custom.sequence.' + codePoints.map(value => value.toString(16).toUpperCase()).join('_'),
+category: metadata?.category || (singleCodePoint ? 'Символ вне локального каталога' : 'Последовательность символов'),
+unicodeGeneralCategory: metadata?.generalCategory || null,
+unicodeScript: metadata?.script || null,
+description: metadata?.description || (singleCodePoint
+? 'Официальное имя и описание отсутствуют в локальном каталоге GlyphFlow; требуется проверка по UCD.'
+: 'Последовательность из нескольких кодовых точек. Для корректного экспорта требуется отдельное правило лигатуры/последовательности.'),
+metadataStatus: knownUnicodeName ? 'verified-local-catalog' : 'needs-review',
+mappingStatus: singleCodePoint ? 'single-code-point' : 'sequence-needs-explicit-mapping',
+custom: !knownUnicodeName
+};
+});
+const catalog = {
+schema: 'https://glyphflow.app/schemas/glyph-catalog-v1.json',
+format: 'GlyphFlow Glyph Catalog',
+formatVersion: 1,
+fontFamily: fontName,
+createdAt: new Date().toISOString(),
+unicodeDataVersion: '17.0.0',
+unicodeDataSource: 'https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt',
+glyphNameSource: 'https://github.com/adobe-type-tools/agl-aglfn',
+glyphs
+};
+const json = JSON.stringify(catalog, null, 2) + '\n';
+return {
+blob: new Blob([json], {type: 'application/json;charset=utf-8'}),
+fileName: fontName.replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') + '-glyph-catalog.json'
+};
+}
 function triggerFontDownload(blob, fileName) {
 const url = URL.createObjectURL(blob);
 const link = document.createElement('a');
@@ -1792,6 +1837,16 @@ link.click();
 link.remove();
 window.setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
+document.getElementById('downloadGlyphCatalogBtn').onclick = () => {
+try {
+const catalogFile = createGlyphCatalogBlob();
+triggerFontDownload(catalogFile.blob, catalogFile.fileName);
+} catch (err) {
+console.error('Ошибка экспорта каталога глифов:', err);
+alert(err.message || 'Не удалось создать паспорт символов.');
+}
+};
+
 document.getElementById('downloadBtn').onclick = () => {
 try {
 const fontFile = createTrueTypeFontBlob();
