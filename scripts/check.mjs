@@ -160,6 +160,8 @@ const requiredContracts = [
   ['glyph metadata exposes official Unicode names', 'unicodeName'],
   ['glyph metadata exposes standardized glyph names', 'glyphName'],
   ['glyph metadata exposes character descriptions', 'description'],
+  ['glyph metadata includes Unicode general category', 'generalCategory'],
+  ['glyph metadata includes Unicode Script property', 'script'],
   ['glyph metadata cards render for selected character', 'function renderCurrentGlyphMetadata()'],
   ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"],
   ['nearest outline handle hit testing', 'candidateHandles.reduce((best, handle) =>'],
