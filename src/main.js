@@ -5,6 +5,7 @@ import { getStroke } from 'perfect-freehand';
 import { createFont } from 'fonteditor-core';
 import polygonClipping from 'polygon-clipping';
 import { getGlyphMetadata, getSingleCodePoint, getLoadedUnicodeVersion, loadUnicodeCatalog } from './glyph-metadata.js';
+import { buildKernTable, getKerningValue, normalizeKerningPairs } from './kerning.js';
 
 // Keep the historical browser parser API available for font inspection and integrations.
 window.opentype = opentype;
@@ -20,6 +21,7 @@ const CHARS = [
 // Хранилище исходных штрихов и ручных правок итоговой Boolean-геометрии.
 const glyphData = {};
 const compoundOverrides = {};
+const kerningPairs = [];
 let currentChar = 'А';
 let currentPoints = [];
 let activeProjectPointCount = 0;
@@ -92,7 +94,7 @@ if (field) field.value = clean[key];
 }
 }
 function serializeProjectSnapshot() {
-return JSON.stringify({version: 2, glyphData, compoundOverrides, fontMetadata: getFontMetadata()});
+return JSON.stringify({version: 3, glyphData, compoundOverrides, kerningPairs, fontMetadata: getFontMetadata()});
 }
 const MAX_STROKE_POINTS = 10000;
 const MAX_STROKES_PER_GLYPH = 256;
@@ -189,8 +191,9 @@ const valid = sanitizeCompoundGeometry(geometry);
 if (!valid) throw new Error('Не удалось проверить составной контур символа «' + char + '».');
 cleanOverrides[char] = valid;
 }
+const cleanKerningPairs = normalizeKerningPairs(parsed.kerningPairs || []);
 const cleanFontMetadata = parsed.fontMetadata === undefined ? getFontMetadata() : sanitizeFontMetadata(parsed.fontMetadata);
-return {glyphData: cleanGlyphs, compoundOverrides: cleanOverrides, fontMetadata: cleanFontMetadata};
+return {glyphData: cleanGlyphs, compoundOverrides: cleanOverrides, kerningPairs: cleanKerningPairs, fontMetadata: cleanFontMetadata};
 }
 
 function restoreProjectSnapshot(snapshot) {
@@ -203,6 +206,7 @@ Object.keys(glyphData).forEach(key => delete glyphData[key]);
 Object.entries(clean.glyphData).forEach(([char, strokes]) => { glyphData[char] = strokes; });
 Object.keys(compoundOverrides).forEach(key => delete compoundOverrides[key]);
 Object.entries(clean.compoundOverrides).forEach(([char, geometry]) => { compoundOverrides[char] = geometry; });
+kerningPairs.splice(0, kerningPairs.length, ...clean.kerningPairs);
 applyFontMetadata(clean.fontMetadata);
 }
 let history = [serializeProjectSnapshot()];
@@ -230,6 +234,12 @@ const deleteTrajectoryPointBtn = document.getElementById('deleteTrajectoryPointB
 const contourRoleSelect = document.getElementById('contourRoleSelect');
 const applyContourRoleBtn = document.getElementById('applyContourRoleBtn');
 const contourStatus = document.getElementById('contourStatus');
+const kerningLeftSelect = document.getElementById('kerningLeft');
+const kerningRightSelect = document.getElementById('kerningRight');
+const kerningValueInput = document.getElementById('kerningValue');
+const kerningSaveBtn = document.getElementById('kerningSaveBtn');
+const kerningPairsList = document.getElementById('kerningPairsList');
+const kerningStatus = document.getElementById('kerningStatus');
 
 // Преобразование массива точек от perfect-freehand в SVG-путь
 function getSvgPathFromStroke(stroke) {
@@ -282,6 +292,103 @@ panel.appendChild(row);
 });
 }
 
+function renderKerningEditor() {
+  if (!kerningLeftSelect || !kerningRightSelect || !kerningPairsList) return;
+  const available = CHARS.filter(char => glyphData[char] && glyphData[char].length);
+  const previousLeft = kerningLeftSelect.value;
+  const previousRight = kerningRightSelect.value;
+  for (const select of [kerningLeftSelect, kerningRightSelect]) {
+    select.replaceChildren();
+    for (const char of available) {
+      const option = document.createElement('option');
+      option.value = char;
+      option.textContent = char + ' · ' + (getGlyphMetadata(char)?.codePoint || '');
+      select.appendChild(option);
+    }
+    select.disabled = available.length === 0;
+  }
+  if (available.includes(previousLeft)) kerningLeftSelect.value = previousLeft;
+  if (available.includes(previousRight)) kerningRightSelect.value = previousRight;
+  const existing = kerningPairs.find(pair => pair.left === kerningLeftSelect.value && pair.right === kerningRightSelect.value);
+  if (existing) kerningValueInput.value = String(existing.value);
+  kerningSaveBtn.disabled = available.length === 0;
+  kerningSaveBtn.classList.toggle('opacity-50', kerningSaveBtn.disabled);
+  kerningPairsList.replaceChildren();
+  if (!kerningPairs.length) {
+    const empty = document.createElement('p');
+    empty.className = 'text-xs text-slate-400';
+    empty.textContent = 'Пока нет настроенных пар. Нарисуйте две буквы и задайте поправку.';
+    kerningPairsList.appendChild(empty);
+  } else {
+    for (const pair of kerningPairs) {
+      const row = document.createElement('div');
+      row.className = 'flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2';
+      const label = document.createElement('span');
+      label.className = 'text-sm text-slate-100 font-mono';
+      const bothDrawn = Boolean(glyphData[pair.left]?.length && glyphData[pair.right]?.length);
+      label.textContent = pair.left + pair.right + '  ' + (pair.value > 0 ? '+' : '') + pair.value + ' ед.' + (bothDrawn ? '' : ' · нет глифа');
+      const actions = document.createElement('div');
+      actions.className = 'flex items-center gap-2';
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'text-xs text-indigo-300 hover:text-indigo-200 underline';
+      edit.textContent = 'Изменить';
+      edit.onclick = () => {
+        if (available.includes(pair.left) && available.includes(pair.right)) {
+          kerningLeftSelect.value = pair.left;
+          kerningRightSelect.value = pair.right;
+        }
+        kerningValueInput.value = String(pair.value);
+        kerningValueInput.focus();
+      };
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'text-xs text-rose-300 hover:text-rose-200 underline';
+      remove.textContent = 'Удалить';
+      remove.onclick = () => {
+        const index = kerningPairs.findIndex(item => item.left === pair.left && item.right === pair.right);
+        if (index >= 0) kerningPairs.splice(index, 1);
+        saveHistory();
+        renderKerningEditor();
+        renderKerningPreview();
+      };
+      actions.append(edit, remove);
+      row.append(label, actions);
+      kerningPairsList.appendChild(row);
+    }
+  }
+  if (kerningStatus) {
+    const missing = kerningPairs.filter(pair => !glyphData[pair.left]?.length || !glyphData[pair.right]?.length).length;
+    kerningStatus.textContent = missing
+      ? 'Есть пары без нарисованного глифа (' + missing + '). Они сохраняются в проекте, но экспорт TTF потребует оба символа.'
+      : 'Значения указаны в единицах шрифта (1000 единиц на em). Отрицательное значение сближает буквы.';
+  }
+}
+
+function renderKerningPreview() {
+  if (!livePreviewOutput || !previewInput) return;
+  const characters = [...previewInput.value];
+  const fragment = document.createDocumentFragment();
+  for (let index = 0; index < characters.length; index++) {
+    const character = characters[index];
+    if (character === '\n') {
+      fragment.appendChild(document.createElement('br'));
+      continue;
+    }
+    const span = document.createElement('span');
+    span.style.display = 'inline-block';
+    span.textContent = character;
+    const next = characters[index + 1];
+    if (next && next !== '\n') {
+      const adjustment = getKerningValue(kerningPairs, character, next);
+      if (adjustment) span.style.marginRight = (adjustment / 1000) + 'em';
+    }
+    fragment.appendChild(span);
+  }
+  livePreviewOutput.replaceChildren(fragment);
+  livePreviewOutput.style.whiteSpace = 'pre-wrap';
+}
+
 function renderGrid() {
 glyphGrid.innerHTML = '';
 let completedCount = 0;
@@ -307,6 +414,7 @@ glyphGrid.appendChild(btn);
 });
 progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
 renderCurrentGlyphMetadata();
+renderKerningEditor();
 }
 
 // Переключение активной буквы
@@ -1278,6 +1386,7 @@ try {
 snapshot = {
 glyphData: JSON.parse(JSON.stringify(glyphData)),
 compoundOverrides: JSON.parse(JSON.stringify(compoundOverrides)),
+kerningPairs: JSON.parse(JSON.stringify(kerningPairs)),
 fontName: document.getElementById('fontName').value,
 fontMetadata: getFontMetadata(),
 savedAt: Math.max(Date.now(), lastDraftSavedAt + 1)
@@ -1353,9 +1462,10 @@ if (!draft || typeof draft !== 'object' || Array.isArray(draft) ||
 throw new Error('Сохранённый черновик имеет неверную структуру.');
 }
 restoreProjectSnapshot(JSON.stringify({
-version: 2,
+version: 3,
 glyphData: draft.glyphData,
 compoundOverrides: draft.compoundOverrides || {},
+kerningPairs: draft.kerningPairs || [],
 fontMetadata: draft.fontMetadata
 }));
 lastDraftSavedAt = Number.isFinite(Number(draft.savedAt)) ? Number(draft.savedAt) : 0;
@@ -1691,7 +1801,38 @@ updateContourTools();
 
 brushSizeInput.oninput = () => sizeVal.textContent = brushSizeInput.value + 'px';
 brushThinningInput.oninput = () => thinningVal.textContent = brushThinningInput.value;
-previewInput.oninput = () => livePreviewOutput.textContent = previewInput.value;
+previewInput.oninput = renderKerningPreview;
+for (const select of [kerningLeftSelect, kerningRightSelect]) {
+  select.addEventListener('change', () => {
+    const existing = kerningPairs.find(pair => pair.left === kerningLeftSelect.value && pair.right === kerningRightSelect.value);
+    if (existing) kerningValueInput.value = String(existing.value);
+  });
+}
+kerningSaveBtn.addEventListener('click', () => {
+  const left = kerningLeftSelect.value;
+  const right = kerningRightSelect.value;
+  const value = Number(kerningValueInput.value);
+  if (!left || !right || !Number.isInteger(value) || value < -1000 || value > 1000) {
+    kerningStatus.textContent = 'Выберите две нарисованные буквы и целое значение от −1000 до +1000.';
+    return;
+  }
+  const index = kerningPairs.findIndex(pair => pair.left === left && pair.right === right);
+  if (value === 0) {
+    if (index >= 0) kerningPairs.splice(index, 1);
+  } else if (index >= 0) {
+    kerningPairs[index] = {left, right, value};
+  } else {
+    kerningPairs.push({left, right, value});
+  }
+  try {
+    normalizeKerningPairs(kerningPairs);
+    saveHistory();
+    renderKerningEditor();
+    renderKerningPreview();
+  } catch (error) {
+    kerningStatus.textContent = error.message || 'Не удалось сохранить пару кернинга.';
+  }
+});
 document.getElementById('fontName').addEventListener('change', () => { updateLiveFont(); persistDraft(); });
 for (const key of FONT_METADATA_FIELDS) {
 const field = document.getElementById('font' + key[0].toUpperCase() + key.slice(1));
@@ -1883,7 +2024,10 @@ const glyphYMax = convertedFontData.glyf.reduce((maximum, glyph) => Math.max(max
 const glyphYMin = convertedFontData.glyf.reduce((minimum, glyph) => Math.min(minimum, Number.isFinite(glyph.yMin) ? glyph.yMin : 0), 0);
 verticalMetrics.usWinAscent = glyphYMax;
 verticalMetrics.usWinDescent = -glyphYMin;
-const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: false});
+const kernTable = buildKernTable(kerningPairs, convertedFontData.cmap);
+if (kernTable) convertedFontData.kern = kernTable;
+else delete convertedFontData.kern;
+const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: kerningPairs.length > 0});
 const ttfBuffer = rawTtf instanceof ArrayBuffer
 ? rawTtf
 : rawTtf.buffer.slice(rawTtf.byteOffset, rawTtf.byteOffset + rawTtf.byteLength);
@@ -2317,6 +2461,8 @@ renderGrid();
 renderCanvas();
 updateLiveFont();
 updateContourTools();
+renderKerningEditor();
+renderKerningPreview();
 
 // Load official Unicode 18.0.0 metadata in the background. The editor remains
 // usable with its bundled fallback if the catalog is unavailable or offline.

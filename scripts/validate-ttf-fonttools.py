@@ -5,7 +5,7 @@ font_path = Path("/tmp/glyphflow-fixture.ttf")
 assert font_path.is_file(), "Fixture TrueType font was not written by the Node smoke test"
 
 font = TTFont(str(font_path), recalcBBoxes=True, recalcTimestamp=False)
-required_tables = {"head", "hhea", "maxp", "cmap", "glyf", "loca", "hmtx", "name", "post"}
+required_tables = {"head", "hhea", "maxp", "cmap", "glyf", "loca", "hmtx", "name", "post", "kern"}
 assert required_tables.issubset(font.keys()), f"Missing TrueType tables: {required_tables - set(font.keys())}"
 assert "CFF " not in font.keys(), "Final .ttf must not contain CFF outlines"
 assert font.sfntVersion == "\x00\x01\x00\x00", "Expected TrueType sfnt signature"
@@ -53,6 +53,11 @@ for char in ("A", "Ё", "😀", "Ф", "Ы", " "):
     assert ord(char) in cmap, f"Missing cmap entry for U+{ord(char):04X}"
 
 assert font["hmtx"].metrics[cmap[ord(" ")]][0] == 350
+kern_tables = font["kern"].kernTables
+assert len(kern_tables) == 1 and kern_tables[0].format == 0, "Expected one horizontal format-0 kern subtable"
+kern_pairs = kern_tables[0].kernTable
+left_name, right_name = cmap[ord("A")], cmap[ord("Ё")]
+assert kern_pairs.get((left_name, right_name)) == -75, f"Expected A/Ё kerning -75, got {kern_pairs.get((left_name, right_name))!r}"
 
 glyf_table = font["glyf"]
 glyph_y_max = max((glyf_table[name].yMax for name in cmap.values() if glyf_table[name].numberOfContours > 0), default=0)
@@ -122,4 +127,4 @@ for char in ("О", "∞"):
     glyph = glyf_table[glyph_name]
     assert glyph.numberOfContours >= 1, f"Closed/self-crossing glyph {char} lost its outline"
 
-print(f"FontTools validation passed: hhea/OS2 vertical metrics agree; Windows bounds cover glyphs (usWinAscent={os2.usWinAscent}, usWinDescent={os2.usWinDescent}); independent TrueType parse + glyf/loca + cmap + hmtx + contour geometry.")
+print(f"FontTools validation passed: kern format-0 A/Ё=-75; hhea/OS2 vertical metrics agree; Windows bounds cover glyphs (usWinAscent={os2.usWinAscent}, usWinDescent={os2.usWinDescent}); independent TrueType parse + glyf/loca + cmap + hmtx + contour geometry.")

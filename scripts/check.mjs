@@ -9,6 +9,8 @@ assert.ok(html.includes('<script type="module" src="./src/main.js"></script>'), 
 assert.ok(!html.includes('https://cdn.') && !html.includes('https://esm.sh'), 'HTML must not load runtime dependencies from external CDNs');
 
 const fontSmoke = readFileSync(new URL('../scripts/font-smoke-test.mjs', import.meta.url), 'utf8');
+const kerningSource = readFileSync(new URL('../src/kerning.js', import.meta.url), 'utf8');
+const kerningTests = readFileSync(new URL('../scripts/kerning-test.mjs', import.meta.url), 'utf8');
 const fontCatalogValidator = readFileSync(new URL('../scripts/font-catalog-validator.mjs', import.meta.url), 'utf8');
 const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', import.meta.url), 'utf8');
 const geometryPerformance = readFileSync(new URL('../scripts/geometry-performance.mjs', import.meta.url), 'utf8');
@@ -221,7 +223,7 @@ const requiredContracts = [
   ['TrueType export MIME type', "type: 'font/ttf'"],
   ['OTF-to-TTF conversion import', "import { createFont } from 'fonteditor-core';"],
   ['OTF parsing before conversion', "createFont(otfBuffer, {type: 'otf'})"],
-  ['TrueType output conversion', "converter.write({type: 'ttf', hinting: false, kerning: false})"],
+  ['TrueType output conversion includes configured kerning', 'kerning: kerningPairs.length > 0'],
   ['TrueType sfnt signature validation', 'signature[1] !== 1'],
   ['honest TrueType download extension', 'link.download = fileName;'],
   ['download uses a user-triggered anchor', 'link.click();'],
@@ -278,6 +280,17 @@ assert.ok(serviceWorker.includes("const CACHE_NAME = CACHE_PREFIX + 'v3';"), 'Se
 assert.ok(serviceWorker.includes("new URL('manifest.webmanifest', APP_SCOPE).href"), 'Service worker must cache the manifest');
 assert.equal(packageJson.dependencies['perfect-freehand'], '1.2.0', 'Brush runtime must be pinned locally');
 assert.equal(packageJson.dependencies['fonteditor-core'], '2.6.3', 'TTF conversion runtime must be pinned locally');
+assert.equal(packageJson.scripts['kerning:test'], 'node scripts/kerning-test.mjs', 'Kerning regression test command must be available');
+assert.ok(moduleSource.includes("import { buildKernTable, getKerningValue, normalizeKerningPairs } from './kerning.js';"), 'Editor must use the tested kerning module');
+assert.ok(moduleSource.includes('kerningPairs: JSON.parse(JSON.stringify(kerningPairs))'), 'Kerning pairs must be saved in draft data');
+assert.ok(moduleSource.includes('version: 3, glyphData, compoundOverrides, kerningPairs'), 'Kerning pairs must be part of versioned project snapshots');
+assert.ok(moduleSource.includes('buildKernTable(kerningPairs, convertedFontData.cmap)'), 'TTF export must map kerning pairs to final glyph IDs');
+assert.ok(moduleSource.includes('kerning: kerningPairs.length > 0'), 'TTF writer must enable kerning only when pairs exist');
+assert.ok(fontSmoke.includes('buildKernTable(kernFixture, convertedFontData.cmap)'), 'Font smoke test must create a real kerning table');
+assert.ok(fontSmoke.includes('kerning: true'), 'Font smoke test must round-trip a kern table');
+assert.ok(kerningTests.includes('view.getUint16(16),0'), 'Kerning tests must verify format-0 binary search metadata');
+const kerningTestRun = spawnSync(process.execPath, ['scripts/kerning-test.mjs'], {encoding:'utf8'});
+assert.equal(kerningTestRun.status, 0, `Kerning regression tests failed:\n${kerningTestRun.stderr || kerningTestRun.stdout}`);
 assert.equal(packageJson.dependencies['opentype.js'], '1.3.4', 'OpenType runtime must be pinned locally');
 assert.equal(packageJson.dependencies['polygon-clipping'], '0.15.7', 'Boolean geometry runtime must be pinned locally');
 assert.ok(browserTests.includes('exposes an installable PWA manifest'), 'Browser tests must cover PWA installation metadata and shell caching');

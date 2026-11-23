@@ -724,3 +724,11 @@ GitHub Actions run [45078392076](https://github.com/Lina1209/GlyphFlow/actions/r
 На момент проверки PR №1 остаётся **open / draft**, не объединён и не опубликован. Ветка: `fix/glyphflow-stability-foundation`; base: `main`. Слияние и публикация не выполнялись.
 
 Следующий этап — ручной мобильный smoke-test после отдельного согласования публикации, затем отдельный аудит метрик и таблиц реального пользовательского TTF и уточнение трёх Fontspector warnings. Успешный CI сам по себе не является разрешением на merge или публикацию.
+
+
+## Kerning foundation (2026-11-23)
+- Added a project-persisted manual kerning-pair model; pairs are part of undo/redo snapshots and IndexedDB drafts.
+- Added a compact pair editor and preview adjustment in font units (1000 units per em).
+- TTF export maps Unicode characters to final glyph IDs and writes a sorted OpenType `kern` version-0 format-0 subtable through the pinned fonteditor-core 2.6.3 writer.
+- Empty pair sets do not emit a `kern` table. Pairs whose glyphs are not drawn remain in the project but block TTF export with a clear message until both glyphs exist.
+- Regression fixtures verify binary layout, glyph-index ordering, signed values, TTF round-trip and independent FontTools parsing. GPOS class kerning and advanced shaping are not yet implemented; this first pass is explicit pair kerning only.

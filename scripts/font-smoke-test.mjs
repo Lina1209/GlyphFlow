@@ -6,6 +6,7 @@ import { createFont } from 'fonteditor-core';
 import { getStroke } from 'perfect-freehand';
 import polygonClipping from 'polygon-clipping';
 import { getGlyphMetadata, getSingleCodePoint } from '../src/glyph-metadata.js';
+import { buildKernTable } from '../src/kerning.js';
 import { validateGlyphCatalogAgainstFont } from './font-catalog-validator.mjs';
 
 const require = createRequire(import.meta.url);
@@ -180,6 +181,9 @@ convertedFontData['OS/2'].usWeightClass = 400;
 convertedFontData['OS/2'].usWidthClass = 5;
 convertedFontData['OS/2'].fsSelection = (convertedFontData['OS/2'].fsSelection || 0) | 0x0100;
 assert.ok(convertedFontData['OS/2'].fsSelection & 0x0100, 'Regular static export must declare WWS conformance');
+const kernFixture = [{left: 'A', right: 'Ё', value: -75}];
+convertedFontData.kern = buildKernTable(kernFixture, convertedFontData.cmap);
+assert.ok(Array.isArray(convertedFontData.kern), 'Kerning fixture must create a raw kern table');
 const verticalMetrics = convertedFontData['OS/2'];
 const verticalHeader = convertedFontData.hhea;
 assert.ok(verticalHeader && Array.isArray(convertedFontData.glyf), 'Converted TTF must expose vertical header and glyph outlines');
@@ -190,12 +194,14 @@ const glyphYMax = convertedFontData.glyf.reduce((maximum, glyph) => Math.max(max
 const glyphYMin = convertedFontData.glyf.reduce((minimum, glyph) => Math.min(minimum, Number.isFinite(glyph.yMin) ? glyph.yMin : 0), 0);
 verticalMetrics.usWinAscent = glyphYMax;
 verticalMetrics.usWinDescent = -glyphYMin;
-const ttfBytes = Buffer.from(converted.write({type: 'ttf', hinting: false, kerning: false}));
+const ttfBytes = Buffer.from(converted.write({type: 'ttf', hinting: false, kerning: true}));
 assert.ok(ttfBytes.length > 100, 'OTF-to-TTF conversion returned an empty buffer');
 assert.equal(ttfBytes.toString('hex', 0, 4), '00010000', 'Expected TrueType sfnt signature');
 writeFileSync('/tmp/glyphflow-fixture.ttf', ttfBytes);
 const ttfArrayBuffer = ttfBytes.buffer.slice(ttfBytes.byteOffset, ttfBytes.byteOffset + ttfBytes.byteLength);
 const reparsedTtf = opentype.parse(ttfArrayBuffer);
+const reparsedKerning = createFont(ttfArrayBuffer, {type: 'ttf', kerning: true}).get();
+assert.ok(Array.isArray(reparsedKerning.kern) && reparsedKerning.kern.length > 0, 'TTF round-trip must retain kern table bytes');
 // The TrueType cmap is the authoritative character-to-glyph mapping. A TTF post table may use format 3.0 and omit glyph names; human-readable descriptions therefore belong in the publication sidecar/catalog, not in a claim that every TTF reader exposes glyph names.
 assert.equal(reparsedTtf.outlinesFormat, 'truetype', 'Converted font must use TrueType outlines');
 assert.equal(reparsedTtf.names.designer.en, 'GlyphFlow Test Designer', 'TTF conversion must preserve designer metadata');
