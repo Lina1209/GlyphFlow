@@ -36,4 +36,26 @@ assert.throws(() => parseUnicodeData([
   unicodeLine(0x3400,'RANGE, First>','Lo'),
   unicodeLine(0x3401,'OTHER, Last>','Lo')
 ].join('\n'),scripts),/Mismatched/);
+
+// Strict malformed-input and boundary regression cases.
+assert.throws(() => parseScripts('0041..110000 ; Latin'), /Out-of-range/);
+assert.throws(() => parseScripts('0041..0040 ; Latin'), /Out-of-range/);
+assert.throws(() => parseScripts('0041 ;'), /Malformed/);
+assert.throws(() => parseScripts('0041..0042..0043 ; Latin'), /Invalid Script/);
+assert.throws(() => parseUnicodeData('0041;TOO FEW FIELDS', scripts), /Malformed/);
+assert.throws(() => parseUnicodeData(unicodeLine(0x41, 'BAD CATEGORY', 'Invalid'), scripts), /Invalid Unicode properties/);
+assert.throws(() => parseUnicodeData(unicodeLine(0x41, 'BAD COMBINING CLASS', 'Lu', 256), scripts), /Invalid Unicode properties/);
+assert.throws(() => parseUnicodeData([
+  unicodeLine(0x3400, 'RANGE, First>', 'Lo'),
+  unicodeLine(0x3401, 'INTERRUPTING RECORD', 'Lo')
+].join('\\n'), scripts), /not closed/);
+assert.throws(() => parseUnicodeData([
+  unicodeLine(0x3400, 'RANGE, First>', 'Lo'),
+  unicodeLine(0x3401, 'RANGE, First>', 'Lo')
+].join('\\n'), scripts), /Nested/);
+assert.throws(() => parseUnicodeData(unicodeLine(0x110000, 'OUT OF RANGE'), scripts), /Invalid or unsorted/);
+assert.throws(() => parseUnicodeData('', scripts), /empty catalog/);
+assert.equal(parseScripts(''), 0, 'Empty Scripts.txt should parse to an empty range list');
+assert.equal(parseUnicodeData(unicodeLine(0x41, 'LATIN CAPITAL LETTER A'), [] )[0].script, 'Unknown');
+
 console.log('Unicode catalog parser tests passed: Scripts ranges, Unicode records, combining classes, First/Last ranges and malformed input.');
