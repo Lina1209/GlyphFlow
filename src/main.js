@@ -1145,11 +1145,10 @@ if (stroke) {
 const candidate = (stroke.outlineOverride || activeOutlineDrag.originalOutline).map(point => [...point]);
 const position = getPointerPos(e);
 candidate[activeOutlineDrag.pointIndex] = [position[0], position[1]];
-if (isValidEditableRing(candidate, activeOutlineDrag.pointIndex, activeOutlineDrag.originalOutline)) {
-stroke.outlineOverride = candidate;
-} else {
-}
-if (drawSvg.dataset.outlineDragState === 'accepted') {
+const validCandidate = isValidEditableRing(candidate, activeOutlineDrag.pointIndex, activeOutlineDrag.originalOutline);
+drawSvg.dataset.outlineDragState = validCandidate ? 'accepted' : 'rejected';
+if (validCandidate) stroke.outlineOverride = candidate;
+if (validCandidate) {
 if (glyphData[currentChar]) glyphGeometryCache.delete(glyphData[currentChar]);
 // Keep the SVG tree intact during pointer capture. Rebuilding innerHTML here
 // can detach the active interaction surface in some browser implementations.
