@@ -40,7 +40,7 @@ textarea:focus-visible {
 /* Comfortable touch targets on narrow screens without changing desktop density. */
 @media (max-width: 640px) {
   button,
-  input[type="file"] + span {
+  .font-library-file-picker {
     min-height: 44px;
   }
 
