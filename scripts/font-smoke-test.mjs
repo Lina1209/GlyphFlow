@@ -132,6 +132,9 @@ assert.equal(reparsedTtf.outlinesFormat, 'truetype', 'Converted font must use Tr
 assert.equal(reparsedTtf.charToGlyph('A').unicode, 65);
 assert.equal(reparsedTtf.charToGlyph('Ё').unicode, 0x401);
 assert.equal(reparsedTtf.charToGlyph('😀').unicode, 0x1F600);
+assert.equal(reparsedTtf.charToGlyph('A').name, 'A', 'Final TTF must preserve the standard Latin glyph name');
+assert.equal(reparsedTtf.charToGlyph('Ё').name, 'uni0401', 'Final TTF must preserve the Cyrillic glyph name');
+assert.equal(reparsedTtf.charToGlyph('😀').name, 'u1F600', 'Final TTF must preserve supplementary-plane glyph naming');
 assert.equal(reparsedTtf.charToGlyph('О').unicode, 0x41E);
 assert.equal(reparsedTtf.charToGlyph('Ж').unicode, 0x416);
 assert.equal(reparsedTtf.charToGlyph('Р').unicode, 0x420);
