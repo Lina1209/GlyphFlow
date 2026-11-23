@@ -1677,6 +1677,10 @@ const glyphs = [notdefGlyph, spaceGlyph];
 Object.keys(glyphData).forEach(char => {
 const strokes = glyphData[char];
 if (!strokes || !strokes.length) return;
+const codePoint = getSingleCodePoint(char);
+if (codePoint === null) {
+  throw new Error('Последовательность из нескольких кодовых точек не может быть экспортирована как один cmap-глиф без явного правила лигатуры.');
+}
 
 const contours = getCompoundPathRecords(getCompoundGlyphGeometry(strokes, compoundOverrides[char]));
 let minX = Infinity;
@@ -1711,10 +1715,6 @@ fontPath.close();
 
 const glyphWidth = Math.max(1, (maxX - minX) * scale);
 const advanceWidth = Math.ceil(glyphWidth + sideBearing * 2);
-const codePoint = getSingleCodePoint(char);
-if (codePoint === null) {
-  throw new Error('Последовательность из нескольких кодовых точек не может быть экспортирована как один cmap-глиф без явного правила лигатуры.');
-}
 const glyphMetadata = getGlyphMetadata(char);
 if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10FFFF) return;
 const glyphName = glyphMetadata?.glyphName || (codePoint <= 0xFFFF
