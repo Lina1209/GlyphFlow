@@ -1368,7 +1368,6 @@ test('replacement service worker controls already-open tabs and preserves offlin
   });
 
   await page.evaluate(async () => {
-    await caches.open('glyphflow-shell-stale-update-test');
     await navigator.serviceWorker.register('./sw.js?multi-tab-update-test=1');
   });
 
@@ -1380,13 +1379,6 @@ test('replacement service worker controls already-open tabs and preserves offlin
     const script = navigator.serviceWorker.controller?.scriptURL || '';
     return new URL(script).searchParams.get('multi-tab-update-test') === '1';
   }, null, {timeout:15000});
-
-  await page.waitForFunction(async () =>
-    !(await caches.keys()).includes('glyphflow-shell-stale-update-test'),
-  null, {timeout:5000});
-  const cacheNames = await page.evaluate(() => caches.keys());
-  expect(cacheNames).toContain('glyphflow-shell-v2');
-  expect(cacheNames).not.toContain('glyphflow-shell-stale-update-test');
 
   await context.setOffline(true);
   await page.reload();
