@@ -2036,6 +2036,13 @@ test('closes an existing IndexedDB connection so a schema upgrade can proceed', 
   });
   await page.goto('/');
   await page.waitForFunction(() => window.__glyphflowUpgradeDb !== null);
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const db = window.__glyphflowUpgradeDb;
+    const tx = db.transaction('projects', 'readwrite');
+    tx.objectStore('projects').put({name:'Preserve across schema upgrade'}, 'migration-preservation-check');
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  }));
   await page.evaluate(() => {
     window.__glyphflowAllowVersionClose = true;
     const request = indexedDB.open('glyphflow-local', 2);
@@ -2043,21 +2050,33 @@ test('closes an existing IndexedDB connection so a schema upgrade can proceed', 
       window.__glyphflowUpgradeStarted = true;
     };
     request.onsuccess = () => {
-      window.__glyphflowUpgradeSucceeded = true;
-      request.result.close();
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('migration-preservation-check');
+      tx.oncomplete = () => {
+        window.__glyphflowUpgradePreservedData = get.result?.name === 'Preserve across schema upgrade';
+        db.close();
+        window.__glyphflowUpgradeSucceeded = true;
+      };
+      tx.onerror = () => {
+        window.__glyphflowUpgradeError = tx.error?.message || 'read failed';
+        db.close();
+      };
     };
     request.onerror = () => {
       window.__glyphflowUpgradeError = request.error?.message || 'unknown';
     };
   });
-  await page.waitForFunction(() => window.__glyphflowUpgradeSucceeded === true);
+  await page.waitForFunction(() => window.__glyphflowUpgradeSucceeded === true || window.__glyphflowUpgradeError);
   const result = await page.evaluate(() => ({
     closeObserved: window.__glyphflowCloseObserved,
     upgradeStarted: window.__glyphflowUpgradeStarted,
+    preservedData: window.__glyphflowUpgradePreservedData,
     error: window.__glyphflowUpgradeError || null
   }));
   expect(result.closeObserved).toBe(true);
   expect(result.upgradeStarted).toBe(true);
+  expect(result.preservedData).toBe(true);
   expect(result.error).toBeNull();
 });
 
