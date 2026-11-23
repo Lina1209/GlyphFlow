@@ -1,3 +1,12 @@
+export function getSingleCodePoint(character) {
+  if (typeof character !== 'string') return null;
+  const scalars = [...character];
+  if (scalars.length !== 1) return null;
+  const value = scalars[0].codePointAt(0);
+  // Unicode scalar values exclude the UTF-16 surrogate range.
+  return value >= 0xD800 && value <= 0xDFFF ? null : value;
+}
+
 const CYRILLIC_UPPER = [...'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'];
 const CYRILLIC_UPPER_NAMES = [
   'A', 'BE', 'VE', 'GHE', 'DE', 'IE', 'IO', 'ZHE', 'ZE', 'I', 'SHORT I',
@@ -63,10 +72,10 @@ for (const [char, [unicodeName, glyphName, description, generalCategory]] of Obj
 add(' ', 'SPACE', 'space', 'Пробел', 'Zs', 'Межсловный пробел', 'Common');
 
 export function getGlyphMetadata(char) {
-  if (typeof char !== 'string' || [...char].length !== 1) return null;
+  const codePoint = getSingleCodePoint(char);
+  if (codePoint === null) return null;
   const known = metadata.get(char);
   if (known) return known;
-  const codePoint = char.codePointAt(0);
   return Object.freeze({
     character: char,
     codePoint: 'U+' + codePoint.toString(16).toUpperCase().padStart(4, '0'),
