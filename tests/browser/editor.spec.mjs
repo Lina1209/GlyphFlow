@@ -12,6 +12,7 @@ import opentype from 'opentype.js';
 
 async function drawStroke(page, offset = 0) {
   const svg = page.locator('#drawSvg');
+  await svg.scrollIntoViewIfNeeded();
   const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
   const points = [
@@ -30,6 +31,7 @@ async function drawStroke(page, offset = 0) {
 }
 
 async function drawTouchStroke(page, offset = 0, pointerId = 1000) {
+  await page.locator('#drawSvg').scrollIntoViewIfNeeded();
   await page.locator('#drawSvg').evaluate((svg, args) => {
     const points = [
       [45 + args.offset, 275], [60 + args.offset, 235], [78 + args.offset, 195],
@@ -49,7 +51,9 @@ async function drawTouchStroke(page, offset = 0, pointerId = 1000) {
 }
 
 async function drawClosedContour(page, points) {
-  const bounds = await page.locator('#drawSvg').boundingBox();
+  const svg = page.locator('#drawSvg');
+  await svg.scrollIntoViewIfNeeded();
+  const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
   await page.mouse.move(bounds.x + points[0][0], bounds.y + points[0][1]);
   await page.mouse.down();
@@ -244,6 +248,7 @@ test('touch input commits strokes and cancels interrupted gestures safely', asyn
   const session = await page.context().newCDPSession(page);
   await session.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
   const svg = page.locator('#drawSvg');
+  await svg.scrollIntoViewIfNeeded();
   const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
 
@@ -298,6 +303,7 @@ test('touch input commits strokes and cancels interrupted gestures safely', asyn
 test('pointer cancellation and glyph switching never commit partial strokes', async ({ page }) => {
   await page.goto('/');
   const svg = page.locator('#drawSvg');
+  await svg.scrollIntoViewIfNeeded();
   const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
 
@@ -335,6 +341,7 @@ test('pointer cancellation and glyph switching never commit partial strokes', as
 test('canvas zoom, pan and coordinate mapping stay stable', async ({ page }) => {
   await page.goto('/');
   const svg = page.locator('#drawSvg');
+  await svg.scrollIntoViewIfNeeded();
   const initial = await svg.getAttribute('viewBox');
   expect(initial).toBe('0 0 360 360');
 
@@ -934,6 +941,7 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
 test('batches dense live pointer input into one preview render per animation frame', async ({ page }) => {
   await page.goto('/');
   const svg = page.locator('#drawSvg');
+  await svg.scrollIntoViewIfNeeded();
   const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
   await page.evaluate(() => {
