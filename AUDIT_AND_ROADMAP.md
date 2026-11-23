@@ -732,3 +732,5 @@ GitHub Actions run [45078392076](https://github.com/Lina1209/GlyphFlow/actions/r
 - TTF export maps Unicode characters to final glyph IDs and writes a sorted OpenType `kern` version-0 format-0 subtable through the pinned fonteditor-core 2.6.3 writer.
 - Empty pair sets do not emit a `kern` table. Pairs whose glyphs are not drawn remain in the project but block TTF export with a clear message until both glyphs exist.
 - Regression fixtures verify binary layout, glyph-index ordering, signed values, TTF round-trip and independent FontTools parsing. GPOS class kerning and advanced shaping are not yet implemented; this first pass is explicit pair kerning only.
+
+- Added a production-browser regression scenario for editing an А–Б pair, checking the live preview, waiting for the committed IndexedDB snapshot, restoring after reload, and verifying the exported TTF kerning value through OpenType parsing.
