@@ -40,7 +40,7 @@ assert.throws(() => buildGposPairPosTable([{leftIndex:1,rightIndex:2,value:1},{l
 const mapped = buildGposTable([{left:'A',right:'Ё',value:-75}], {65:2, 0x401:5});
 assert.ok(mapped instanceof Uint8Array, 'Unicode kerning pairs must map to GPOS bytes');
 assert.throws(() => buildGposTable([{left:'A',right:'Ё',value:-75}], {65:2}), /нарисуйте и экспортируйте оба глифа/);
-assert.throws(() => buildGposTable([{left:'A',right:'Ё',value:-75}], {65:2, 0x401:2}), /Duplicate/, 'Cmap aliases must not silently create a duplicate glyph pair');
+assert.throws(() => buildGposTable([{left:'A',right:'Ё',value:-75},{left:'B',right:'Ж',value:-60}], {65:2, 0x401:5, 66:2, 0x416:5}), /Duplicate/, 'Cmap aliases must not silently create a duplicate glyph pair');
 assert.equal(buildGposTable([], {}), null);
 
 console.log('GPOS PairPos format 1 and Unicode-to-glyph mapping tests passed.');
