@@ -4,6 +4,7 @@ import opentype from 'opentype.js';
 import { getStroke } from 'perfect-freehand';
 import { createFont } from 'fonteditor-core';
 import polygonClipping from 'polygon-clipping';
+import { getGlyphMetadata } from './glyph-metadata.js';
 
 // Keep the historical browser parser API available for font inspection and integrations.
 window.opentype = opentype;
@@ -196,14 +197,50 @@ return d.join(' ');
 }
 
 // Отрисовка сетки символов слева
+function renderCurrentGlyphMetadata() {
+const panel = document.getElementById('currentGlyphMetadata');
+if (!panel) return;
+const item = getGlyphMetadata(currentChar);
+if (!item) {
+panel.textContent = 'Для этого символа нет карточки метаданных.';
+return;
+}
+panel.replaceChildren();
+const fields = [
+['Unicode', item.codePoint],
+['Unicode Name', item.unicodeName || 'Не найдено в локальном каталоге'],
+['Glyph Name', item.glyphName],
+['Категория', item.category],
+['Письменность', item.script],
+['Описание', item.description]
+];
+fields.forEach(([label, value]) => {
+const row = document.createElement('div');
+row.className = 'flex flex-col sm:flex-row sm:gap-2 text-xs';
+const key = document.createElement('span');
+key.className = 'text-slate-400 shrink-0';
+key.textContent = label + ':';
+const text = document.createElement('span');
+text.className = 'text-slate-100 break-words';
+text.textContent = value;
+row.append(key, text);
+panel.appendChild(row);
+});
+}
+
 function renderGrid() {
 glyphGrid.innerHTML = '';
 let completedCount = 0;
 CHARS.forEach(char => {
 const hasStrokes = glyphData[char] && glyphData[char].length > 0;
 if (hasStrokes) completedCount++;
+const metadata = getGlyphMetadata(char);
 const btn = document.createElement('button');
 btn.textContent = char;
+btn.setAttribute('aria-label', metadata
+? char + ', ' + metadata.unicodeName + ', ' + metadata.codePoint
+: char);
+btn.title = metadata ? metadata.unicodeName + ' · ' + metadata.codePoint : char;
 btn.className = `h-10 rounded-lg font-medium text-sm transition flex items-center justify-center border ${
 char === currentChar
 ? 'bg-indigo-600 border-indigo-400 text-white shadow-md'
@@ -215,6 +252,7 @@ btn.onclick = () => selectChar(char);
 glyphGrid.appendChild(btn);
 });
 progressText.textContent = `Готово: ${completedCount} / ${CHARS.length}`;
+renderCurrentGlyphMetadata();
 }
 
 // Переключение активной буквы
@@ -1672,11 +1710,12 @@ fontPath.close();
 
 const glyphWidth = Math.max(1, (maxX - minX) * scale);
 const advanceWidth = Math.ceil(glyphWidth + sideBearing * 2);
-const codePoint = char.codePointAt(0);
+const glyphMetadata = getGlyphMetadata(char);
+const codePoint = glyphMetadata?.codePointValue ?? char.codePointAt(0);
 if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10FFFF) return;
-const glyphName = codePoint <= 0xFFFF
+const glyphName = glyphMetadata?.glyphName || (codePoint <= 0xFFFF
 ? 'uni' + codePoint.toString(16).toUpperCase().padStart(4, '0')
-: 'u' + codePoint.toString(16).toUpperCase().padStart(5, '0');
+: 'u' + codePoint.toString(16).toUpperCase().padStart(5, '0'));
 
 glyphs.push(new opentype.Glyph({
 name: glyphName,
