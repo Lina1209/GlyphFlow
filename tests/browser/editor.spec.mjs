@@ -1773,6 +1773,27 @@ test('rejects a malformed font binary in a library backup before writing any rec
   await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось восстановить библиотеку');
 });
 
+test('rejects an oversized project snapshot in a library backup before parsing or writing', async ({ page }) => {
+  await page.goto('/');
+  const oversizedBackup = {
+    format: 'GlyphFlowFontLibrary',
+    version: 1,
+    fonts: [{
+      name: 'Oversized snapshot',
+      format: 'ttf',
+      fontBase64: 'AA==',
+      projectSnapshot: ' '.repeat(25 * 1024 * 1024 + 1)
+    }]
+  };
+  await page.locator('#importLibraryBackupInput').setInputFiles({
+    name: 'oversized-project-snapshot.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(oversizedBackup))
+  });
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Снимок проекта в резервной копии превышает безопасный лимит');
+});
+
 test('rejects an invalid project snapshot in a library backup before writing any records', async ({ page }) => {
   await page.goto('/');
   const maliciousBackup = {
