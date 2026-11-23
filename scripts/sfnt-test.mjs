@@ -29,9 +29,10 @@ for (let i=0;i<count;i++) {
 assert.ok(tags.includes('GPOS'));
 assert.ok(tags.includes('head'));
 assert.equal(new Uint8Array(result, view.getUint32(12 + tags.indexOf('GPOS')*16 + 8), 8).join(','), payload.join(','));
-assert.equal(new DataView(result).getUint32(headOffset+8), (0xB1B0AFBA - (() => {
-  const bytes=new Uint8Array(result); let sum=0;
-  for(let i=0;i<bytes.length;i+=4) sum=(sum+((((bytes[i]||0)<<24)|((bytes[i+1]||0)<<16)|((bytes[i+2]||0)<<8)|(bytes[i+3]||0))>>>0))>>>0;
-  return sum;
-})())>>>0);
+const checksumBytes = new Uint8Array(result);
+let wholeFontChecksum = 0;
+for (let i=0;i<checksumBytes.length;i+=4) {
+  wholeFontChecksum = (wholeFontChecksum + ((((checksumBytes[i]||0)<<24)|((checksumBytes[i+1]||0)<<16)|((checksumBytes[i+2]||0)<<8)|(checksumBytes[i+3]||0))>>>0))>>>0;
+}
+assert.equal(wholeFontChecksum, 0xB1B0AFBA, 'SFNT checksum adjustment must make the whole font checksum valid');
 console.log('SFNT raw table injection tests passed.');
