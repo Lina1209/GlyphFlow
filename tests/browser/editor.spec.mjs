@@ -1649,6 +1649,48 @@ test('prevents exporting a font-library backup larger than the restore limit', a
   await expect(page.locator('#fontLibraryCount')).toHaveText('3');
 });
 
+test('refuses to export a corrupted font binary and preserves the library record', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readwrite');
+      tx.objectStore('projects').put({
+        id: 'broken-backup-font',
+        name: 'Corrupted Backup Font',
+        format: 'ttf',
+        fileName: 'corrupted.ttf',
+        blob: new Blob(['not a valid font'], {type: 'font/ttf'}),
+        size: 16,
+        savedAt: Date.now(),
+        projectSnapshot: null
+      }, 'font-library:broken-backup-font');
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  await page.reload();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+  const downloadPromise = page.waitForEvent('download', {timeout: 1000}).catch(() => null);
+  await page.locator('#exportFontLibraryBtn').click();
+  expect(await downloadPromise).toBeNull();
+  await expect(page.locator('#fontLibraryStatus')).toContainText('повреждён');
+  const preserved = await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('font-library:broken-backup-font');
+      tx.oncomplete = () => { resolve(get.result?.name === 'Corrupted Backup Font'); db.close(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  expect(preserved).toBe(true);
+});
+
 test('exports and restores a portable font-library backup', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
