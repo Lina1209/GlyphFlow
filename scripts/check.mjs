@@ -45,7 +45,7 @@ assert.ok(qualityWorkflow.includes('run: npm run unicode:catalog') && qualityWor
 assert.ok(qualityWorkflow.includes('--error-code-on fail'), 'CI must fail on Fontspector FAIL findings');
 assert.ok(moduleSource.includes('function getFontRevision(version)'), 'OpenType revision parser must be defined');
 assert.ok(moduleSource.includes('convertedFontData.head.fontRevision = getFontRevision(getFontMetadata().version'), 'TTF conversion must set head revision from the version embedded in name ID 5');
-assert.ok(fontSmoke.includes('convertedFontData.head.fontRevision = generated.tables.head.fontRevision'), 'Font smoke test must preserve the numeric revision through conversion');
+assert.ok(fontSmoke.includes('convertedFontData.head.fontRevision = versionMatch ? Number(versionMatch[1]) : 1'), 'Font smoke test must preserve the numeric revision through conversion');
 assert.ok(readFileSync(new URL('../scripts/validate-ttf-fonttools.py', import.meta.url), 'utf8').includes('fontRevision - 2.125'), 'FontTools must verify the exported head revision');
 assert.ok(unicodeImporter.includes("from './unicode-catalog-parser.mjs'"), 'Unicode importer must use the tested pure parser module');
 assert.ok(unicodeParser.includes('function parseScripts') && unicodeParser.includes('function parseUnicodeData'), 'Unicode parser module must expose both UCD parsers');
