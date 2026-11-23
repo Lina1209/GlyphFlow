@@ -36,3 +36,21 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Comfortable touch targets on narrow screens without changing desktop density. */
+@media (max-width: 640px) {
+  button,
+  input[type="file"] + span {
+    min-height: 44px;
+  }
+
+  button {
+    min-width: 44px;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
