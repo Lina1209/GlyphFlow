@@ -147,6 +147,7 @@ test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ 
   const bytes = await readFile(filePath);
   expect(bytes.byteLength).toBeGreaterThan(100);
   expect(bytes.subarray(0, 4).toString('hex')).toBe('00010000');
+  await expect(page.locator('#currentGlyphMetadata')).toContainText('Unicode Character Database 18.0.0');
   // The companion glyph passport must export the drawn glyphs and preserve metadata separately from the TTF.
   const catalogDownloadPromise = page.waitForEvent('download');
   await page.locator('#downloadGlyphCatalogBtn').click();
