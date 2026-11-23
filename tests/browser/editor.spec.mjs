@@ -1524,6 +1524,43 @@ test('removing one library font preserves other records after reload', async ({ 
   await expect(page.locator('#fontLibraryList article')).not.toContainText('Library Keep A');
 });
 
+test('shows a visible storage error when deleting a library font fails', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  await page.locator('#fontName').fill('Delete Failure Test');
+  await page.locator('#saveToLibraryBtn').click();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+
+  await page.evaluate(() => {
+    IDBObjectStore.prototype.delete = function () {
+      const transaction = this.transaction;
+      Object.defineProperty(transaction, 'error', {
+        configurable: true,
+        get: () => new DOMException('Simulated storage failure', 'QuotaExceededError')
+      });
+      transaction.abort();
+      return undefined;
+    };
+  });
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#fontLibraryList article').getByRole('button', {name:'Удалить'}).click();
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось удалить шрифт');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('недостаточно места в хранилище устройства');
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+});
+
+test('shows a readable error when the font library cannot be read', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    IDBObjectStore.prototype.openCursor = function () {
+      throw new DOMException('Simulated storage access failure', 'SecurityError');
+    };
+  });
+  await page.locator('#librarySearch').fill('trigger refresh');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось открыть библиотеку');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('браузер запретил доступ к локальному хранилищу');
+});
+
 test('exports and restores a portable font-library backup', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
