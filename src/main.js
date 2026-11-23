@@ -2,7 +2,6 @@ import opentype from 'opentype.js';
 
 // Импортируем библиотеку каллиграфической кисти perfect-freehand
 import { getStroke } from 'perfect-freehand';
-import { createFont } from 'fonteditor-core';
 import polygonClipping from 'polygon-clipping';
 import { getGlyphMetadata, getSingleCodePoint, getLoadedUnicodeVersion, loadUnicodeCatalog } from './glyph-metadata.js';
 import { buildKernTable, getKerningValue, normalizeKerningPairs } from './kerning.js';
@@ -1992,7 +1991,8 @@ console.error('Ошибка обновления шрифта:', err);
 }
 
 // Создание проверенного бинарного TrueType-шрифта.
-function createTrueTypeFontBlob(kerningFormat = document.getElementById('kerningFormat')?.value || 'kern') {
+async function createTrueTypeFontBlob(kerningFormat = document.getElementById('kerningFormat')?.value || 'kern') {
+const { createFont } = await import('fonteditor-core');
 if (!['kern', 'gpos'].includes(kerningFormat)) throw new Error('Выбран неизвестный формат кернинга.');
 const count = Object.values(glyphData).filter(strokes => strokes && strokes.length).length;
 if (!count) throw new Error('Сначала нарисуйте хотя бы один символ.');
@@ -2135,9 +2135,9 @@ alert(err.message || 'Не удалось создать паспорт симв
 }
 };
 
-document.getElementById('downloadBtn').onclick = () => {
+document.getElementById('downloadBtn').onclick = async () => {
 try {
-const fontFile = createTrueTypeFontBlob();
+const fontFile = await createTrueTypeFontBlob();
 triggerFontDownload(fontFile.blob, fontFile.fileName);
 } catch (err) {
 console.error('Ошибка экспорта TTF:', err);
@@ -2323,7 +2323,7 @@ libraryStatus.textContent = 'Не удалось открыть библиоте
 }
 document.getElementById('saveToLibraryBtn').addEventListener('click', async () => {
 try {
-const fontFile = createTrueTypeFontBlob();
+const fontFile = await createTrueTypeFontBlob();
 const name = (document.getElementById('fontName').value || fontFile.familyName || 'MyHandwriting').trim().slice(0, 64);
 const record = {
 id: makeLibraryId(), name, format: 'ttf', fileName: name.replace(/[^\p{L}\p{N}._-]+/gu, '_') + '.ttf',
