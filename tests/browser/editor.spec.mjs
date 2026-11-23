@@ -1322,7 +1322,14 @@ test('exposes an installable PWA manifest and caches the application shell', asy
 
 
 test('shows a readable status when service worker registration fails', async ({ page }) => {
-  await page.route('**/sw.js', route => route.abort());
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        register: () => Promise.reject(new Error('Simulated service worker registration failure'))
+      }
+    });
+  });
   await page.goto('/');
   await expect(page.locator('#pwaStatus')).toContainText('Офлайн-режим недоступен');
   await expect(page.locator('#pwaStatus')).toContainText('браузер не смог включить');
