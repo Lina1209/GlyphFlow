@@ -139,6 +139,21 @@ test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ 
   const bytes = await readFile(filePath);
   expect(bytes.byteLength).toBeGreaterThan(100);
   expect(bytes.subarray(0, 4).toString('hex')).toBe('00010000');
+  // The companion glyph passport must export the drawn glyphs and preserve metadata separately from the TTF.
+  const catalogDownloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadGlyphCatalogBtn').click();
+  const catalogDownload = await catalogDownloadPromise;
+  expect(catalogDownload.suggestedFilename()).toMatch(/-glyph-catalog\\.json$/i);
+  const catalog = JSON.parse(await readFile(await catalogDownload.path(), 'utf8'));
+  expect(catalog.format).toBe('GlyphFlow Glyph Catalog');
+  expect(catalog.unicodeDataVersion).toBe('17.0.0');
+  expect(catalog.glyphs.map(glyph => glyph.character)).toEqual(expect.arrayContaining(['А', 'Б']));
+  const cyrillicA = catalog.glyphs.find(glyph => glyph.character === 'А');
+  expect(cyrillicA.codePoint).toBe('U+0410');
+  expect(cyrillicA.unicodeName).toBe('CYRILLIC CAPITAL LETTER A');
+  expect(cyrillicA.glyphName).toBe('uni0410');
+  expect(cyrillicA.unicodeGeneralCategory).toBe('Lu');
+  expect(cyrillicA.metadataStatus).toBe('verified-local-catalog');
 
   // Load the downloaded binary as a real browser font and verify glyph rendering.
   const fontBase64 = bytes.toString('base64');
