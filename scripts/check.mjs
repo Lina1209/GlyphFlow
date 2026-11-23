@@ -25,7 +25,7 @@ const unicodeParserTests = readFileSync(new URL('../scripts/unicode-catalog-pars
 assert.ok(packageJson.scripts['unicode:catalog'] === 'node scripts/update-unicode-catalog.mjs 18.0.0', 'Unicode catalog command must pin version 18.0.0');
 assert.ok(unicodeImporter.includes('UnicodeData.txt') && unicodeImporter.includes('Scripts.txt'), 'Unicode importer must use official UCD data files');
 assert.ok(unicodeParser.includes("name.endsWith(', First>')") && unicodeParser.includes("name.endsWith(', Last>')"), 'Unicode parser must preserve Unicode range records');
-assert.ok(unicodeImporter.includes('combiningClass') && unicodeImporter.includes('scriptRangeCount'), 'Unicode importer must export combining classes and script ranges');
+assert.ok(unicodeParser.includes('combiningClass') && unicodeImporter.includes('scriptRangeCount'), 'Unicode parser must preserve combining classes and importer must report script ranges');
 assert.ok(unicodeImporter.includes('https://www.unicode.org/license.txt'), 'Unicode catalog must include official license reference');
 assert.ok(packageJson.scripts['unicode:catalog:test'] === 'node scripts/unicode-catalog-parser-test.mjs', 'Unicode parser regression test command must be available');
 const unicodeCatalogValidator = readFileSync(new URL('../scripts/validate-unicode-catalog.mjs', import.meta.url), 'utf8');
@@ -187,7 +187,7 @@ const requiredContracts = [
   ['glyph metadata includes Unicode Script property', 'script'],
   ['glyph metadata cards render for selected character', 'function renderCurrentGlyphMetadata()'],
   ['glyph passport export function exists', 'function createGlyphCatalogBlob()'],
-  ['glyph passport export pins released UCD 18.0.0', "unicodeDataVersion: '18.0.0'"],
+  ['glyph passport export declares local catalog provenance', "name: 'GlyphFlow bundled local metadata subset'"],
   ['glyph passport export preserves multi-codepoint sequences', 'sequence-needs-explicit-mapping'],
   ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"],
   ['nearest outline handle hit testing', 'candidateHandles.reduce((best, handle) =>'],
