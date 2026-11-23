@@ -2585,3 +2585,61 @@ test('persists editable font metadata and embeds it in the exported TrueType nam
   expect(font.names.designerURL.en).toBe('https://example.com/test-designer');
   expect(font.names.manufacturerURL.en).toBe('https://example.com/test-foundry');
 });
+
+
+test('edits, persists and exports real pair kerning through the browser editor', async ({page}) => {
+  await page.goto('/');
+  await expect(page.locator('#currentCharLabel')).toHaveText('А');
+  await drawStroke(page);
+  await page.locator('#glyphGrid button').filter({hasText: /^Б$/}).click();
+  await expect(page.locator('#currentCharLabel')).toHaveText('Б');
+  await drawStroke(page, 18);
+
+  await page.locator('#kerningLeft').selectOption({label: /^А/});
+  await page.locator('#kerningRight').selectOption({label: /^Б/});
+  await page.locator('#kerningValue').fill('-80');
+  await page.locator('#kerningSaveBtn').click();
+  await expect(page.locator('#kerningPairsList')).toContainText('АБ');
+  await page.locator('#previewInput').fill('АБА');
+  const previewMargins = await page.locator('#livePreviewOutput span').evaluateAll(spans =>
+    spans.map(span => span.style.marginRight)
+  );
+  expect(previewMargins[0]).toBe('-0.08em');
+
+  await expect.poll(async () => page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('current');
+      get.onsuccess = () => resolve(get.result?.kerningPairs || []);
+      get.onerror = () => reject(get.error);
+      tx.oncomplete = () => db.close();
+    };
+  })), {timeout:15000}).toEqual([{left:'А',right:'Б',value:-80}]);
+
+  await page.reload();
+  await expect(page.locator('#kerningPairsList')).toContainText('АБ');
+  await page.locator('#previewInput').fill('АБА');
+  await expect.poll(() => page.locator('#livePreviewOutput span').first().evaluate(span => span.style.marginRight)).toBe('-0.08em');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const fontBytes = await readFile(await download.path());
+  const encoded = fontBytes.toString('base64');
+  const kerning = await page.evaluate(base64 => {
+    const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+    const font = window.opentype.parse(bytes.buffer);
+    const left = font.charToGlyph('А').index;
+    const right = font.charToGlyph('Б').index;
+    return {
+      left, right,
+      value: font.kerningPairs?.[left + ',' + right] ?? null,
+      unitsPerEm: font.unitsPerEm
+    };
+  }, encoded);
+  expect(kerning.unitsPerEm).toBe(1000);
+  expect(kerning.value).toBe(-80);
+});
