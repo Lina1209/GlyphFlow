@@ -79,6 +79,11 @@ values[key] = field?.value || '';
 }
 return sanitizeFontMetadata(values);
 }
+function getFontRevision(version) {
+const match = String(version || '').match(/(\d+(?:\.\d{1,3})?)/);
+const revision = match ? Number(match[1]) : 1;
+return Number.isFinite(revision) && revision >= 0 && revision <= 65535.999 ? revision : 1;
+}
 function applyFontMetadata(metadata) {
 const clean = sanitizeFontMetadata(metadata || {});
 for (const key of FONT_METADATA_FIELDS) {
@@ -1796,8 +1801,6 @@ path: fontPath
 const rawFamilyName = document.getElementById('fontName').value.trim() || 'MyHandwriting';
 const familyName = rawFamilyName.replace(/[\\{};\n\r]/g, '').slice(0, 48) || 'MyHandwriting';
 const metadata = getFontMetadata();
-const versionMatch = (metadata.version || 'Version 1.000').match(/(\d+(?:\.\d{1,3})?)/);
-const fontRevision = versionMatch ? Number(versionMatch[1]) : 1;
 const safePostScriptFamily = familyName.replace(/[^a-zA-Z0-9-]/g, '') || 'MyHandwriting';
 return new opentype.Font({
 familyName,
@@ -1814,7 +1817,6 @@ license: metadata.license,
 licenseURL: metadata.licenseURL,
 designerURL: metadata.designerURL,
 manufacturerURL: metadata.manufacturerURL,
-tables: {head: {fontRevision}},
 unitsPerEm,
 ascender,
 descender,
@@ -1856,8 +1858,8 @@ const converter = createFont(otfBuffer, {type: 'otf'});
 const convertedFontData = converter.get();
 if (!convertedFontData['OS/2']) throw new Error('Конвертер не создал обязательную таблицу OS/2.');
 if (!convertedFontData.head) throw new Error('Конвертер не создал обязательную таблицу head.');
-// fonteditor-core resets head.fontRevision during OTF-to-TTF conversion; restore the revision that was serialized in the source OTF.
-convertedFontData.head.fontRevision = font.tables.head.fontRevision;
+// fonteditor-core resets head.fontRevision during OTF-to-TTF conversion; set it from the same version string embedded in name ID 5.
+convertedFontData.head.fontRevision = getFontRevision(getFontMetadata().version || 'Version 1.000');
 // The OTF intermediate does not carry OS/2 weight data through fonteditor-core.
 // GlyphFlow exports a Regular static face, so explicitly set the OpenType class.
 convertedFontData['OS/2'].usWeightClass = 400;
