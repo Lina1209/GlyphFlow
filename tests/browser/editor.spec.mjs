@@ -1610,6 +1610,38 @@ test('shows a readable error when the font library cannot be read', async ({ pag
   await expect(page.locator('#fontLibraryStatus')).toContainText('браузер запретил доступ к локальному хранилищу');
 });
 
+test('prevents exporting a font-library backup larger than the restore limit', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readwrite');
+      const store = tx.objectStore('projects');
+      for (let index = 0; index < 3; index++) {
+        const id = 'oversized-export-' + index;
+        store.put({
+          id,
+          name: 'Oversized export ' + index,
+          format: 'ttf',
+          fileName: id + '.ttf',
+          blob: new Blob([new Uint8Array(12 * 1024 * 1024)]),
+          size: 12 * 1024 * 1024,
+          savedAt: Date.now(),
+          projectSnapshot: null
+        }, 'font-library:' + id);
+      }
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  await page.reload();
+  await page.locator('#exportFontLibraryBtn').click();
+  await expect(page.locator('#fontLibraryStatus')).toContainText('превысит лимит 40 МБ');
+  await expect(page.locator('#fontLibraryCount')).toHaveText('3');
+});
+
 test('exports and restores a portable font-library backup', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
