@@ -27,6 +27,22 @@ class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus
 </div>
 </div>
 </header>
+<details id="fontMetadataPanel" class="max-w-7xl w-full mx-auto px-6 pt-3">
+<summary class="cursor-pointer text-sm font-medium text-indigo-300 hover:text-indigo-200">Метаданные шрифта — авторство, версия, описание и лицензия</summary>
+<div class="mt-3 rounded-xl border border-slate-700 bg-slate-800 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+<div><label for="fontDesigner" class="block text-xs text-slate-400 mb-1">Дизайнер / автор</label><input id="fontDesigner" maxlength="128" autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="Имя автора"></div>
+<div><label for="fontManufacturer" class="block text-xs text-slate-400 mb-1">Издатель / словолитня</label><input id="fontManufacturer" maxlength="128" autocomplete="organization" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="Название студии или издателя"></div>
+<div><label for="fontVersion" class="block text-xs text-slate-400 mb-1">Версия шрифта</label><input id="fontVersion" maxlength="32" value="Version 1.000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm"></div>
+<div class="sm:col-span-2 lg:col-span-3"><label for="fontDescription" class="block text-xs text-slate-400 mb-1">Описание</label><textarea id="fontDescription" maxlength="1024" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="Назначение, особенности и состав шрифта"></textarea></div>
+<div class="sm:col-span-2"><label for="fontCopyright" class="block text-xs text-slate-400 mb-1">Уведомление об авторском праве</label><input id="fontCopyright" maxlength="512" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="Заполняйте только при наличии подтверждённых прав"></div>
+<div><label for="fontTrademark" class="block text-xs text-slate-400 mb-1">Товарный знак</label><input id="fontTrademark" maxlength="256" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="Необязательно"></div>
+<div class="sm:col-span-2 lg:col-span-3"><label for="fontLicense" class="block text-xs text-slate-400 mb-1">Текст лицензии</label><textarea id="fontLicense" maxlength="2048" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="Вставьте точный текст выбранной лицензии; пустое поле не назначает лицензию"></textarea></div>
+<div><label for="fontLicenseURL" class="block text-xs text-slate-400 mb-1">Ссылка на лицензию</label><input id="fontLicenseURL" type="url" maxlength="512" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="https://…"></div>
+<div><label for="fontDesignerURL" class="block text-xs text-slate-400 mb-1">Сайт автора</label><input id="fontDesignerURL" type="url" maxlength="512" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="https://…"></div>
+<div><label for="fontManufacturerURL" class="block text-xs text-slate-400 mb-1">Сайт издателя</label><input id="fontManufacturerURL" type="url" maxlength="512" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="https://…"></div>
+<p class="sm:col-span-2 lg:col-span-3 text-xs text-slate-400">Эти сведения сохраняются в проекте и записываются в таблицу name файла OpenType/TrueType. Пустые поля не означают согласие на какую-либо лицензию. Перед публикацией проверьте права на все включённые глифы.</p>
+</div>
+</details>
 <p id="draftSyncStatus" role="status" aria-live="polite" aria-atomic="true" class="hidden max-w-7xl w-full mx-auto px-6 pt-3 text-sm text-amber-300"></p>
 <p id="pwaStatus" role="status" aria-live="polite" aria-atomic="true" class="hidden max-w-7xl w-full mx-auto px-6 pt-2 text-sm text-amber-300"></p>
 
