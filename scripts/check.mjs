@@ -19,6 +19,13 @@ const publicServiceWorker = readFileSync(new URL('../public/sw.js', import.meta.
 const publicIcon = readFileSync(new URL('../public/icons/glyphflow.svg', import.meta.url), 'utf8');
 const sourceIcon = readFileSync(new URL('../icons/glyphflow.svg', import.meta.url), 'utf8');
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const unicodeImporter = readFileSync(new URL('../scripts/update-unicode-catalog.mjs', import.meta.url), 'utf8');
+assert.ok(packageJson.scripts['unicode:catalog'] === 'node scripts/update-unicode-catalog.mjs 18.0.0', 'Unicode catalog command must pin version 18.0.0');
+assert.ok(unicodeImporter.includes('UnicodeData.txt') && unicodeImporter.includes('Scripts.txt'), 'Unicode importer must use official UCD data files');
+assert.ok(unicodeImporter.includes('name.endsWith(\', First>\')') && unicodeImporter.includes('name.endsWith(\', Last>\')'), 'Unicode importer must preserve Unicode range records');
+assert.ok(unicodeImporter.includes('combiningClass') && unicodeImporter.includes('scriptRangeCount'), 'Unicode importer must export combining classes and script ranges');
+assert.ok(unicodeImporter.includes('https://www.unicode.org/license.txt'), 'Unicode catalog must include official license reference');
+
 const nestedExportContracts = [
   ['font smoke fixture includes four nested depths', "'Ы': ["],
   ['font smoke fixture reaches depth three', "thinning: 0.35, depth: 3"],
