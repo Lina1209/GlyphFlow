@@ -127,4 +127,31 @@ for char in ("О", "∞"):
     glyph = glyf_table[glyph_name]
     assert glyph.numberOfContours >= 1, f"Closed/self-crossing glyph {char} lost its outline"
 
+
+# Independently parse the GPOS-only fixture emitted through fonteditor-core.
+gpos_path = Path("/tmp/glyphflow-gpos-fixture.ttf")
+assert gpos_path.is_file(), "GPOS fixture was not written by the Node integration test"
+gpos_font = TTFont(str(gpos_path), recalcBBoxes=True, recalcTimestamp=False)
+assert "GPOS" in gpos_font, "fonteditor-core writer dropped the raw GPOS table"
+assert "kern" not in gpos_font, "GPOS-only fixture must not contain legacy kern data"
+gpos = gpos_font["GPOS"].table
+assert gpos.Version == 0x00010000
+assert len(gpos.LookupList.Lookup) == 1
+lookup = gpos.LookupList.Lookup[0]
+assert lookup.LookupType == 2, "Expected GPOS Pair Adjustment lookup type 2"
+assert len(lookup.SubTable) == 1
+pair_pos = lookup.SubTable[0]
+assert pair_pos.Format == 1, "Expected PairPos format 1"
+assert pair_pos.ValueFormat1 == 4 and pair_pos.ValueFormat2 == 0
+gpos_cmap = gpos_font.getBestCmap()
+left_glyph = gpos_cmap[ord("A")]
+right_glyph = gpos_cmap[ord("Ё")]
+coverage = pair_pos.Coverage.glyphs
+assert left_glyph in coverage, f"GPOS Coverage missing left glyph {left_glyph}"
+pair_set = pair_pos.PairSet[coverage.index(left_glyph)]
+pair_values = {record.SecondGlyph: record.Value1.XAdvance for record in pair_set.PairValueRecord}
+assert pair_values.get(right_glyph) == -75, (
+    f"Expected GPOS A/Ё XAdvance=-75, got {pair_values.get(right_glyph)!r}"
+)
+
 print(f"FontTools validation passed: kern format-0 A/Ё=-75; hhea/OS2 vertical metrics agree; Windows bounds cover glyphs (usWinAscent={os2.usWinAscent}, usWinDescent={os2.usWinDescent}); independent TrueType parse + glyf/loca + cmap + hmtx + contour geometry.")

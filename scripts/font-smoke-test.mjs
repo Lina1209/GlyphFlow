@@ -7,6 +7,7 @@ import { getStroke } from 'perfect-freehand';
 import polygonClipping from 'polygon-clipping';
 import { getGlyphMetadata, getSingleCodePoint } from '../src/glyph-metadata.js';
 import { buildKernTable } from '../src/kerning.js';
+import { buildGposPairPosTable } from '../src/gpos.js';
 import { validateGlyphCatalogAgainstFont } from './font-catalog-validator.mjs';
 
 const require = createRequire(import.meta.url);
@@ -201,7 +202,32 @@ writeFileSync('/tmp/glyphflow-fixture.ttf', ttfBytes);
 const ttfArrayBuffer = ttfBytes.buffer.slice(ttfBytes.byteOffset, ttfBytes.byteOffset + ttfBytes.byteLength);
 const reparsedTtf = opentype.parse(ttfArrayBuffer);
 const reparsedKerning = createFont(ttfArrayBuffer, {type: 'ttf', kerning: true}).get();
+
 assert.ok(Array.isArray(reparsedKerning.kern) && reparsedKerning.kern.length > 0, 'TTF round-trip must retain kern table bytes');
+
+// Exercise the exact pinned fonteditor-core writer with a raw GPOS table.
+// Keep this fixture separate from legacy 'kern' so no consumer can add both
+// adjustment sources and accidentally double-apply the same pair.
+const gposConverter = createFont(bytes, {type: 'otf'});
+const gposFontData = gposConverter.get();
+const gposLeft = gposFontData.cmap['A'.codePointAt(0)];
+const gposRight = gposFontData.cmap['Ё'.codePointAt(0)];
+assert.ok(Number.isInteger(gposLeft) && Number.isInteger(gposRight), 'GPOS fixture glyph IDs must resolve through the converted cmap');
+const gposFixtureBytes = buildGposPairPosTable([
+  {leftIndex: gposLeft, rightIndex: gposRight, value: -75}
+]);
+gposFontData.GPOS = Array.from(gposFixtureBytes);
+delete gposFontData.kern;
+gposConverter.set(gposFontData);
+const gposTtfBytes = Buffer.from(gposConverter.write({type: 'ttf', hinting: false, kerning: true}));
+assert.ok(gposTtfBytes.length > 100, 'GPOS TrueType conversion returned an empty buffer');
+assert.equal(gposTtfBytes.toString('hex', 0, 4), '00010000', 'GPOS fixture must be a TrueType sfnt');
+writeFileSync('/tmp/glyphflow-gpos-fixture.ttf', gposTtfBytes);
+const gposArrayBuffer = gposTtfBytes.buffer.slice(gposTtfBytes.byteOffset, gposTtfBytes.byteOffset + gposTtfBytes.byteLength);
+const reparsedGpos = createFont(gposArrayBuffer, {type: 'ttf', kerning: true}).get();
+assert.deepEqual(reparsedGpos.GPOS, Array.from(gposFixtureBytes), 'Pinned fonteditor-core must preserve raw GPOS bytes on read/write');
+assert.equal(reparsedGpos.kern, undefined, 'GPOS-only fixture must not contain a legacy kern table');
+
 // The TrueType cmap is the authoritative character-to-glyph mapping. A TTF post table may use format 3.0 and omit glyph names; human-readable descriptions therefore belong in the publication sidecar/catalog, not in a claim that every TTF reader exposes glyph names.
 assert.equal(reparsedTtf.outlinesFormat, 'truetype', 'Converted font must use TrueType outlines');
 assert.equal(reparsedTtf.names.designer.en, 'GlyphFlow Test Designer', 'TTF conversion must preserve designer metadata');
