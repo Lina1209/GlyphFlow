@@ -11,6 +11,7 @@ assert "CFF " not in font.keys(), "Final .ttf must not contain CFF outlines"
 assert font.sfntVersion == "\x00\x01\x00\x00", "Expected TrueType sfnt signature"
 
 assert font["head"].unitsPerEm == 1000
+assert abs(font["head"].fontRevision - 2.125) < 0.0001, "head.fontRevision must match name ID 5 version 2.125"
 assert font["hhea"].ascent == 950
 assert font["hhea"].descent == -370
 assert font["maxp"].numGlyphs >= 3
