@@ -35,6 +35,8 @@ jobs:
         run: npm run unicode:catalog:test
       - name: Test Unicode runtime metadata loader
         run: npm run unicode:metadata:test
+      - name: Test GPOS PairPos serializer
+        run: npm run gpos:test
       - name: Import pinned official Unicode Character Database
         run: npm run unicode:catalog
       - name: Validate complete official Unicode catalog
