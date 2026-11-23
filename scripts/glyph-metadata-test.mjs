@@ -30,7 +30,7 @@ const runtimeCatalog = {
   unicodeVersion:'18.0.0',
   source:'https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt',
   records,
-  ranges:[[0x3400,0x4DBF,'<CJK Ideograph Extension A','Lo',0,'Han'],[0xAC00,0xD7A3,'<Hangul Syllable','Lo',0,'Hangul']]
+  ranges:[[0x3400,0x4DBF,'<CJK Ideograph Extension A','Lo',0,'Han'],[0xAC00,0xD7A3,'<Hangul Syllable','Lo',0,'Hangul'],[0x17000,0x187F7,'<Tangut Ideograph','Lo',0,'Tangut'],[0x18B00,0x18CD5,'<Khitan Small Script Character','Lo',0,'Khitan_Small_Script'],[0x1B170,0x1B2FB,'<Nushu Character','Lo',0,'Nushu']]
 };
 let fetchCount = 0;
 const fetcher = async url => {
@@ -69,6 +69,10 @@ assert.equal(algorithmic.script,'Han');
 const hangul = getGlyphMetadata(String.fromCodePoint(0xAC00));
 assert.equal(hangul.unicodeName,'HANGUL SYLLABLE GA');
 assert.equal(hangul.script,'Hangul');
+
+assert.equal(getGlyphMetadata(String.fromCodePoint(0x17001)).unicodeName,'TANGUT IDEOGRAPH-17001');
+assert.equal(getGlyphMetadata(String.fromCodePoint(0x18B01)).unicodeName,'KHITAN SMALL SCRIPT CHARACTER-18B01');
+assert.equal(getGlyphMetadata(String.fromCodePoint(0x1B171)).unicodeName,'NUSHU CHARACTER-1B171');
 
 assert.equal(getGlyphMetadata('AB'),null);
 console.log('Glyph metadata tests passed: local fallback, pinned UCD loading, fetch reuse, official names, categories, scripts, combining classes and algorithmic ranges.');
