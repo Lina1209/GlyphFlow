@@ -11,7 +11,7 @@ import { buildReleasePackage } from './pack-font-release.mjs';
 
 const root = await mkdtemp(path.join(os.tmpdir(), 'glyphflow-release-'));
 try {
-  const fontPath = path.join(root, 'fixture.ttf');
+  const fontPath = path.join(root, 'fixture.otf');
   const catalogPath = path.join(root, 'catalog.json');
   const outDir = path.join(root, 'release');
   const pathData = new opentype.Path();
