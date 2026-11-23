@@ -82,6 +82,7 @@ const context = {
   getStroke,
   polygonClipping,
   getGlyphMetadata,
+  getSingleCodePoint,
   document: { getElementById: id => ({ value: id === 'fontName' ? 'GlyphFlow CI Fixture' : '' }) }
 };
 vm.runInNewContext(builderSource + '\nthis.buildOpenTypeFont = buildOpenTypeFont;', context);
