@@ -211,6 +211,7 @@ const fields = [
 ['Unicode Name', item.unicodeName || 'Не найдено в локальном каталоге'],
 ['Glyph Name', item.glyphName],
 ['Категория', item.category],
+['Unicode General Category', item.generalCategory],
 ['Письменность', item.script],
 ['Описание', item.description]
 ];
