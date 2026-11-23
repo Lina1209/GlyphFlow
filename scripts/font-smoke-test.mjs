@@ -100,6 +100,9 @@ assert.equal(parsed.descender, -370);
 const notdef = parsed.glyphs.get(0);
 assert.equal(notdef.name, '.notdef', 'Glyph zero must be .notdef');
 assert.equal(parsed.charToGlyph(' ').advanceWidth, 350, 'Space advance width must be preserved');
+assert.equal(parsed.charToGlyph('A').name, 'A', 'Latin glyph should use its standard AGLFN glyph name');
+assert.equal(parsed.charToGlyph('Ё').name, 'uni0401', 'Cyrillic glyph should use its stable Unicode glyph name');
+assert.equal(parsed.charToGlyph('😀').name, 'u1F600', 'Supplementary-plane glyph should use a full code-point glyph name');
 
 for (const char of ['A', 'Ё', '😀', 'О', 'Ж', 'Р', 'Ф', 'Ы', '∞']) {
   const glyph = parsed.charToGlyph(char);
