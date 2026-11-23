@@ -39,28 +39,28 @@ function add(char, unicodeName, glyphName, category, generalCategory, descriptio
 
 for (const char of CYRILLIC_UPPER) {
   add(char, CYRILLIC_NAME_BY_CHAR.get(char), 'uni' + char.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'),
-    'Заглавная буква', 'Lu', 'Заглавная буква кириллицы «' + char + '»', 'Кириллица');
+    'Заглавная буква', 'Lu', 'Заглавная буква кириллицы «' + char + '»', 'Cyrillic');
 }
 for (const char of CYRILLIC_LOWER) {
   add(char, CYRILLIC_NAME_BY_CHAR.get(char), 'uni' + char.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'),
-    'Строчная буква', 'Ll', 'Строчная буква кириллицы «' + char + '»', 'Кириллица');
+    'Строчная буква', 'Ll', 'Строчная буква кириллицы «' + char + '»', 'Cyrillic');
 }
 for (const char of LATIN_UPPER) {
   add(char, 'LATIN CAPITAL LETTER ' + char, char, 'Заглавная буква', 'Lu',
-    'Заглавная буква латиницы «' + char + '»', 'Латиница');
+    'Заглавная буква латиницы «' + char + '»', 'Latin');
 }
 for (const char of LATIN_LOWER) {
   add(char, 'LATIN SMALL LETTER ' + char.toUpperCase(), char, 'Строчная буква', 'Ll',
-    'Строчная буква латиницы «' + char + '»', 'Латиница');
+    'Строчная буква латиницы «' + char + '»', 'Latin');
 }
 for (const [index, char] of DIGITS.entries()) {
   add(char, 'DIGIT ' + DIGIT_NAMES[index], LATIN_DIGIT_GLYPHS[index], 'Цифра', 'Nd',
-    'Арабская цифра ' + char, 'Общие символы');
+    'Арабская цифра ' + char, 'Common');
 }
 for (const [char, [unicodeName, glyphName, description, generalCategory]] of Object.entries(PUNCTUATION)) {
-  add(char, unicodeName, glyphName, 'Пунктуация', generalCategory, description, 'Общие символы');
+  add(char, unicodeName, glyphName, 'Пунктуация', generalCategory, description, 'Common');
 }
-add(' ', 'SPACE', 'space', 'Пробел', 'Zs', 'Межсловный пробел', 'Общие символы');
+add(' ', 'SPACE', 'space', 'Пробел', 'Zs', 'Межсловный пробел', 'Common');
 
 export function getGlyphMetadata(char) {
   if (typeof char !== 'string' || [...char].length !== 1) return null;
@@ -76,6 +76,7 @@ export function getGlyphMetadata(char) {
       ? 'uni' + codePoint.toString(16).toUpperCase().padStart(4, '0')
       : 'u' + codePoint.toString(16).toUpperCase().padStart(5, '0'),
     category: 'Пользовательский символ',
+    generalCategory: 'Unknown',
     description: 'Официальное имя Unicode не включено в локальный каталог. Проверьте символ по актуальной Unicode Character Database.',
     script: 'Не определена'
   });
