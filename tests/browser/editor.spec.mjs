@@ -1663,6 +1663,38 @@ test('imports a valid font file into the local font library and supports removal
 
 
 
+test('batch font import keeps valid files when another selected file is malformed', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const validFont = await readFile(await download.path());
+  await page.locator('#importFontInput').setInputFiles([
+    {name:'batch-valid.ttf',mimeType:'font/ttf',buffer:validFont},
+    {name:'batch-broken.ttf',mimeType:'font/ttf',buffer:Buffer.from([0,1,2,3,4,5,6,7])}
+  ]);
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+  await expect(page.locator('#fontLibraryList article')).toContainText('batch-valid');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось импортировать');
+});
+
+test('same font file can be selected and imported again after the input resets', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const fontBytes = await readFile(await download.path());
+  const file = {name:'repeat-import.ttf',mimeType:'font/ttf',buffer:fontBytes};
+  const picker = page.locator('#importFontInput');
+  await picker.setInputFiles(file);
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+  await expect(picker).toHaveValue('');
+  await picker.setInputFiles(file);
+  await expect(page.locator('#fontLibraryCount')).toHaveText('2');
+});
+
 test('removing one library font preserves other records after reload', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
