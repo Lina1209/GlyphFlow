@@ -17,6 +17,7 @@ assert.equal(getLoadedUnicodeVersion(), null);
 
 const records = [
   [0x41,'LATIN CAPITAL LETTER A','Lu',0,'Latin'],
+  [0x100,'LATIN CAPITAL LETTER A WITH MACRON','Lu',0,'Latin'],
   [0x300,'COMBINING GRAVE ACCENT','Mn',230,'Inherited'],
   [0x401,'CYRILLIC CAPITAL LETTER IO','Lu',0,'Cyrillic'],
   [0x410,'CYRILLIC CAPITAL LETTER A','Lu',0,'Cyrillic']
@@ -50,6 +51,11 @@ assert.equal(latin.generalCategory,'Lu');
 assert.equal(latin.script,'Latin');
 assert.equal(latin.metadataStatus,'verified-ucd');
 assert.equal(latin.metadataSource,'Unicode Character Database 18.0.0');
+
+const extendedLatin = getGlyphMetadata('Ā');
+assert.equal(extendedLatin.unicodeName,'LATIN CAPITAL LETTER A WITH MACRON');
+assert.equal(extendedLatin.glyphName,'uni0100');
+assert.match(extendedLatin.description,/письменности латиницы/);
 
 const yo = getGlyphMetadata('Ё');
 assert.equal(yo.unicodeName,'CYRILLIC CAPITAL LETTER IO');
