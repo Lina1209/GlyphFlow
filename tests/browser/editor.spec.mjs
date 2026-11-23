@@ -2687,3 +2687,28 @@ test('edits, persists and exports real pair kerning through the browser editor',
   expect(gposTags).toContain('GPOS');
   expect(gposTags).not.toContain('kern');
 });
+
+test('keeps every form control and button accessibly named', async ({ page }) => {
+  await page.goto('/');
+
+  const unnamedFields = await page.locator('input:not([type="hidden"]), select, textarea').evaluateAll(elements =>
+    elements.filter(element => {
+      const hasNativeLabel = Boolean(element.labels?.length);
+      const hasAriaLabel = Boolean(element.getAttribute('aria-label')?.trim());
+      const hasAriaLabelledBy = Boolean(element.getAttribute('aria-labelledby')?.trim());
+      return !hasNativeLabel && !hasAriaLabel && !hasAriaLabelledBy;
+    }).map(element => ({
+      tag: element.tagName.toLowerCase(),
+      id: element.id,
+      type: element.getAttribute('type')
+    }))
+  );
+  expect(unnamedFields).toEqual([]);
+
+  const unnamedButtons = await page.locator('button').evaluateAll(elements =>
+    elements.filter(element =>
+      !element.textContent?.trim() && !element.getAttribute('aria-label')?.trim()
+    ).map(element => element.id || element.outerHTML.slice(0, 120))
+  );
+  expect(unnamedButtons).toEqual([]);
+});
