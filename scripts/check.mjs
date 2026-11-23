@@ -285,5 +285,5 @@ const releasePackagerTest = readFileSync(new URL('../scripts/pack-font-release-t
 assert.ok(packageJson.scripts['font:package'] === 'node scripts/pack-font-release.mjs', 'Font release package command must be available');
 assert.ok(packageJson.scripts['font:package:test'] === 'node scripts/pack-font-release-test.mjs', 'Font release package regression test must be available');
 assert.ok(releasePackager.includes('glyphflow-glyph-catalog/v1') && releasePackager.includes('SHA256SUMS'), 'Release packager must validate the glyph catalog and emit checksums');
-assert.ok(releasePackager.includes('licenseStatus: \\'not-assigned\\'') && releasePackager.includes('publicationStatus: \\'preflight-only\\''), 'Release packager must not invent a license or publication approval');
+assert.ok(releasePackager.includes("licenseStatus: 'not-assigned'") && releasePackager.includes("publicationStatus: 'preflight-only'"), "Release packager must not invent a license or publication approval");
 assert.ok(releasePackagerTest.includes('inflateRawSync') && releasePackagerTest.includes('SHA256SUMS'), 'Release package test must inspect ZIP compression and checksum output');
