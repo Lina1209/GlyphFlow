@@ -983,6 +983,7 @@ test('batches dense live pointer input into one preview render per animation fra
 test('cancels a pending animation-frame preview without leaving a ghost stroke', async ({ page }) => {
   await page.goto('/');
   const svg = page.locator('#drawSvg');
+  await svg.scrollIntoViewIfNeeded();
   const bounds = await svg.boundingBox();
   if (!bounds) throw new Error('Drawing SVG has no visible bounds');
   await page.evaluate(() => {
