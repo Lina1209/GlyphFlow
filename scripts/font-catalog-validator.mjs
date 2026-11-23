@@ -49,9 +49,10 @@ export function validateGlyphCatalogAgainstFont(font, catalog) {
   }
 
   const glyphCount = font.glyphs.length;
+  const spaceGlyphIndex = font.charToGlyph(' ').index;
   for (let index = 1; index < glyphCount; index += 1) {
     const glyph = font.glyphs.get(index);
-    if (!glyph || glyph.name === 'space') continue;
+    if (!glyph || index === spaceGlyphIndex || glyph.name === 'space') continue;
     if (!coveredGlyphIndices.has(index)) {
       errors.push(`Exported glyph at index ${index} is absent from the glyph catalog`);
     }
