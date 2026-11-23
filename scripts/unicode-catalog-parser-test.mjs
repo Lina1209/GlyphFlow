@@ -48,7 +48,7 @@ assert.throws(() => parseUnicodeData(unicodeLine(0x41, 'BAD COMBINING CLASS', 'L
 assert.throws(() => parseUnicodeData([
   unicodeLine(0x3400, 'RANGE, First>', 'Lo'),
   unicodeLine(0x3401, 'INTERRUPTING RECORD', 'Lo')
-].join('\\n'), scripts), /not closed/);
+].join('\n'), scripts), /not closed/);
 assert.throws(() => parseUnicodeData([
   unicodeLine(0x3400, 'RANGE, First>', 'Lo'),
   unicodeLine(0x3401, 'RANGE, First>', 'Lo')
