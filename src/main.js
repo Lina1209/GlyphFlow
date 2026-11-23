@@ -208,7 +208,7 @@ return;
 panel.replaceChildren();
 const fields = [
 ['Unicode', item.codePoint],
-['Unicode Name', item.unicodeName || 'Не найдено в локальном каталоге'],
+['Unicode Name', item.unicodeName || (item.metadataSource?.startsWith('Unicode') ? 'Официальное имя не назначено или не опубликовано' : 'Не найдено в локальном каталоге')],
 ['Glyph Name', item.glyphName],
 ['Категория', item.category],
 ['Unicode General Category', item.generalCategory],
@@ -1809,13 +1809,13 @@ category: metadata?.category || (singleCodePoint ? 'Символ вне лока
 unicodeGeneralCategory: metadata?.generalCategory || null,
 unicodeScript: metadata?.script || null,
 description: metadata?.description || (singleCodePoint
-? 'Официальное имя и описание отсутствуют в локальном каталоге GlyphFlow; требуется проверка по UCD.'
+? (metadata?.metadataSource?.startsWith('Unicode') ? 'Для этой кодовой точки UCD не публикует обычное имя символа; требуется проверка правил именования.' : 'Официальное имя и описание отсутствуют в локальном каталоге GlyphFlow; требуется проверка по UCD.')
 : 'Последовательность из нескольких кодовых точек. Для корректного экспорта требуется отдельное правило лигатуры/последовательности.'),
 metadataStatus: metadata?.metadataStatus || (knownUnicodeName ? 'verified-local-catalog' : 'needs-review'),
 metadataSource: metadata?.metadataSource || 'GlyphFlow local subset',
 combiningClass: metadata?.combiningClass ?? null,
 mappingStatus: singleCodePoint ? 'single-code-point' : 'sequence-needs-explicit-mapping',
-custom: !knownUnicodeName
+custom: !singleCodePoint || !metadata
 };
 });
 const catalog = {
