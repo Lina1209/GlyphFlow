@@ -102,6 +102,14 @@ function getAlgorithmicRangeName(codePoint, range) {
   if (/^CJK Ideograph(?: Extension [A-I])?$/.test(template)) {
     return 'CJK UNIFIED IDEOGRAPH-' + codePoint.toString(16).toUpperCase().padStart(4, '0');
   }
+  const algorithmicPrefixes = {
+    'Tangut Ideograph':'TANGUT IDEOGRAPH-',
+    'Nushu Character':'NUSHU CHARACTER-',
+    'Khitan Small Script Character':'KHITAN SMALL SCRIPT CHARACTER-'
+  };
+  if (algorithmicPrefixes[template]) {
+    return algorithmicPrefixes[template] + codePoint.toString(16).toUpperCase().padStart(4, '0');
+  }
   if (template === 'Hangul Syllable' && codePoint >= 0xAC00 && codePoint <= 0xD7A3) {
     const index = codePoint - 0xAC00;
     const l = Math.floor(index / 588);
