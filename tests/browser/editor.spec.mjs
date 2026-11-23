@@ -1,3 +1,11 @@
+test('maps only one valid Unicode scalar value to a single cmap entry', async () => {
+  expect(getSingleCodePoint('A')).toBe(0x0041);
+  expect(getSingleCodePoint('𐐀')).toBe(0x10400);
+  expect(getSingleCodePoint('A\u0301')).toBeNull();
+  expect(getSingleCodePoint('\uD800')).toBeNull();
+});
+
+import { getSingleCodePoint } from '../../src/glyph-metadata.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -146,7 +154,8 @@ test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ 
   expect(catalogDownload.suggestedFilename()).toMatch(/-glyph-catalog\.json$/i);
   const catalog = JSON.parse(await readFile(await catalogDownload.path(), 'utf8'));
   expect(catalog.format).toBe('GlyphFlow Glyph Catalog');
-  expect(catalog.unicodeDataVersion).toBe('17.0.0');
+  expect(catalog.unicodeDataVersion).toBe('18.0.0');
+  expect(catalog.unicodeDataSource).toBe('https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt');
   expect(catalog.glyphs.map(glyph => glyph.character)).toEqual(expect.arrayContaining(['А', 'Б']));
   const cyrillicA = catalog.glyphs.find(glyph => glyph.character === 'А');
   expect(cyrillicA.codePoint).toBe('U+0410');
