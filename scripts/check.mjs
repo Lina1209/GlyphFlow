@@ -43,8 +43,8 @@ assert.ok(unicodeCatalogValidator.includes('CYRILLIC CAPITAL LETTER IO') && unic
 assert.ok(unicodeCatalogValidator.includes('runtime-catalog.json') && unicodeCatalogValidator.includes('glyphflow-unicode-runtime/v1'), 'Full Unicode validator must verify the browser runtime projection');
 assert.ok(qualityWorkflow.includes('run: npm run unicode:catalog') && qualityWorkflow.includes('run: npm run unicode:catalog:validate'), 'CI must import and validate the complete pinned UCD, not only parser fixtures');
 assert.ok(qualityWorkflow.includes('--error-code-on fail'), 'CI must fail on Fontspector FAIL findings');
-assert.ok(moduleSource.includes('tables: {head: {fontRevision}}'), 'OpenType head revision must follow the numeric version metadata');
-assert.ok(moduleSource.includes('convertedFontData.head.fontRevision = font.tables.head.fontRevision'), 'TTF conversion must restore the source font revision after conversion');
+assert.ok(moduleSource.includes('function getFontRevision(version)'), 'OpenType revision parser must be defined');
+assert.ok(moduleSource.includes('convertedFontData.head.fontRevision = getFontRevision(getFontMetadata().version'), 'TTF conversion must set head revision from the version embedded in name ID 5');
 assert.ok(fontSmoke.includes('convertedFontData.head.fontRevision = generated.tables.head.fontRevision'), 'Font smoke test must preserve the numeric revision through conversion');
 assert.ok(readFileSync(new URL('../scripts/validate-ttf-fonttools.py', import.meta.url), 'utf8').includes('fontRevision - 2.125'), 'FontTools must verify the exported head revision');
 assert.ok(unicodeImporter.includes("from './unicode-catalog-parser.mjs'"), 'Unicode importer must use the tested pure parser module');
