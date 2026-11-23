@@ -18,7 +18,8 @@
     "font:package": "node scripts/pack-font-release.mjs",
     "font:package:test": "node scripts/pack-font-release-test.mjs",
     "kerning:test": "node scripts/kerning-test.mjs",
-    "gpos:test": "node scripts/gpos-test.mjs"
+    "gpos:test": "node scripts/gpos-test.mjs",
+    "sfnt:test": "node scripts/sfnt-test.mjs"
   },
   "dependencies": {
     "fonteditor-core": "2.6.3",

@@ -161,6 +161,13 @@ const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
 assert.equal(syntax.status, 0, `Inline module syntax check failed:\n${syntax.stderr || syntax.stdout}`);
 
 const gposSource = readFileSync(new URL('../src/gpos.js', import.meta.url), 'utf8');
+const sfntSource = readFileSync(new URL('../src/sfnt.js', import.meta.url), 'utf8');
+assert.ok(moduleSource.includes("import { addSfntTable } from './sfnt.js';"), 'GPOS must be injected after the writer drops unknown tables');
+assert.ok(moduleSource.includes("addSfntTable(ttfBuffer, 'GPOS', gposTable)"), 'Final TTF must include the raw GPOS table');
+assert.ok(sfntSource.includes('0xB1B0AFBA') && sfntSource.includes('head table'), 'SFNT injection must rebuild checksum adjustment and preserve head');
+assert.equal(packageJson.scripts['sfnt:test'], 'node scripts/sfnt-test.mjs', 'SFNT table injection regression test must be available');
+const sfntTestRun = spawnSync(process.execPath, ['scripts/sfnt-test.mjs'], {encoding:'utf8'});
+assert.equal(sfntTestRun.status, 0, `SFNT injection regression tests failed:\n${sfntTestRun.stderr || sfntTestRun.stdout}`);
 assert.ok(moduleSource.includes("import { buildGposTable } from './gpos.js';"), 'TTF export must use the tested GPOS table builder');
 assert.ok(moduleSource.includes("kerningFormat === 'gpos' ? buildGposTable(kerningPairs, convertedFontData.cmap) : null"), 'Modern export must map editor pairs to final glyph IDs');
 assert.ok(moduleSource.includes('else delete convertedFontData.GPOS;') && moduleSource.includes('else delete convertedFontData.kern;'), 'TTF export must remove the inactive kerning table');

@@ -7,6 +7,7 @@ import polygonClipping from 'polygon-clipping';
 import { getGlyphMetadata, getSingleCodePoint, getLoadedUnicodeVersion, loadUnicodeCatalog } from './glyph-metadata.js';
 import { buildKernTable, getKerningValue, normalizeKerningPairs } from './kerning.js';
 import { buildGposTable } from './gpos.js';
+import { addSfntTable } from './sfnt.js';
 
 // Keep the historical browser parser API available for font inspection and integrations.
 window.opentype = opentype;
@@ -2037,9 +2038,12 @@ else delete convertedFontData.GPOS;
 // tables added after OTF conversion in the writer's authoritative font state.
 converter.set(convertedFontData);
 const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: kerningFormat === 'kern' && kerningPairs.length > 0});
-const ttfBuffer = rawTtf instanceof ArrayBuffer
+let ttfBuffer = rawTtf instanceof ArrayBuffer
 ? rawTtf
 : rawTtf.buffer.slice(rawTtf.byteOffset, rawTtf.byteOffset + rawTtf.byteLength);
+// fonteditor-core 2.6.3 drops unknown raw tables on write; inject GPOS into
+// the completed SFNT and rebuild the directory/checksums instead.
+if (gposTable) ttfBuffer = addSfntTable(ttfBuffer, 'GPOS', gposTable);
 if (!ttfBuffer || ttfBuffer.byteLength < 100) throw new Error('Конвертер вернул пустой TTF.');
 const signature = new Uint8Array(ttfBuffer, 0, 4);
 if (signature[0] !== 0 || signature[1] !== 1 || signature[2] !== 0 || signature[3] !== 0) {
