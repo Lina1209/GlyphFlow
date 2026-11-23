@@ -39,4 +39,20 @@ const catalog = {
 };
 await mkdir(dirname(output),{recursive:true});
 await writeFile(output,JSON.stringify(catalog));
+
+// The browser runtime needs only the resolved per-code-point properties. Keep
+// this compact, versioned projection separate from the full audit/source file.
+const runtimeOutput = `public/data/unicode/${version}/runtime-catalog.json`;
+const runtimeCatalog = {
+  schema:'glyphflow-unicode-runtime/v1',
+  unicodeVersion:version,
+  source:catalog.sources.unicodeData,
+  records:records.filter(record => Number.isInteger(record.cp)).map(record =>
+    [record.cp,record.name,record.category,record.combiningClass,record.script]),
+  ranges:records.filter(record => Array.isArray(record.range)).map(record =>
+    [record.range[0],record.range[1],record.nameTemplate,record.category,record.combiningClass,record.script])
+};
+await mkdir(dirname(runtimeOutput),{recursive:true});
+await writeFile(runtimeOutput,JSON.stringify(runtimeCatalog));
 console.log(`Unicode ${version}: ${records.length} records, ${scriptRanges.length} script ranges -> ${output}`);
+console.log(`Runtime catalog: ${runtimeCatalog.records.length} scalar records, ${runtimeCatalog.ranges.length} algorithmic ranges -> ${runtimeOutput}`);
