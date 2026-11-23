@@ -155,7 +155,7 @@ const requiredContracts = [
   ['download uses a user-triggered anchor', 'link.click();'],
   ['vertical ascender metric covers maximum brush extent', 'const ascender = 950;'],
   ['vertical descender metric covers maximum brush extent', 'const descender = -370;'],
-  ['Unicode scalar validation before cmap mapping', 'function getSingleCodePoint(character)'],
+  ['Unicode scalar validation before cmap mapping', 'getSingleCodePoint(char)'],
   ['font cmap rejects multi-code-point sequences without ligature mapping', 'Последовательность из нескольких кодовых точек не может быть экспортирована'],
   ['glyph metadata module is imported', "from './glyph-metadata.js'"],
   ['glyph metadata exposes official Unicode names', 'unicodeName'],
