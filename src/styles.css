@@ -54,3 +54,10 @@ textarea:focus-visible {
     font-size: 16px;
   }
 }
+
+
+/* Keep visually-hidden file inputs keyboard reachable through their labels. */
+.sr-only:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 4px;
+}
