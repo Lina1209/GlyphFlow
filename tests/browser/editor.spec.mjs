@@ -1571,7 +1571,13 @@ test('replacement service worker controls already-open tabs and preserves offlin
   });
 
   await page.evaluate(async () => {
-    await navigator.serviceWorker.register('./sw.js?multi-tab-update-test=1');
+    // Force an immediate update check instead of depending on the browser's
+    // registration-update scheduling while two controlled tabs are open.
+    const registration = await navigator.serviceWorker.register(
+      './sw.js?multi-tab-update-test=1',
+      {scope: './', updateViaCache: 'none'}
+    );
+    await registration.update();
   });
 
   await page.waitForFunction(() => {
