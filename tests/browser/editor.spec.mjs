@@ -1349,6 +1349,53 @@ test('activating a replacement service worker removes stale GlyphFlow caches', a
   expect(cacheNames).not.toContain('glyphflow-shell-stale-test');
 });
 
+test('replacement service worker controls already-open tabs and preserves offline access', async ({ page, context }) => {
+  await page.goto('/');
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) {
+      await new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, {once:true}));
+    }
+  });
+
+  const secondPage = await context.newPage();
+  await secondPage.goto('/');
+  await secondPage.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) {
+      await new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, {once:true}));
+    }
+  });
+
+  await page.evaluate(async () => {
+    await caches.open('glyphflow-shell-stale-update-test');
+    await navigator.serviceWorker.register('./sw.js?multi-tab-update-test=1');
+  });
+
+  await page.waitForFunction(() => {
+    const script = navigator.serviceWorker.controller?.scriptURL || '';
+    return new URL(script).searchParams.get('multi-tab-update-test') === '1';
+  }, null, {timeout:15000});
+  await secondPage.waitForFunction(() => {
+    const script = navigator.serviceWorker.controller?.scriptURL || '';
+    return new URL(script).searchParams.get('multi-tab-update-test') === '1';
+  }, null, {timeout:15000});
+
+  const cacheNames = await page.evaluate(() => caches.keys());
+  expect(cacheNames).toContain('glyphflow-shell-v2');
+  expect(cacheNames).not.toContain('glyphflow-shell-stale-update-test');
+
+  await context.setOffline(true);
+  await page.reload();
+  await secondPage.reload();
+  await expect(page.locator('#drawSvg')).toBeVisible();
+  await expect(secondPage.locator('#drawSvg')).toBeVisible();
+  await drawStroke(page);
+  await expect(page.locator('#progressText')).toContainText('Готово: 1');
+  await context.setOffline(false);
+  await secondPage.close();
+});
+
 test('edits final Boolean compound rings with undo, redo, draft persistence and TTF export', async ({page}) => {
   await page.goto('/');
   await page.locator('#brushSize').evaluate(element => {
