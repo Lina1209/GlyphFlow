@@ -1825,12 +1825,16 @@ formatVersion: 1,
 fontFamily: fontName,
 createdAt: new Date().toISOString(),
 metadataCatalog: {
-name: getLoadedUnicodeVersion() ? 'Unicode Character Database' : 'GlyphFlow bundled local metadata subset',
-source: getLoadedUnicodeVersion() ? 'https://www.unicode.org/Public/' + getLoadedUnicodeVersion() + '/ucd/UnicodeData.txt' : 'src/glyph-metadata.js',
+name: getLoadedUnicodeVersion() ? 'Unicode Character Database property subset' : 'GlyphFlow bundled local metadata subset',
+sources: getLoadedUnicodeVersion() ? {
+unicodeData: 'https://www.unicode.org/Public/' + getLoadedUnicodeVersion() + '/ucd/UnicodeData.txt',
+scripts: 'https://www.unicode.org/Public/' + getLoadedUnicodeVersion() + '/ucd/Scripts.txt',
+license: 'https://www.unicode.org/license.txt'
+} : {local: 'src/glyph-metadata.js'},
 unicodeDataVersion: getLoadedUnicodeVersion(),
-completeness: getLoadedUnicodeVersion() ? 'full-ucd' : 'partial',
-coverage: getLoadedUnicodeVersion() ? 'Official Unicode character records and algorithmic ranges; glyph naming conventions remain a separate OpenType layer.' : 'Latin A-Z/a-z, Cyrillic А-Я/а-я including Ё/ё, digits, selected punctuation and SPACE',
-notice: getLoadedUnicodeVersion() ? 'Unicode names, general categories and scripts are sourced from the pinned official Unicode Character Database.' : 'This export does not claim to use the complete Unicode Character Database.'
+completeness: getLoadedUnicodeVersion() ? 'complete-for-exported-properties' : 'partial',
+coverage: getLoadedUnicodeVersion() ? 'Unicode character names, general categories and canonical combining classes from UnicodeData.txt; Script property from Scripts.txt; supported algorithmic names expanded by Unicode rules.' : 'Latin A-Z/a-z, Cyrillic А-Я/а-я including Ё/ё, digits, selected punctuation and SPACE',
+notice: getLoadedUnicodeVersion() ? 'This export includes the listed Unicode properties, not every property file in the complete UCD. OpenType glyph naming conventions are a separate layer.' : 'This export does not claim to use the complete Unicode Character Database.'
 },
 glyphNameConventions: {
 latin: 'Adobe Glyph List for New Fonts (AGLFN) conventions where applicable',
