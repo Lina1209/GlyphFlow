@@ -352,6 +352,43 @@ test('editor remains usable at 200 percent page zoom without horizontal overflow
   await expect(page.locator('#fontLibrarySearch')).toBeVisible();
 });
 
+test('primary editor text and action buttons meet WCAG AA text contrast', async ({ page }) => {
+  await page.goto('/');
+  const results = await page.evaluate(() => {
+    const luminance = color => {
+      const channels = color.match(/[\\d.]+/g)?.slice(0, 3).map(Number);
+      if (!channels || channels.length !== 3) return null;
+      const linear = channels.map(value => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+    };
+    const ratio = (foreground, background) => {
+      const a = luminance(foreground), b = luminance(background);
+      if (a === null || b === null) return null;
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    };
+    const body = getComputedStyle(document.body);
+    const checks = [{name: 'main text', foreground: body.color, background: body.backgroundColor}];
+    for (const selector of ['#saveToLibraryBtn', '#downloadBtn', '#exportFontLibraryBtn']) {
+      const element = document.querySelector(selector);
+      const style = getComputedStyle(element);
+      checks.push({name: selector, foreground: style.color, background: style.backgroundColor});
+    }
+    const status = document.querySelector('#fontLibraryStatus');
+    checks.push({
+      name: 'font library status',
+      foreground: getComputedStyle(status).color,
+      background: getComputedStyle(status.parentElement).backgroundColor
+    });
+    return checks.map(check => ({...check, contrast: ratio(check.foreground, check.background)}));
+  });
+  for (const result of results) {
+    expect(result.contrast, result.name + ': ' + JSON.stringify(result)).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
 test('mobile editor controls meet minimum touch target dimensions', async ({ page }) => {
   await page.setViewportSize({width: 375, height: 812});
   await page.goto('/');
