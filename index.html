@@ -18,7 +18,7 @@
 <h1 class="text-xl font-bold tracking-tight">GlyphFlow <span class="text-xs font-normal text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded ml-1">MVP</span></h1>
 </div>
 <div class="flex items-center gap-3">
-<input id="fontName" type="text" value="MyHandwriting" placeholder="Название шрифта"
+<input id="fontName" type="text" aria-label="Название шрифта" value="MyHandwriting" placeholder="Название шрифта"
 class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500" />
 <div class="flex flex-wrap items-center gap-2">
 <button id="saveToLibraryBtn" class="bg-emerald-700 hover:bg-emerald-600 text-white font-medium px-3 py-1.5 rounded-lg text-sm transition">Сохранить в библиотеку</button>
@@ -75,7 +75,7 @@ class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus
 <line x1="0" y1="330" x2="360" y2="330" stroke="#cbd5e1" stroke-dasharray="4 4" stroke-width="1" />
 </svg>
 <!-- Интерактивный SVG для рисования -->
-<svg id="drawSvg" class="relative z-10 w-full h-full touch-none" viewBox="0 0 360 360"></svg>
+<svg id="drawSvg" role="img" aria-label="Интерактивный холст для рисования текущего символа" class="relative z-10 w-full h-full touch-none" viewBox="0 0 360 360"></svg>
 </div>
 <div class="w-full max-w-[360px] flex flex-wrap items-center justify-between gap-2 mt-2" aria-label="Управление масштабом холста">
   <div class="flex items-center gap-1">
@@ -135,7 +135,7 @@ class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus
 <section class="lg:col-span-3 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col">
 <h2 class="font-semibold text-slate-300 mb-2">Проверка шрифта</h2>
 <p class="text-xs text-slate-400 mb-3">Нарисуйте несколько букв (например, А, Б, В, О, П, Р, С) и введите слово ниже:</p>
-<textarea id="previewInput" rows="3"
+<textarea id="previewInput" aria-label="Текст для проверки шрифта" rows="3"
 class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm focus:outline-none focus:border-indigo-500 mb-4"
 placeholder="Введите текст для проверки...">ПРИВЕТ</textarea>
 <div class="flex-1 bg-white rounded-xl p-4 text-slate-900 overflow-auto flex flex-col justify-center items-center border border-slate-600">
@@ -160,7 +160,7 @@ placeholder="Введите текст для проверки...">ПРИВЕТ<
 <button id="exportFontLibraryBtn" class="rounded-md bg-indigo-700 hover:bg-indigo-600 px-3 py-2 text-xs">Резервная копия</button>
 </div>
 </div>
-<input id="fontLibrarySearch" type="search" placeholder="Найти шрифт…" class="w-full sm:max-w-sm bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm mb-3">
+<input id="fontLibrarySearch" type="search" aria-label="Поиск в библиотеке шрифтов" placeholder="Найти шрифт…" class="w-full sm:max-w-sm bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm mb-3">
 <p id="fontLibraryStatus" role="status" aria-live="polite" class="text-xs text-emerald-300 mb-2 min-h-4"></p>
 <div id="fontLibraryList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
 </div>
