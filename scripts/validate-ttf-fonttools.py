@@ -13,6 +13,33 @@ assert font.sfntVersion == "\x00\x01\x00\x00", "Expected TrueType sfnt signature
 assert font["head"].unitsPerEm == 1000
 assert font["hhea"].ascent == 950
 assert font["hhea"].descent == -370
+assert font["maxp"].numGlyphs >= 3
+assert font["head"].indexToLocFormat in (0, 1)
+assert "OS/2" in font, "TrueType font must contain OS/2 metrics and classification"
+assert font["OS/2"].usWeightClass == 400, "Regular font weight must be 400"
+assert font["OS/2"].usWidthClass in range(1, 10), "OS/2 width class must be within the OpenType range"
+assert "post" in font and font["post"].formatType in (2.0, 2.5, 3.0), "Invalid post table format"
+
+name_expectations = {
+    0: "Copyright 2026 GlyphFlow Test",
+    1: "GlyphFlow CI Fixture",
+    2: "Regular",
+    3: "Version 2.125",
+    4: "GlyphFlow CI Fixture Regular",
+    5: "Version 2.125",
+    6: "GlyphFlowCI​Fixture-Regular".replace("\u200b", ""),
+    7: "GlyphFlow Test Mark",
+    8: "GlyphFlow Test Foundry",
+    9: "GlyphFlow Test Designer",
+    10: "Metadata regression fixture",
+    11: "https://example.com/foundry",
+    12: "https://example.com/designer",
+    13: "Test license text, not a real grant",
+    14: "https://example.com/license",
+}
+for name_id, expected in name_expectations.items():
+    actual = font["name"].getDebugName(name_id)
+    assert actual == expected, f"name ID {name_id} mismatch: {actual!r} != {expected!r}"
 
 cmap = font.getBestCmap()
 for char in ("A", "Ё", "😀", "Ф", "Ы", " "):
