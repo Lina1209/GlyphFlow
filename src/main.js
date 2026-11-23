@@ -1210,12 +1210,12 @@ request.onsuccess = () => resolve(request.result);
 request.onerror = () => reject(request.error);
 });
 if (draft && draft.glyphData && typeof draft.glyphData === 'object') {
-lastDraftSavedAt = Number.isFinite(Number(draft.savedAt)) ? Number(draft.savedAt) : 0;
 restoreProjectSnapshot(JSON.stringify({
 version: 2,
 glyphData: draft.glyphData,
 compoundOverrides: draft.compoundOverrides || {}
 }));
+lastDraftSavedAt = Number.isFinite(Number(draft.savedAt)) ? Number(draft.savedAt) : 0;
 if (typeof draft.fontName === 'string' && draft.fontName.trim()) {
 document.getElementById('fontName').value = draft.fontName.slice(0, 48);
 }
@@ -1224,6 +1224,11 @@ historyIndex = 0;
 }
 } catch (err) {
 console.warn('Не удалось восстановить черновик:', err);
+if (draftSyncStatus) {
+draftSyncStatus.textContent = 'Не удалось восстановить черновик: ' +
+(err.message || 'сохранённые данные повреждены') + ' Сохранённые данные не удалены.';
+draftSyncStatus.classList.remove('hidden');
+}
 } finally {
 if (db) db.close();
 }
