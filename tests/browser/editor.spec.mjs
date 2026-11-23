@@ -143,7 +143,7 @@ test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ 
   const catalogDownloadPromise = page.waitForEvent('download');
   await page.locator('#downloadGlyphCatalogBtn').click();
   const catalogDownload = await catalogDownloadPromise;
-  expect(catalogDownload.suggestedFilename()).toMatch(/-glyph-catalog\\.json$/i);
+  expect(catalogDownload.suggestedFilename()).toMatch(/-glyph-catalog\.json$/i);
   const catalog = JSON.parse(await readFile(await catalogDownload.path(), 'utf8'));
   expect(catalog.format).toBe('GlyphFlow Glyph Catalog');
   expect(catalog.unicodeDataVersion).toBe('17.0.0');
