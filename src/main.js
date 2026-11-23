@@ -212,7 +212,7 @@ const fields = [
 ['Glyph Name', item.glyphName],
 ['Категория', item.category],
 ['Unicode General Category', item.generalCategory],
-['Письменность', item.script],
+['Unicode Script', item.script],
 ['Описание', item.description]
 ];
 fields.forEach(([label, value]) => {
