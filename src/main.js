@@ -4,7 +4,7 @@ import opentype from 'opentype.js';
 import { getStroke } from 'perfect-freehand';
 import { createFont } from 'fonteditor-core';
 import polygonClipping from 'polygon-clipping';
-import { getGlyphMetadata } from './glyph-metadata.js';
+import { getGlyphMetadata, getSingleCodePoint } from './glyph-metadata.js';
 
 // Keep the historical browser parser API available for font inspection and integrations.
 window.opentype = opentype;
@@ -1711,8 +1711,11 @@ fontPath.close();
 
 const glyphWidth = Math.max(1, (maxX - minX) * scale);
 const advanceWidth = Math.ceil(glyphWidth + sideBearing * 2);
+const codePoint = getSingleCodePoint(char);
+if (codePoint === null) {
+  throw new Error('Последовательность из нескольких кодовых точек не может быть экспортирована как один cmap-глиф без явного правила лигатуры.');
+}
 const glyphMetadata = getGlyphMetadata(char);
-const codePoint = glyphMetadata?.codePointValue ?? char.codePointAt(0);
 if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10FFFF) return;
 const glyphName = glyphMetadata?.glyphName || (codePoint <= 0xFFFF
 ? 'uni' + codePoint.toString(16).toUpperCase().padStart(4, '0')
@@ -1816,8 +1819,8 @@ format: 'GlyphFlow Glyph Catalog',
 formatVersion: 1,
 fontFamily: fontName,
 createdAt: new Date().toISOString(),
-unicodeDataVersion: '17.0.0',
-unicodeDataSource: 'https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt',
+unicodeDataVersion: '18.0.0',
+unicodeDataSource: 'https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt',
 glyphNameSource: 'https://github.com/adobe-type-tools/agl-aglfn',
 glyphs
 };
