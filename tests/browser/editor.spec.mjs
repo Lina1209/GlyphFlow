@@ -7,7 +7,7 @@ test('maps only one valid Unicode scalar value to a single cmap entry', async ()
 
 import { getSingleCodePoint } from '../../src/glyph-metadata.js';
 import { test, expect } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import opentype from 'opentype.js';
 
 async function drawStroke(page, offset = 0) {
@@ -603,6 +603,8 @@ test('contour editor assigns a hole role and preserves it in the generated font'
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.ttf$/i);
   const fontBytes = await readFile(await download.path());
+  await mkdir('test-results', {recursive: true});
+  await writeFile('test-results/glyphflow-browser-export.ttf', fontBytes);
   const encoded = fontBytes.toString('base64');
   const pixels = await page.evaluate(async base64 => {
     const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
