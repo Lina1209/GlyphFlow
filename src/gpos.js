@@ -1,3 +1,5 @@
+import { normalizeKerningPairs } from './kerning.js';
+
 // Minimal OpenType GPOS 1.0 PairPos format 1 serializer (XAdvance only).
 // Input records use final TrueType glyph IDs, never Unicode code points.
 function assertGlyphId(value, label) {
@@ -77,4 +79,25 @@ export function buildGposPairPosTable(source) {
     u16(lookupOffset), scriptList, featureList, lookupList]);
   if (table.length > 0xFFFF) throw new Error('GPOS table exceeds the 16-bit PairPos offset space.');
   return Uint8Array.from(table);
+}
+
+ 
+// Translate the editor's Unicode-character pairs through the final TTF cmap.
+// This deliberately keeps Unicode handling outside the binary PairPos writer.
+export function buildGposTable(sourcePairs, cmap) {
+  const pairs = normalizeKerningPairs(sourcePairs);
+  if (!pairs.length) return null;
+  if (!cmap || typeof cmap !== 'object' || Array.isArray(cmap)) {
+    throw new Error('Не удалось получить cmap для построения GPOS.');
+  }
+  const records = pairs.map(pair => {
+    const leftIndex = cmap[pair.left.codePointAt(0)];
+    const rightIndex = cmap[pair.right.codePointAt(0)];
+    if (!Number.isInteger(leftIndex) || leftIndex < 0 || leftIndex > 0xFFFF ||
+        !Number.isInteger(rightIndex) || rightIndex < 0 || rightIndex > 0xFFFF) {
+      throw new Error('Для пары «' + pair.left + pair.right + '» сначала нарисуйте и экспортируйте оба глифа.');
+    }
+    return {leftIndex, rightIndex, value: pair.value};
+  });
+  return buildGposPairPosTable(records);
 }

@@ -7,7 +7,7 @@ import { getStroke } from 'perfect-freehand';
 import polygonClipping from 'polygon-clipping';
 import { getGlyphMetadata, getSingleCodePoint } from '../src/glyph-metadata.js';
 import { buildKernTable } from '../src/kerning.js';
-import { buildGposPairPosTable } from '../src/gpos.js';
+import { buildGposTable } from '../src/gpos.js';
 import { validateGlyphCatalogAgainstFont } from './font-catalog-validator.mjs';
 
 const require = createRequire(import.meta.url);
@@ -213,9 +213,7 @@ const gposFontData = gposConverter.get();
 const gposLeft = gposFontData.cmap['A'.codePointAt(0)];
 const gposRight = gposFontData.cmap['Ё'.codePointAt(0)];
 assert.ok(Number.isInteger(gposLeft) && Number.isInteger(gposRight), 'GPOS fixture glyph IDs must resolve through the converted cmap');
-const gposFixtureBytes = buildGposPairPosTable([
-  {leftIndex: gposLeft, rightIndex: gposRight, value: -75}
-]);
+const gposFixtureBytes = buildGposTable([{left: 'A', right: 'Ё', value: -75}], gposFontData.cmap);
 gposFontData.GPOS = Array.from(gposFixtureBytes);
 delete gposFontData.kern;
 gposConverter.set(gposFontData);
