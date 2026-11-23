@@ -24,6 +24,10 @@ const unicodeParser = readFileSync(new URL('../scripts/unicode-catalog-parser.mj
 const unicodeParserTests = readFileSync(new URL('../scripts/unicode-catalog-parser-test.mjs', import.meta.url), 'utf8');
 assert.ok(packageJson.scripts['unicode:catalog'] === 'node scripts/update-unicode-catalog.mjs 18.0.0', 'Unicode catalog command must pin version 18.0.0');
 assert.ok(unicodeImporter.includes('UnicodeData.txt') && unicodeImporter.includes('Scripts.txt'), 'Unicode importer must use official UCD data files');
+assert.ok(unicodeImporter.includes('runtime-catalog.json') && unicodeImporter.includes('glyphflow-unicode-runtime/v1'), 'Unicode importer must emit a compact browser runtime catalog');
+assert.ok(packageJson.scripts.prebuild === 'node scripts/prepare-unicode-catalog.mjs', 'Production builds must prepare the pinned Unicode runtime catalog');
+assert.ok(glyphMetadataSource.includes('loadUnicodeCatalog') && glyphMetadataSource.includes('getLoadedUnicodeVersion'), 'Glyph metadata must load and expose the official runtime catalog');
+assert.ok(moduleSource.includes('loadUnicodeCatalog().then'), 'The editor must load official Unicode metadata without blocking initial startup');
 assert.ok(unicodeParser.includes("name.endsWith(', First>')") && unicodeParser.includes("name.endsWith(', Last>')"), 'Unicode parser must preserve Unicode range records');
 assert.ok(unicodeParser.includes('combiningClass') && unicodeImporter.includes('scriptRangeCount'), 'Unicode parser must preserve combining classes and importer must report script ranges');
 assert.ok(unicodeImporter.includes('https://www.unicode.org/license.txt'), 'Unicode catalog must include official license reference');
@@ -223,7 +227,7 @@ assert.ok(pwaManifest.icons?.some(icon => icon.src === './icons/glyphflow.svg' &
 assert.equal(publicManifest, sourceManifest, 'Vite public manifest must match the source manifest');
 assert.equal(publicServiceWorker, serviceWorker, 'Vite public service worker must match the tested source worker');
 assert.equal(publicIcon, sourceIcon, 'Vite public icon must match the source icon');
-assert.ok(serviceWorker.includes("const CACHE_NAME = CACHE_PREFIX + 'v2';"), 'Service worker must version its app-shell cache');
+assert.ok(serviceWorker.includes("const CACHE_NAME = CACHE_PREFIX + 'v3';"), 'Service worker must version its app-shell cache');
 assert.ok(serviceWorker.includes("new URL('manifest.webmanifest', APP_SCOPE).href"), 'Service worker must cache the manifest');
 assert.equal(packageJson.dependencies['perfect-freehand'], '1.2.0', 'Brush runtime must be pinned locally');
 assert.equal(packageJson.dependencies['fonteditor-core'], '2.6.3', 'TTF conversion runtime must be pinned locally');
