@@ -184,7 +184,7 @@ const valid = sanitizeCompoundGeometry(geometry);
 if (!valid) throw new Error('Не удалось проверить составной контур символа «' + char + '».');
 cleanOverrides[char] = valid;
 }
-const cleanFontMetadata = sanitizeFontMetadata(parsed.fontMetadata || {});
+const cleanFontMetadata = parsed.fontMetadata === undefined ? getFontMetadata() : sanitizeFontMetadata(parsed.fontMetadata);
 return {glyphData: cleanGlyphs, compoundOverrides: cleanOverrides, fontMetadata: cleanFontMetadata};
 }
 
@@ -1349,7 +1349,7 @@ restoreProjectSnapshot(JSON.stringify({
 version: 2,
 glyphData: draft.glyphData,
 compoundOverrides: draft.compoundOverrides || {},
-fontMetadata: draft.fontMetadata || {}
+fontMetadata: draft.fontMetadata
 }));
 lastDraftSavedAt = Number.isFinite(Number(draft.savedAt)) ? Number(draft.savedAt) : 0;
 if (typeof draft.fontName === 'string' && draft.fontName.trim()) {
