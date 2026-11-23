@@ -322,6 +322,25 @@ test('canvas zoom, pan and coordinate mapping stay stable', async ({ page }) => 
   expect(coordinates.every(Number.isFinite)).toBe(true);
 });
 
+test('drawing canvas supports keyboard navigation and announces its shortcuts', async ({ page }) => {
+  await page.goto('/');
+  const canvas = page.locator('#drawSvg');
+  await expect(canvas).toHaveAttribute('tabindex', '0');
+  await expect(canvas).toHaveAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight ArrowUp ArrowDown + - Home');
+  await canvas.focus();
+
+  const initial = (await canvas.getAttribute('viewBox')).split(' ').map(Number);
+  await canvas.press('ArrowRight');
+  const moved = (await canvas.getAttribute('viewBox')).split(' ').map(Number);
+  expect(moved[0]).toBe(initial[0] + 24);
+
+  await canvas.press('+');
+  await expect(page.locator('#zoomLevel')).toHaveText('125%');
+  await canvas.press('Home');
+  await expect(canvas).toHaveAttribute('viewBox', '0 0 360 360');
+  await expect(page.locator('#zoomLevel')).toHaveText('100%');
+});
+
 test('drawing workspace fits a narrow mobile viewport', async ({ page }) => {
   await page.setViewportSize({width: 375, height: 812});
   await page.goto('/');
