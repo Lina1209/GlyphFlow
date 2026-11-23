@@ -294,7 +294,7 @@ assert.ok(moduleSource.includes("import { buildKernTable, getKerningValue, norma
 assert.ok(moduleSource.includes('kerningPairs: JSON.parse(JSON.stringify(kerningPairs))'), 'Kerning pairs must be saved in draft data');
 assert.ok(moduleSource.includes('version: 3, glyphData, compoundOverrides, kerningPairs'), 'Kerning pairs must be part of versioned project snapshots');
 assert.ok(moduleSource.includes('buildKernTable(kerningPairs, convertedFontData.cmap)'), 'TTF export must map kerning pairs to final glyph IDs');
-assert.ok(moduleSource.includes('kerning: kerningPairs.length > 0'), 'TTF writer must enable kerning only when pairs exist');
+assert.ok(moduleSource.includes("kerning: kerningFormat === 'kern' && kerningPairs.length > 0"), 'TTF writer must enable legacy kern only in legacy mode and only when pairs exist');
 assert.ok(fontSmoke.includes('buildKernTable(kernFixture, convertedFontData.cmap)'), 'Font smoke test must create a real kerning table');
 assert.ok(fontSmoke.includes('kerning: true'), 'Font smoke test must round-trip a kern table');
 assert.ok(kerningTests.includes('view.getUint16(16),0'), 'Kerning tests must verify format-0 binary search metadata');
