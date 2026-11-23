@@ -1823,6 +1823,14 @@ test('preserves distinct font library writes from two open tabs', async ({ page,
     secondTab.locator('#saveToLibraryBtn').click()
   ]);
 
+  // A browser click resolves after event dispatch, not after an async handler's
+  // IndexedDB transaction. Wait for both durable-save acknowledgements before
+  // reloading either tab, otherwise the test can cancel its own writes.
+  await Promise.all([
+    expect(page.locator('#fontLibraryStatus')).toContainText('сохранён в библиотеку'),
+    expect(secondTab.locator('#fontLibraryStatus')).toContainText('сохранён в библиотеку')
+  ]);
+
   // Each tab may render its own snapshot; reload both to verify the shared
   // IndexedDB store contains both committed records without assuming live sync.
   await Promise.all([page.reload(), secondTab.reload()]);
