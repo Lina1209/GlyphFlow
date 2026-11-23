@@ -734,3 +734,27 @@ GitHub Actions run [45078392076](https://github.com/Lina1209/GlyphFlow/actions/r
 - Regression fixtures verify binary layout, glyph-index ordering, signed values, TTF round-trip and independent FontTools parsing. GPOS class kerning and advanced shaping are not yet implemented; this first pass is explicit pair kerning only.
 
 - Added a production-browser regression scenario for editing an А–Б pair, checking the live preview, waiting for the committed IndexedDB snapshot, restoring after reload, and verifying the exported TTF kerning value through OpenType parsing.
+
+
+
+## CI confirmation and remaining release gates (2026-11-23)
+
+The latest complete verification is GitHub Actions run [45137813267](https://github.com/Lina1209/GlyphFlow/actions/runs/45137813267), for source commit `4759da7dad8104b96bf4670445411a8f30332929`. Both jobs completed with `success`.
+
+### Confirmed by this run
+
+- Static contracts, Unicode parser/runtime metadata tests, GPOS PairPos serialization and raw SFNT table-injection regression tests passed.
+- The pinned Unicode 18.0.0 import and full catalog validation passed: 41,319 UCD records, 2,321 Script ranges, 41,297 runtime scalar records and 22 algorithmic ranges.
+- Production PWA build and generated TrueType fixture validation passed.
+- Independent FontTools and Fontspector checks passed for the generated fixture.
+- Chromium production-browser scenarios passed, including drawing, touch cancellation, Undo/Redo, IndexedDB recovery, per-glyph isolation, TTF download and browser rendering of Cyrillic glyphs.
+- The browser test exported both legacy `kern` and modern GPOS variants. The independent FontTools validation confirmed the real downloaded files contain the expected mutually exclusive tables and the А–Б adjustment of −80 font units.
+
+### Remaining release gates
+
+- A Chromium CI pass is not a physical-device test. Android/iOS, real stylus pressure, device-specific browser behavior and installation/offline behavior still need hands-on verification.
+- The current repository does not contain `package-lock.json`; CI installs with `npm install --no-package-lock`. Direct dependencies are exact-version declarations, but the complete transitive dependency tree is not locked for byte-for-byte reproducible installs. Add and review a lockfile, then move CI to `npm ci` as a separate dependency-integrity task.
+- The latest dependency installation and audit reported zero vulnerabilities. Keep the audit as a release check and ensure future workflow changes do not silently suppress audit failures.
+- A passing generic OpenType profile and synthetic fixtures do not certify every user-created font or Google Fonts acceptance. Each release candidate still needs its own visual, metadata, licensing and platform checks.
+
+PR #1 remains open and in Draft; no merge or publication was performed. The next safe work is dependency-lock reproducibility and the documented physical-device test, while preserving the current branch-only workflow.
