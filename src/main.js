@@ -1959,12 +1959,21 @@ if (records.length > 500) throw new Error('В библиотеке слишко�
 let estimatedBackupBytes = new TextEncoder().encode(JSON.stringify({
   format:'GlyphFlowFontLibrary',version:1,exportedAt:new Date().toISOString(),fonts:[]
 })).byteLength + 2;
-for (const record of records) {
+for (const [index, record] of records.entries()) {
+  if (!record || typeof record !== 'object' || Array.isArray(record) ||
+      typeof record.name !== 'string' || !record.name.trim() ||
+      !(record.blob instanceof Blob)) {
+    throw new Error('Запись библиотеки №' + (index + 1) + ' повреждена. Данные сохранены; исправьте запись или восстановите шрифт отдельно.');
+  }
+  if (record.projectSnapshot !== null && record.projectSnapshot !== undefined &&
+      typeof record.projectSnapshot !== 'string') {
+    throw new Error('Снимок проекта «' + record.name + '» повреждён. Данные сохранены.');
+  }
   if (record.projectSnapshot && record.projectSnapshot.length > MAX_PROJECT_SNAPSHOT_CHARS) {
     throw new Error('Снимок проекта «' + record.name + '» превышает безопасный лимит.');
   }
-  const fontBytes = Number(record.blob?.size);
-  if (!Number.isSafeInteger(fontBytes) || fontBytes < 1 || fontBytes > MAX_IMPORTED_FONT_BYTES) {
+  const fontBytes = Number(record.blob.size);
+  if (!Number.isSafeInteger(fontBytes) || fontBytes < 12 || fontBytes > MAX_IMPORTED_FONT_BYTES) {
     throw new Error('Файл шрифта «' + record.name + '» имеет недопустимый размер.');
   }
   const metadata = {...record, blob:undefined, fontBase64:''};
@@ -1977,6 +1986,11 @@ for (const record of records) {
 const payload = [];
 for (const record of records) {
 const bytes = new Uint8Array(await record.blob.arrayBuffer());
+try {
+parseLibraryFontBytes(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), record.format || 'ttf');
+} catch (err) {
+throw new Error('Шрифт «' + record.name + '» повреждён и не может попасть в резервную копию. Запись сохранена в библиотеке.');
+}
 let binary = '';
 for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
 payload.push({...record, blob:undefined, fontBase64:btoa(binary)});
