@@ -1898,6 +1898,7 @@ schema: 'glyphflow-glyph-catalog/v1',
 format: 'GlyphFlow Glyph Catalog',
 formatVersion: 1,
 fontFamily: fontName,
+fontMetadata: getFontMetadata(),
 createdAt: new Date().toISOString(),
 metadataCatalog: {
 name: getLoadedUnicodeVersion() ? 'Unicode Character Database property subset' : 'GlyphFlow bundled local metadata subset',
