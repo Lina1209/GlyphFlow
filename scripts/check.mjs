@@ -51,6 +51,28 @@ assert.equal(unicodeParserTestSyntax.status, 0, `Unicode parser test syntax chec
 const unicodeMetadataTestSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: unicodeMetadataTests, encoding: 'utf8' });
 assert.equal(unicodeMetadataTestSyntax.status, 0, `Unicode metadata test syntax check failed:\n${unicodeMetadataTestSyntax.stderr || unicodeMetadataTestSyntax.stdout}`);
 
+const fontMetadataContracts = [
+  ['font metadata designer field', 'id="fontDesigner"'],
+  ['font metadata manufacturer field', 'id="fontManufacturer"'],
+  ['font metadata version field', 'id="fontVersion"'],
+  ['font metadata description field', 'id="fontDescription"'],
+  ['font metadata copyright field', 'id="fontCopyright"'],
+  ['font metadata trademark field', 'id="fontTrademark"'],
+  ['font metadata license field', 'id="fontLicense"'],
+  ['font metadata URLs are validated', "key.endsWith('URL')"],
+  ['font metadata restricts URL schemes', "['https:', 'http:'].includes(url.protocol)"],
+  ['font metadata project snapshot persistence', 'fontMetadata: getFontMetadata()'],
+  ['font metadata snapshot restore', 'applyFontMetadata(clean.fontMetadata)'],
+  ['font metadata draft persistence', 'fontMetadata: getFontMetadata(),'],
+  ['font metadata JSON glyph passport', 'fontMetadata: getFontMetadata(),'],
+  ['font metadata passed to OpenType name table', 'designer: metadata.designer'],
+  ['font metadata TTF conversion assertions', "reparsedTtf.names.designer.en"],
+  ['browser test covers metadata persistence', 'persists editable font metadata and embeds it in the exported TrueType name table']
+];
+for (const [label, token] of fontMetadataContracts) {
+  assert.ok(html.includes(token) || moduleSource.includes(token) || fontSmoke.includes(token) || browserTests.includes(token), `Missing font metadata contract: ${label}`);
+}
+
 const nestedExportContracts = [
   ['font smoke fixture includes four nested depths', "'Ы': ["],
   ['font smoke fixture reaches depth three', "thinning: 0.35, depth: 3"],
