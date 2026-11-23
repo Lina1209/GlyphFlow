@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const moduleSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+const glyphMetadataSource = readFileSync(new URL('../src/glyph-metadata.js', import.meta.url), 'utf8');
 assert.ok(html.includes('<script type="module" src="./src/main.js"></script>'), 'HTML must load the local Vite entry module');
 assert.ok(!html.includes('https://cdn.') && !html.includes('https://esm.sh'), 'HTML must not load runtime dependencies from external CDNs');
 
@@ -72,6 +73,12 @@ for (const [label, token] of browserEnduranceContracts) {
   assert.ok(browserTests.includes(token), `Missing browser endurance contract: ${label}`);
 }
 
+
+const metadataSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
+  input: glyphMetadataSource,
+  encoding: 'utf8'
+});
+assert.equal(metadataSyntax.status, 0, `Glyph metadata module syntax check failed:\n${metadataSyntax.stderr || metadataSyntax.stdout}`);
 
 const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
   input: moduleSource,
@@ -149,6 +156,11 @@ const requiredContracts = [
   ['vertical ascender metric covers maximum brush extent', 'const ascender = 950;'],
   ['vertical descender metric covers maximum brush extent', 'const descender = -370;'],
   ['full Unicode code point mapping', 'char.codePointAt(0)'],
+  ['glyph metadata module is imported', "from './glyph-metadata.js'"],
+  ['glyph metadata exposes official Unicode names', 'unicodeName'],
+  ['glyph metadata exposes standardized glyph names', 'glyphName'],
+  ['glyph metadata exposes character descriptions', 'description'],
+  ['glyph metadata cards render for selected character', 'function renderCurrentGlyphMetadata()'],
   ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"],
   ['nearest outline handle hit testing', 'candidateHandles.reduce((best, handle) =>'],
   ['final Boolean shape editing mode', "const compoundEditModeBtn = document.getElementById('compoundEditModeBtn');"],
