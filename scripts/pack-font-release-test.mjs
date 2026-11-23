@@ -49,6 +49,9 @@ try {
   await (await import('node:fs/promises')).writeFile(catalogPath, JSON.stringify(catalog));
   const result = await buildReleasePackage({ fontPath, catalogPath, outDir });
   assert.equal(result.glyphCount, 1);
+  assert.deepEqual(result.metadataReport.counts, {
+    verifiedUcd: 0, verifiedLocalCatalog: 1, needsReview: 0, descriptionReview: 0
+  });
   assert.ok(result.files.includes('SHA256SUMS'));
   const archive = await readFile(result.zipPath);
   assert.equal(archive.readUInt32LE(0), 0x04034B50, 'ZIP must begin with a local file header');
@@ -76,6 +79,69 @@ try {
   const manifest = JSON.parse(await readFile(path.join(outDir, 'release-manifest.json'), 'utf8'));
   assert.equal(manifest.licenseStatus, 'not-assigned');
   assert.equal(manifest.publicationStatus, 'preflight-only');
+  assert.equal(manifest.glyphMetadataAudit.reviewedGlyphs, 1);
+  assert.equal(manifest.glyphMetadataAudit.verifiedLocalCatalog, 1);
+  assert.equal(manifest.glyphMetadataAudit.warningCount, 0);
+
+  const reviewCatalogPath = path.join(root, 'review-catalog.json');
+  const reviewCatalog = structuredClone(catalog);
+  reviewCatalog.glyphs[0].description = 'Официальное имя и описание отсутствуют; требуется проверка по UCD.';
+  reviewCatalog.glyphs[0].metadataStatus = 'needs-review';
+  reviewCatalog.glyphs[0].metadataSource = 'Fallback';
+  await (await import('node:fs/promises')).writeFile(reviewCatalogPath, JSON.stringify(reviewCatalog));
+  const reviewResult = await buildReleasePackage({ fontPath, catalogPath: reviewCatalogPath, outDir: path.join(root, 'review-release') });
+  assert.equal(reviewResult.metadataReport.counts.needsReview, 1);
+  assert.ok(reviewResult.metadataReport.warnings.length >= 1);
+  const reviewManifest = JSON.parse(await readFile(path.join(reviewResult.outDir, 'release-manifest.json'), 'utf8'));
+  assert.equal(reviewManifest.glyphMetadataAudit.needsReview, 1);
+  assert.ok(reviewManifest.warnings.some(item => item.includes('manual review')));
+
+  const ucdCatalogPath = path.join(root, 'ucd-catalog.json');
+  const ucdCatalog = structuredClone(catalog);
+  Object.assign(ucdCatalog.glyphs[0], {
+    unicodeName: 'LATIN CAPITAL LETTER A',
+    metadataSource: 'Unicode Character Database 18.0.0',
+    metadataStatus: 'verified-ucd'
+  });
+  await (await import('node:fs/promises')).writeFile(ucdCatalogPath, JSON.stringify(ucdCatalog));
+  const ucdResult = await buildReleasePackage({ fontPath, catalogPath: ucdCatalogPath, outDir: path.join(root, 'ucd-release') });
+  assert.equal(ucdResult.metadataReport.counts.verifiedUcd, 1);
+
+  const invalidCases = [
+    { name: 'invalid-glyph-name', mutate: value => { value.glyphs[0].glyphName = 'bad name'; }, expected: /Invalid OpenType glyph name/ },
+    { name: 'unknown-metadata-status', mutate: value => { value.glyphs[0].metadataStatus = 'verified-everything'; }, expected: /Unknown metadata status/ },
+    { name: 'empty-description', mutate: value => { value.glyphs[0].description = '   '; }, expected: /Empty human-readable glyph description/ },
+    { name: 'placeholder-description-claimed-verified', mutate: value => { value.glyphs[0].description = 'Требуется проверка'; }, expected: /provisional or placeholder description/ },
+    {
+      name: 'invalid-unicode-name',
+      mutate: value => {
+        value.glyphs[0].unicodeName = 'Latin capital letter A';
+        value.glyphs[0].metadataStatus = 'verified-ucd';
+        value.glyphs[0].metadataSource = 'Unicode Character Database 18.0.0';
+      },
+      expected: /Invalid Unicode Character Name syntax/
+    },
+    {
+      name: 'mismatched-ucd-version',
+      mutate: value => {
+        value.glyphs[0].unicodeName = 'LATIN CAPITAL LETTER A';
+        value.glyphs[0].metadataStatus = 'verified-ucd';
+        value.glyphs[0].metadataSource = 'Unicode Character Database 17.0.0';
+      },
+      expected: /Unicode data version does not match/
+    }
+  ];
+  for (const invalidCase of invalidCases) {
+    const invalidPath = path.join(root, invalidCase.name + '.json');
+    const invalidCatalog = structuredClone(catalog);
+    invalidCase.mutate(invalidCatalog);
+    await (await import('node:fs/promises')).writeFile(invalidPath, JSON.stringify(invalidCatalog));
+    await assert.rejects(
+      buildReleasePackage({ fontPath, catalogPath: invalidPath, outDir: path.join(root, invalidCase.name + '-release') }),
+      invalidCase.expected,
+      'Release packaging must reject ' + invalidCase.name
+    );
+  }
   const sums = await readFile(path.join(outDir, 'SHA256SUMS'), 'utf8');
   assert.match(sums, /[a-f0-9]{64}  GlyphFlow_QA_Fixture-Regular\.otf/);
   console.log('Font release packager tests passed.');

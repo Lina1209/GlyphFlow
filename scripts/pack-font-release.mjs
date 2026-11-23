@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deflateRawSync } from 'node:zlib';
 import { createRequire } from 'node:module';
 import { validateGlyphCatalogAgainstFont } from './font-catalog-validator.mjs';
+import { validateGlyphMetadata } from './glyph-metadata-validator.mjs';
 
 const require = createRequire(import.meta.url);
 const opentype = require('opentype.js');
@@ -130,6 +131,11 @@ export async function buildReleasePackage({ fontPath, catalogPath, outDir }) {
     throw new Error('Font cmap and glyph catalog do not match: ' + cmapReport.errors.join('; '));
   }
 
+  const metadataReport = validateGlyphMetadata(catalog.glyphs, catalog.metadataCatalog);
+  if (!metadataReport.valid) {
+    throw new Error('Glyph metadata validation failed: ' + metadataReport.errors.join('; '));
+  }
+
   const family = String(catalog.fontFamily || 'GlyphFlow').trim();
   if (!family || family.length > 128) throw new Error('Font family name is empty or too long.');
 
@@ -174,13 +180,20 @@ export async function buildReleasePackage({ fontPath, catalogPath, outDir }) {
     glyphCount: catalog.glyphs.length,
     unicodeDataVersion: catalog.metadataCatalog?.unicodeDataVersion ?? null,
     metadataCompleteness: catalog.metadataCatalog?.completeness ?? 'unspecified',
+    glyphMetadataAudit: {
+      ...metadataReport.counts,
+      reviewedGlyphs: metadataReport.reviewedGlyphs,
+      warningCount: metadataReport.warnings.length,
+      validationScope: 'syntax-and-status-consistency; official Unicode names are not re-fetched during packaging'
+    },
     licenseStatus: 'not-assigned',
     publicationStatus: 'preflight-only',
     warnings: [
       'No license is granted by this package.',
       'Confirm ownership and permissions for every glyph before distribution.',
       'Run Fontspector and visual QA before any Google Fonts submission.',
-      'Sequences requiring explicit ligature or shaping rules must be reviewed separately.'
+      'Sequences requiring explicit ligature or shaping rules must be reviewed separately.',
+      ...(metadataReport.warnings.length ? [metadataReport.warnings.length + ' glyph metadata item(s) require manual review; see glyphMetadataAudit.'] : [])
     ]
   };
   const manifestBytes = Buffer.from(JSON.stringify(manifest, null, 2) + '\n');
@@ -214,7 +227,7 @@ export async function buildReleasePackage({ fontPath, catalogPath, outDir }) {
   for (const [name, bytes] of files) await writeFile(path.join(outDir, name), bytes);
   const zipPath = path.resolve(outDir) + '.zip';
   await writeFile(zipPath, zipStored(files.map(([name, bytes]) => [name, bytes])));
-  return { outDir: path.resolve(outDir), zipPath, family, glyphCount: catalog.glyphs.length, files: files.map(([name]) => name) };
+  return { outDir: path.resolve(outDir), zipPath, family, glyphCount: catalog.glyphs.length, metadataReport, files: files.map(([name]) => name) };
 }
 
 function readArgs(argv) {
