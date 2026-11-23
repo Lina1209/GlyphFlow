@@ -27,6 +27,7 @@ class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus
 </div>
 </header>
 <p id="draftSyncStatus" role="status" aria-live="polite" class="hidden max-w-7xl w-full mx-auto px-6 pt-3 text-sm text-amber-300"></p>
+<p id="pwaStatus" role="status" aria-live="polite" class="hidden max-w-7xl w-full mx-auto px-6 pt-2 text-sm text-amber-300"></p>
 
 <!-- Основная рабочая область -->
 <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl w-full mx-auto">
@@ -179,11 +180,19 @@ placeholder="Введите текст для проверки...">ПРИВЕТ<
 
 <script type="module" src="./src/main.js"></script>
 <script>
+const pwaStatus = document.getElementById('pwaStatus');
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js', {scope: './'})
-      .catch(error => console.warn('GlyphFlow: не удалось зарегистрировать Service Worker', error));
+      .catch(error => {
+        console.warn('GlyphFlow: не удалось зарегистрировать Service Worker', error);
+        pwaStatus.textContent = 'Офлайн-режим недоступен: браузер не смог включить локальное обслуживание приложения. Проверьте настройки браузера и подключение.';
+        pwaStatus.classList.remove('hidden');
+      });
   });
+} else {
+  pwaStatus.textContent = 'Офлайн-режим недоступен: этот браузер не поддерживает Service Worker.';
+  pwaStatus.classList.remove('hidden');
 }
 </script>
 </body>
