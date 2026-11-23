@@ -10,6 +10,7 @@ const opentype = require('opentype.js');
 import { buildReleasePackage } from './pack-font-release.mjs';
 
 const root = await mkdtemp(path.join(os.tmpdir(), 'glyphflow-release-'));
+const previousSourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
 try {
   const fontPath = path.join(root, 'fixture.otf');
   const catalogPath = path.join(root, 'catalog.json');
@@ -47,7 +48,6 @@ try {
     }]
   };
   await (await import('node:fs/promises')).writeFile(catalogPath, JSON.stringify(catalog));
-  const previousSourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
   process.env.SOURCE_DATE_EPOCH = '1790000000';
   const result = await buildReleasePackage({ fontPath, catalogPath, outDir });
   assert.equal(result.glyphCount, 1);
