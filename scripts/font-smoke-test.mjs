@@ -6,6 +6,7 @@ import { createFont } from 'fonteditor-core';
 import { getStroke } from 'perfect-freehand';
 import polygonClipping from 'polygon-clipping';
 import { getGlyphMetadata, getSingleCodePoint } from '../src/glyph-metadata.js';
+import { validateGlyphCatalogAgainstFont } from './font-catalog-validator.mjs';
 
 const require = createRequire(import.meta.url);
 const opentype = require('opentype.js');
@@ -191,7 +192,29 @@ assert.equal(reparsedTtf.charToGlyph('О').unicode, 0x41E);
 assert.equal(reparsedTtf.charToGlyph('Ж').unicode, 0x416);
 assert.equal(reparsedTtf.charToGlyph('Р').unicode, 0x420);
 assert.equal(reparsedTtf.charToGlyph('Ф').unicode, 0x424);
+
 assert.equal(reparsedTtf.charToGlyph('∞').unicode, 0x221E);
+
+// Reconcile the glyph passport against the actual converted TTF cmap, not
+// merely against the editor's in-memory glyph data.
+const exportedCatalog = Object.keys(glyphData).map(character => ({
+  character,
+  codePoint: 'U+' + character.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')
+}));
+const passportCheck = validateGlyphCatalogAgainstFont(reparsedTtf, exportedCatalog);
+assert.equal(passportCheck.valid, true, passportCheck.errors.join('\\n'));
+assert.equal(passportCheck.mappedGlyphs, exportedCatalog.length);
+const incompletePassport = exportedCatalog.filter(entry => entry.character !== 'Ж');
+const incompleteCheck = validateGlyphCatalogAgainstFont(reparsedTtf, incompletePassport);
+assert.equal(incompleteCheck.valid, false, 'Passport validation must detect exported glyphs missing from the catalog');
+assert.ok(incompleteCheck.errors.some(error => error.includes('absent from the glyph catalog')));
+const sequenceCheck = validateGlyphCatalogAgainstFont(reparsedTtf, [
+  ...exportedCatalog,
+  {character: 'A\\u0301', codePoint: null}
+]);
+assert.equal(sequenceCheck.valid, false, 'Unmapped multi-code-point sequences must fail passport validation');
+assert.ok(sequenceCheck.errors.some(error => error.includes('multi-code-point')));
+
 assert.equal(reparsedTtf.charToGlyph('Ё').path.commands.filter(command => command.type === 'M').length, 2,
   'TTF conversion must preserve multi-contour glyphs');
 for (const char of ['О', '∞']) {
