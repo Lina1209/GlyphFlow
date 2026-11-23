@@ -22,14 +22,25 @@ const [unicodeData, scriptsData] = await Promise.all([
 ]);
 
 const scriptRanges = [];
-for (const line of scriptsData.split(/\r?\n/)) {
+for (const [index, line] of scriptsData.split(/\r?\n/).entries()) {
   const clean = line.split('#')[0].trim();
   if (!clean) continue;
-  const [range, scriptName] = clean.split(';').map(s => s.trim());
-  const [start, end = start] = range.split('..').map(s => parseInt(s, 16));
-  scriptRanges.push({ start, end, script: scriptName });
+  const fields = clean.split(';').map(s => s.trim());
+  if (fields.length !== 2 || !fields[1]) throw new Error(`Malformed Scripts.txt line ${index + 1}`);
+  const bounds = fields[0].split('..');
+  if (bounds.length > 2 || bounds.some(value => !/^[0-9A-F]{1,6}$/i.test(value))) {
+    throw new Error(`Invalid Script code point range on line ${index + 1}`);
+  }
+  const [start, end = start] = bounds.map(value => parseInt(value, 16));
+  if (start > end || end > 0x10FFFF) throw new Error(`Out-of-range Script range on line ${index + 1}`);
+  scriptRanges.push({ start, end, script: fields[1] });
 }
 scriptRanges.sort((a,b) => a.start-b.start);
+for (let index = 1; index < scriptRanges.length; index++) {
+  if (scriptRanges[index].start <= scriptRanges[index - 1].end) {
+    throw new Error('Scripts.txt contains overlapping or duplicate ranges');
+  }
+}
 function scriptOf(cp) {
   let lo=0, hi=scriptRanges.length-1;
   while(lo<=hi) {
@@ -43,21 +54,42 @@ function scriptOf(cp) {
 
 const records=[];
 let pendingRange=null;
-for (const line of unicodeData.split(/\r?\n/)) {
+let previousCodePoint=-1;
+for (const [index, line] of unicodeData.split(/\r?\n/).entries()) {
   if(!line) continue;
   const f=line.split(';');
-  const cp=parseInt(f[0],16), name=f[1], category=f[2], combining=parseInt(f[3],10)||0;
+  if (f.length !== 15 || !/^[0-9A-F]{4,6}$/i.test(f[0])) {
+    throw new Error(`Malformed UnicodeData.txt line ${index + 1}`);
+  }
+  const cp=parseInt(f[0],16), name=f[1], category=f[2], combining=parseInt(f[3],10);
+  if (!Number.isInteger(cp) || cp > 0x10FFFF || cp <= previousCodePoint) {
+    throw new Error(`Invalid or unsorted Unicode code point on line ${index + 1}`);
+  }
+  previousCodePoint=cp;
+  if (!/^[A-Z][a-z]$/.test(category) || !Number.isInteger(combining) || combining < 0 || combining > 255) {
+    throw new Error(`Invalid Unicode properties on line ${index + 1}`);
+  }
   if(name.endsWith(', First>')) {
+    if (pendingRange) throw new Error('Nested UnicodeData First/Last range encountered');
     pendingRange={start:cp,name:name.replace(/, First>$/,''),category,combining};
     continue;
   }
-  if(name.endsWith(', Last>') && pendingRange) {
+  if(name.endsWith(', Last>')) {
+    if (!pendingRange) throw new Error(`UnicodeData Last without First on line ${index + 1}`);
+    if (cp <= pendingRange.start || name.replace(/, Last>$/,'') !== pendingRange.name ||
+        category !== pendingRange.category || combining !== pendingRange.combining) {
+      throw new Error(`Mismatched UnicodeData First/Last range on line ${index + 1}`);
+    }
     records.push({range:[pendingRange.start,cp],nameTemplate:pendingRange.name,category:pendingRange.category,combiningClass:pendingRange.combining,script:scriptOf(pendingRange.start)});
     pendingRange=null;
     continue;
   }
+  if (pendingRange) throw new Error(`UnicodeData First range was not closed before line ${index + 1}`);
   records.push({cp,name,category,combiningClass:combining,script:scriptOf(cp)});
 }
+if (pendingRange) throw new Error('UnicodeData ends with an unmatched First range');
+if (!records.length || !scriptRanges.length) throw new Error('Unicode data files produced an empty catalog');
+
 const catalog={
   schema:'glyphflow-unicode-catalog/v1',
   unicodeVersion:version,
