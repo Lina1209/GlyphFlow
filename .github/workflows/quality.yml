@@ -55,6 +55,8 @@ jobs:
         run: python scripts/validate-ttf-fonttools.py
       - name: Install pinned Fontspector
         uses: fonttools/setup-fontspector@d53404291dc78a5a41cf76ea48e1d13a731fb812
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           version: 1.9.1
       - name: Run independent OpenType profile on generated TTF fixture
