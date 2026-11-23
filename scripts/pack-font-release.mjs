@@ -179,7 +179,7 @@ export async function buildReleasePackage({ fontPath, catalogPath, outDir }) {
     warnings: [
       'No license is granted by this package.',
       'Confirm ownership and permissions for every glyph before distribution.',
-      'Run FontBakery and visual QA before any Google Fonts submission.',
+      'Run Fontspector and visual QA before any Google Fonts submission.',
       'Sequences requiring explicit ligature or shaping rules must be reviewed separately.'
     ]
   };
