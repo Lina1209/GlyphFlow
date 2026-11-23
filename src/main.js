@@ -1850,6 +1850,12 @@ const font = buildOpenTypeFont();
 const otfBuffer = font.toArrayBuffer();
 if (!otfBuffer || otfBuffer.byteLength < 100) throw new Error('Получен пустой промежуточный OTF.');
 const converter = createFont(otfBuffer, {type: 'otf'});
+const convertedFontData = converter.get();
+if (!convertedFontData['OS/2']) throw new Error('Конвертер не создал обязательную таблицу OS/2.');
+// The OTF intermediate does not carry OS/2 weight data through fonteditor-core.
+// GlyphFlow exports a Regular static face, so explicitly set the OpenType class.
+convertedFontData['OS/2'].usWeightClass = 400;
+convertedFontData['OS/2'].usWidthClass = 5;
 const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: false});
 const ttfBuffer = rawTtf instanceof ArrayBuffer
 ? rawTtf
