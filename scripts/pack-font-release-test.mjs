@@ -63,6 +63,16 @@ try {
   const decoded = inflateRawSync(archive.subarray(dataStart, dataStart + compressedSize));
   assert.deepEqual(decoded, font);
 
+  const mismatchedCatalogPath = path.join(root, 'mismatched-catalog.json');
+  const mismatchedCatalog = structuredClone(catalog);
+  mismatchedCatalog.glyphs[0].codePoints = ['U+0042'];
+  await (await import('node:fs/promises')).writeFile(mismatchedCatalogPath, JSON.stringify(mismatchedCatalog));
+  await assert.rejects(
+    buildReleasePackage({ fontPath, catalogPath: mismatchedCatalogPath, outDir: path.join(root, 'invalid-release') }),
+    /Font cmap and glyph catalog do not match/,
+    'Release packaging must reject a passport that disagrees with the actual font cmap'
+  );
+
   const manifest = JSON.parse(await readFile(path.join(outDir, 'release-manifest.json'), 'utf8'));
   assert.equal(manifest.licenseStatus, 'not-assigned');
   assert.equal(manifest.publicationStatus, 'preflight-only');
