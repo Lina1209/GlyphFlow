@@ -205,7 +205,7 @@ export function getGlyphMetadata(char) {
       metadataStatus:unicodeName ? 'verified-ucd' : 'needs-review'
     });
   }
-  if (local) return local;
+  if (local) return Object.freeze({...local, metadataSource:'GlyphFlow local subset', metadataStatus:'verified-local-catalog', combiningClass:null});
   return Object.freeze({
     character:char,
     codePoint:'U+' + codePoint.toString(16).toUpperCase().padStart(4,'0'),
