@@ -23,12 +23,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install pinned project dependencies
-        run: npm install --no-package-lock
+      - name: Install locked project dependencies
+        run: npm ci
       - name: Audit dependency security
         run: |
           set +e
-          npm audit --no-package-lock --json > npm-audit-report.json
+          npm audit --json > npm-audit-report.json
           audit_status=$?
           set -e
           node -e "const report = require('./npm-audit-report.json'); for (const [name, item] of Object.entries(report.vulnerabilities || {})) console.log(name + ': ' + item.severity + ', direct=' + item.isDirect + ', fixAvailable=' + JSON.stringify(item.fixAvailable)); console.log('Totals:', JSON.stringify(report.metadata?.vulnerabilities || {}))"
@@ -97,8 +97,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install browser test dependencies
-        run: npm install --no-package-lock
+      - name: Install locked browser test dependencies
+        run: npm ci
       - name: Build production app for browser tests
         run: npm run build
       - name: Install Chromium
