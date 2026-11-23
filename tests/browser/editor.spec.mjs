@@ -331,7 +331,8 @@ test('font library import controls have accessible names and remain keyboard rea
   await expect(fontInput).toHaveClass(/sr-only/);
   await expect(backupInput).toHaveClass(/sr-only/);
   await page.locator('#fontLibrary').scrollIntoViewIfNeeded();
-  await page.locator('label[for="importFontInput"]').focus().catch(() => {});
+  await fontInput.focus();
+  await expect(fontInput).toBeFocused();
 });
 
 test('editor remains usable at 200 percent page zoom without horizontal overflow', async ({ page }) => {
