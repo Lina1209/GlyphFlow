@@ -3,6 +3,10 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { inflateRawSync } from 'node:zlib';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const opentype = require('opentype.js');
 import { buildReleasePackage } from './pack-font-release.mjs';
 
 const root = await mkdtemp(path.join(os.tmpdir(), 'glyphflow-release-'));
@@ -10,9 +14,25 @@ try {
   const fontPath = path.join(root, 'fixture.ttf');
   const catalogPath = path.join(root, 'catalog.json');
   const outDir = path.join(root, 'release');
-  const font = Buffer.alloc(16);
-  Buffer.from('00010000', 'hex').copy(font, 0);
-  font.writeUInt32BE(0, 4);
+  const pathData = new opentype.Path();
+  pathData.moveTo(80, 0);
+  pathData.lineTo(80, 700);
+  pathData.lineTo(520, 700);
+  pathData.lineTo(520, 0);
+  pathData.close();
+  const fixtureFont = new opentype.Font({
+    familyName: 'GlyphFlow QA Fixture',
+    styleName: 'Regular',
+    unitsPerEm: 1000,
+    ascender: 800,
+    descender: -200,
+    glyphs: [
+      new opentype.Glyph({ name: '.notdef', advanceWidth: 500, path: new opentype.Path() }),
+      new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: 350, path: new opentype.Path() }),
+      new opentype.Glyph({ name: 'A', unicode: 65, advanceWidth: 600, path: pathData })
+    ]
+  });
+  const font = Buffer.from(fixtureFont.toArrayBuffer());
   await (await import('node:fs/promises')).writeFile(fontPath, font);
   const catalog = {
     schema: 'glyphflow-glyph-catalog/v1',
