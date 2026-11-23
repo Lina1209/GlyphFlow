@@ -2518,6 +2518,7 @@ test('shows Unicode names, glyph names and descriptions for selected characters'
 
 test('persists editable font metadata and embeds it in the exported TrueType name table', async ({ page }) => {
   await page.goto('/');
+  await page.locator('#fontMetadataPanel > summary').click();
   await page.locator('#fontDesigner').fill('Lina1209 Test Designer');
   await page.locator('#fontManufacturer').fill('Mirror Studio Test Foundry');
   await page.locator('#fontVersion').fill('Version 3.240');
@@ -2530,6 +2531,7 @@ test('persists editable font metadata and embeds it in the exported TrueType nam
   await page.locator('#fontManufacturerURL').fill('https://example.com/test-foundry');
   await drawStroke(page);
   await page.reload();
+  await page.locator('#fontMetadataPanel > summary').click();
 
   await expect(page.locator('#fontDesigner')).toHaveValue('Lina1209 Test Designer');
   await expect(page.locator('#fontManufacturer')).toHaveValue('Mirror Studio Test Foundry');
