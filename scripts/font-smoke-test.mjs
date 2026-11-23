@@ -178,6 +178,8 @@ const versionMatch = context.getFontMetadata().version.match(/(\d+(?:\.\d{1,3})?
 convertedFontData.head.fontRevision = versionMatch ? Number(versionMatch[1]) : 1;
 convertedFontData['OS/2'].usWeightClass = 400;
 convertedFontData['OS/2'].usWidthClass = 5;
+convertedFontData['OS/2'].fsSelection = (convertedFontData['OS/2'].fsSelection || 0) | 0x0100;
+assert.ok(convertedFontData['OS/2'].fsSelection & 0x0100, 'Regular static export must declare WWS conformance');
 const ttfBytes = Buffer.from(converted.write({type: 'ttf', hinting: false, kerning: false}));
 assert.ok(ttfBytes.length > 100, 'OTF-to-TTF conversion returned an empty buffer');
 assert.equal(ttfBytes.toString('hex', 0, 4), '00010000', 'Expected TrueType sfnt signature');

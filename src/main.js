@@ -1866,6 +1866,8 @@ convertedFontData.head.fontRevision = getFontRevision(getFontMetadata().version 
 // GlyphFlow exports a Regular static face, so explicitly set the OpenType class.
 convertedFontData['OS/2'].usWeightClass = 400;
 convertedFontData['OS/2'].usWidthClass = 5;
+// The exported face is a single WWS-conformant Regular style (weight/width/slope only).
+convertedFontData['OS/2'].fsSelection = (convertedFontData['OS/2'].fsSelection || 0) | 0x0100;
 const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: false});
 const ttfBuffer = rawTtf instanceof ArrayBuffer
 ? rawTtf

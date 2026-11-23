@@ -19,6 +19,7 @@ assert font["head"].indexToLocFormat in (0, 1)
 assert "OS/2" in font, "TrueType font must contain OS/2 metrics and classification"
 assert font["OS/2"].usWeightClass == 400, "Regular font weight must be 400"
 assert font["OS/2"].usWidthClass in range(1, 10), "OS/2 width class must be within the OpenType range"
+assert font["OS/2"].fsSelection & 0x0100, "Regular static export must set the WWS conformance bit"
 assert "post" in font and font["post"].formatType in (2.0, 2.5, 3.0), "Invalid post table format"
 
 name_expectations = {
