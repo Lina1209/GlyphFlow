@@ -83,6 +83,10 @@ npm run dev
 - opentype.js для промежуточного построения OTF и fonteditor-core для конвертации в TrueType TTF
 - IndexedDB для локальных черновиков
 
+## Подготовка к публикации шрифта
+
+Контрольный список подготовки семейства к Google Fonts находится в [docs/google-fonts-release-checklist.md](docs/google-fonts-release-checklist.md). Он не назначает лицензию автоматически: для Google Fonts требуется подтверждённое согласие правообладателей на SIL Open Font License 1.1 и проверка всех авторских прав.
+
 ## Лицензия
 
 MIT — см. файл [LICENSE](LICENSE), если он присутствует в репозитории.
