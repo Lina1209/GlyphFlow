@@ -156,8 +156,10 @@ test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ 
   const catalog = JSON.parse(await readFile(await catalogDownload.path(), 'utf8'));
   expect(catalog.format).toBe('GlyphFlow Glyph Catalog');
   expect(catalog.metadataCatalog.unicodeDataVersion).toBe('18.0.0');
-  expect(catalog.metadataCatalog.source).toBe('https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt');
-  expect(catalog.metadataCatalog.completeness).toBe('full-ucd');
+  expect(catalog.metadataCatalog.sources.unicodeData).toBe('https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt');
+  expect(catalog.metadataCatalog.sources.scripts).toBe('https://www.unicode.org/Public/18.0.0/ucd/Scripts.txt');
+  expect(catalog.metadataCatalog.completeness).toBe('complete-for-exported-properties');
+  expect(catalog.metadataCatalog.notice).toContain('not every property file');
   expect(catalog.glyphs.map(glyph => glyph.character)).toEqual(expect.arrayContaining(['А', 'Б']));
   const cyrillicA = catalog.glyphs.find(glyph => glyph.character === 'А');
   expect(cyrillicA.codePoint).toBe('U+0410');
