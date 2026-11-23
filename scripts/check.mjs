@@ -32,6 +32,8 @@ assert.ok(unicodeParser.includes("name.endsWith(', First>')") && unicodeParser.i
 assert.ok(unicodeParser.includes('combiningClass') && unicodeImporter.includes('scriptRangeCount'), 'Unicode parser must preserve combining classes and importer must report script ranges');
 assert.ok(unicodeImporter.includes('https://www.unicode.org/license.txt'), 'Unicode catalog must include official license reference');
 assert.ok(packageJson.scripts['unicode:catalog:test'] === 'node scripts/unicode-catalog-parser-test.mjs', 'Unicode parser regression test command must be available');
+assert.ok(packageJson.scripts['unicode:metadata:test'] === 'node scripts/glyph-metadata-test.mjs', 'Unicode runtime metadata regression test command must be available');
+assert.ok(qualityWorkflow.includes('run: npm run unicode:metadata:test'), 'CI must run Unicode runtime metadata tests');
 const unicodeCatalogValidator = readFileSync(new URL('../scripts/validate-unicode-catalog.mjs', import.meta.url), 'utf8');
 const qualityWorkflow = readFileSync(new URL('../.github/workflows/quality.yml', import.meta.url), 'utf8');
 assert.ok(packageJson.scripts['unicode:catalog:validate'] === 'node scripts/validate-unicode-catalog.mjs 18.0.0', 'Full Unicode catalog validator must use the pinned UCD version');
