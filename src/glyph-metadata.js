@@ -11,22 +11,19 @@ const LATIN_LOWER = [...'abcdefghijklmnopqrstuvwxyz'];
 const DIGITS = [...'0123456789'];
 const DIGIT_NAMES = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'];
 const PUNCTUATION = {
-  '!': ['EXCLAMATION MARK', 'exclam', 'Знак восклицания'],
-  '?': ['QUESTION MARK', 'question', 'Вопросительный знак'],
-  '.': ['FULL STOP', 'period', 'Точка'],
-  ',': ['COMMA', 'comma', 'Запятая'],
-  '-': ['HYPHEN-MINUS', 'hyphen', 'Дефис / знак минус']
+  '!': ['EXCLAMATION MARK', 'exclam', 'Знак восклицания', 'Po'],
+  '?': ['QUESTION MARK', 'question', 'Вопросительный знак', 'Po'],
+  '.': ['FULL STOP', 'period', 'Точка', 'Po'],
+  ',': ['COMMA', 'comma', 'Запятая', 'Po'],
+  '-': ['HYPHEN-MINUS', 'hyphen', 'Дефис / знак минус', 'Pd']
 };
-const LATIN_PUNCTUATION_GLYPHS = new Map([
-  ['!', 'exclam'], ['?', 'question'], ['.', 'period'], [',', 'comma'], ['-', 'hyphen']
-]);
 const LATIN_DIGIT_GLYPHS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 const CYRILLIC_NAME_BY_CHAR = new Map();
 CYRILLIC_UPPER.forEach((char, index) => CYRILLIC_NAME_BY_CHAR.set(char, 'CYRILLIC CAPITAL LETTER ' + CYRILLIC_UPPER_NAMES[index]));
 CYRILLIC_LOWER.forEach((char, index) => CYRILLIC_NAME_BY_CHAR.set(char, 'CYRILLIC SMALL LETTER ' + CYRILLIC_UPPER_NAMES[index]));
 
 const metadata = new Map();
-function add(char, unicodeName, glyphName, category, description, script) {
+function add(char, unicodeName, glyphName, category, generalCategory, description, script) {
   metadata.set(char, Object.freeze({
     character: char,
     codePoint: 'U+' + char.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'),
@@ -34,6 +31,7 @@ function add(char, unicodeName, glyphName, category, description, script) {
     unicodeName,
     glyphName,
     category,
+    generalCategory,
     description,
     script
   }));
@@ -41,28 +39,28 @@ function add(char, unicodeName, glyphName, category, description, script) {
 
 for (const char of CYRILLIC_UPPER) {
   add(char, CYRILLIC_NAME_BY_CHAR.get(char), 'uni' + char.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'),
-    'Заглавная буква', 'Заглавная буква кириллицы «' + char + '»', 'Кириллица');
+    'Заглавная буква', 'Lu', 'Заглавная буква кириллицы «' + char + '»', 'Кириллица');
 }
 for (const char of CYRILLIC_LOWER) {
   add(char, CYRILLIC_NAME_BY_CHAR.get(char), 'uni' + char.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'),
-    'Строчная буква', 'Строчная буква кириллицы «' + char + '»', 'Кириллица');
+    'Строчная буква', 'Ll', 'Строчная буква кириллицы «' + char + '»', 'Кириллица');
 }
 for (const char of LATIN_UPPER) {
-  add(char, 'LATIN CAPITAL LETTER ' + char, char, 'Заглавная буква',
+  add(char, 'LATIN CAPITAL LETTER ' + char, char, 'Заглавная буква', 'Lu',
     'Заглавная буква латиницы «' + char + '»', 'Латиница');
 }
 for (const char of LATIN_LOWER) {
-  add(char, 'LATIN SMALL LETTER ' + char.toUpperCase(), char, 'Строчная буква',
+  add(char, 'LATIN SMALL LETTER ' + char.toUpperCase(), char, 'Строчная буква', 'Ll',
     'Строчная буква латиницы «' + char + '»', 'Латиница');
 }
 for (const [index, char] of DIGITS.entries()) {
-  add(char, 'DIGIT ' + DIGIT_NAMES[index], LATIN_DIGIT_GLYPHS[index], 'Цифра',
+  add(char, 'DIGIT ' + DIGIT_NAMES[index], LATIN_DIGIT_GLYPHS[index], 'Цифра', 'Nd',
     'Арабская цифра ' + char, 'Общие символы');
 }
-for (const [char, [unicodeName, glyphName, description]] of Object.entries(PUNCTUATION)) {
-  add(char, unicodeName, glyphName, 'Пунктуация', description, 'Общие символы');
+for (const [char, [unicodeName, glyphName, description, generalCategory]] of Object.entries(PUNCTUATION)) {
+  add(char, unicodeName, glyphName, 'Пунктуация', generalCategory, description, 'Общие символы');
 }
-add(' ', 'SPACE', 'space', 'Пробел', 'Межсловный пробел', 'Общие символы');
+add(' ', 'SPACE', 'space', 'Пробел', 'Zs', 'Межсловный пробел', 'Общие символы');
 
 export function getGlyphMetadata(char) {
   if (typeof char !== 'string' || [...char].length !== 1) return null;
