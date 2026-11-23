@@ -1799,7 +1799,19 @@ button.addEventListener('click', onClick);
 return button;
 }
 async function downloadLibraryRecord(record) {
+try {
+if (!(record.blob instanceof Blob) || !Number.isSafeInteger(record.blob.size) ||
+record.blob.size < 12 || record.blob.size > MAX_IMPORTED_FONT_BYTES) {
+throw new Error('Файл шрифта имеет недопустимый размер или повреждён.');
+}
+const bytes = await record.blob.arrayBuffer();
+parseLibraryFontBytes(bytes, record.format || 'ttf');
 triggerFontDownload(record.blob, record.fileName || (record.name + '.' + (record.format || 'ttf')));
+} catch (err) {
+console.warn('Не удалось скачать запись библиотеки:', err);
+if (libraryStatus) libraryStatus.textContent = 'Не удалось скачать «' +
+(record.name || 'Без названия') + '»: файл повреждён или не является корректным шрифтом. Запись сохранена в библиотеке.';
+}
 }
 async function renderFontLibrary() {
 if (!libraryList) return;
