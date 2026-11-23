@@ -241,7 +241,6 @@ const requiredContracts = [
   ['TTF converter is asynchronous', 'async function createTrueTypeFontBlob('],
   ['TTF download awaits lazy conversion', 'const fontFile = await createTrueTypeFontBlob();'],
   ['font library save awaits lazy conversion', 'const fontFile = await createTrueTypeFontBlob();'],
-  ['fonteditor-core is not loaded at editor startup', "!moduleSource.includes(\"import { createFont } from 'fonteditor-core';\")"],
   ['OTF parsing before conversion', "createFont(otfBuffer, {type: 'otf'})"],
   ['TrueType output conversion selects legacy kern explicitly', "kerning: kerningFormat === 'kern' && kerningPairs.length > 0"],
   ['TrueType sfnt signature validation', 'signature[1] !== 1'],
@@ -288,6 +287,8 @@ const requiredContracts = [
 for (const [label, token] of requiredContracts) {
   assert.ok(html.includes(token) || moduleSource.includes(token) || browserTests.includes(token), `Missing required contract: ${label}`);
 }
+
+assert.ok(!moduleSource.includes("import { createFont } from 'fonteditor-core';"), 'fonteditor-core must not load at editor startup');
 
 assert.ok(!html.includes('font.download()'), 'Deprecated library download helper must not be used');
 assert.ok(!html.includes('Скачать .OTF'), 'The UI must provide the requested TrueType TTF export');
