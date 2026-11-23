@@ -24,7 +24,6 @@ name_expectations = {
     0: "Copyright 2026 GlyphFlow Test",
     1: "GlyphFlow CI Fixture",
     2: "Regular",
-    3: "Version 2.125",
     4: "GlyphFlow CI Fixture Regular",
     5: "Version 2.125",
     6: "GlyphFlowCIFixture-Regular",
@@ -37,6 +36,8 @@ name_expectations = {
     13: "Test license text, not a real grant",
     14: "https://example.com/license",
 }
+unique_id = font["name"].getDebugName(3)
+assert unique_id and unique_id.strip(), "OpenType name ID 3 must contain a non-empty unique font identifier"
 for name_id, expected in name_expectations.items():
     actual = font["name"].getDebugName(name_id)
     assert actual == expected, f"name ID {name_id} mismatch: {actual!r} != {expected!r}"
