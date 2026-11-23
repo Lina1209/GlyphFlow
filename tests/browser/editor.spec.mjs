@@ -1586,7 +1586,6 @@ test('restores the editor draft and font library in a fresh page after app relau
   await page.locator('#fontName').fill('Relaunch Persistence Font');
   await page.locator('#saveToLibraryBtn').click();
   await expect(page.locator('#fontLibraryCount')).toHaveText('1');
-  const before = await page.locator('#glyphCanvas').screenshot();
   await page.close();
 
   const relaunchedPage = await context.newPage();
@@ -1594,14 +1593,16 @@ test('restores the editor draft and font library in a fresh page after app relau
   await expect(relaunchedPage.locator('#fontLibraryCount')).toHaveText('1');
   await expect(relaunchedPage.locator('#fontLibraryList article')).toContainText('Relaunch Persistence Font');
   await expect(relaunchedPage.locator('#fontName')).toHaveValue('Relaunch Persistence Font');
-  await expect(relaunchedPage.locator('#glyphCanvas')).toHaveScreenshot(undefined, {animations:'disabled'}).catch(async () => {
-    // The drawing is verified structurally below; canvas rasterization can vary by platform.
-    const hasDrawing = await relaunchedPage.locator('#glyphCanvas').evaluate(canvas => {
-      const context = canvas.getContext('2d');
-      return context && context.getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0);
-    });
-    expect(hasDrawing).toBe(true);
+  const hasDrawing = await relaunchedPage.locator('#glyphCanvas').evaluate(canvas => {
+    const context = canvas.getContext('2d');
+    if (!context) return false;
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i + 3] > 0 && (pixels[i] < 80 || pixels[i + 1] < 80 || pixels[i + 2] < 80)) return true;
+    }
+    return false;
   });
+  expect(hasDrawing).toBe(true);
 });
 
 test('shows a visible storage error when deleting a library font fails', async ({ page }) => {
