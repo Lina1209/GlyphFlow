@@ -173,6 +173,8 @@ assert.equal(parsed.charToGlyph('Ё').path.commands.filter(command => command.ty
 const converted = createFont(bytes, {type: 'otf'});
 const convertedFontData = converted.get();
 assert.ok(convertedFontData['OS/2'], 'OTF-to-TTF conversion must expose the OS/2 table');
+assert.ok(convertedFontData.head, 'OTF-to-TTF conversion must expose the head table');
+convertedFontData.head.fontRevision = generated.tables.head.fontRevision;
 convertedFontData['OS/2'].usWeightClass = 400;
 convertedFontData['OS/2'].usWidthClass = 5;
 const ttfBytes = Buffer.from(converted.write({type: 'ttf', hinting: false, kerning: false}));
