@@ -322,6 +322,18 @@ test('canvas zoom, pan and coordinate mapping stay stable', async ({ page }) => 
   expect(coordinates.every(Number.isFinite)).toBe(true);
 });
 
+test('mobile editor controls meet minimum touch target dimensions', async ({ page }) => {
+  await page.setViewportSize({width: 375, height: 812});
+  await page.goto('/');
+  for (const selector of ['#zoomOutBtn', '#zoomInBtn', '#zoomResetBtn', '#panLeftBtn', '#panUpBtn', '#panDownBtn', '#panRightBtn']) {
+    const box = await page.locator(selector).boundingBox();
+    expect(box, selector).toBeTruthy();
+    expect(box.height, selector).toBeGreaterThanOrEqual(44);
+    expect(box.width, selector).toBeGreaterThanOrEqual(44);
+  }
+  await expect(page.locator('#zoomResetBtn')).toHaveAttribute('aria-label', 'Сбросить масштаб и положение холста');
+});
+
 test('drawing canvas supports keyboard navigation and announces its shortcuts', async ({ page }) => {
   await page.goto('/');
   const canvas = page.locator('#drawSvg');
