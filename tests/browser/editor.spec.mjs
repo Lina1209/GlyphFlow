@@ -58,6 +58,14 @@ async function clickContourPath(page, path) {
 }
 
 
+test('exposes accessible names for the main editor inputs and drawing surface', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('textbox', {name:'Название шрифта'})).toBeVisible();
+  await expect(page.getByRole('img', {name:'Интерактивный холст для рисования текущего символа'})).toBeVisible();
+  await expect(page.getByRole('textbox', {name:'Текст для проверки шрифта'})).toBeVisible();
+  await expect(page.getByRole('searchbox', {name:'Поиск в библиотеке шрифтов'})).toBeVisible();
+});
+
 test('prevents a second tab from overwriting a newer saved draft', async ({ page, context }) => {
   await page.goto('/');
   const secondTab = await context.newPage();
