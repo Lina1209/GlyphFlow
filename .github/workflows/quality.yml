@@ -1,0 +1,111 @@
+name: GlyphFlow quality checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glyphflow-quality-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install locked project dependencies
+        run: npm ci
+      - name: Audit dependency security
+        run: |
+          set +e
+          npm audit --json > npm-audit-report.json
+          audit_status=$?
+          set -e
+          node -e "const report = require('./npm-audit-report.json'); for (const [name, item] of Object.entries(report.vulnerabilities || {})) console.log(name + ': ' + item.severity + ', direct=' + item.isDirect + ', fixAvailable=' + JSON.stringify(item.fixAvailable)); console.log('Totals:', JSON.stringify(report.metadata?.vulnerabilities || {}))"
+          exit "$audit_status"
+      - name: Upload dependency audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: glyphflow-dependency-audit-report
+          path: npm-audit-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Check project contracts
+        run: npm run check
+      - name: Test Unicode catalog parser fixtures
+        run: npm run unicode:catalog:test
+      - name: Test Unicode runtime metadata loader
+        run: npm run unicode:metadata:test
+      - name: Test GPOS PairPos serializer
+        run: npm run gpos:test
+      - name: Test raw SFNT table injection
+        run: npm run sfnt:test
+      - name: Import pinned official Unicode Character Database
+        run: npm run unicode:catalog
+      - name: Validate complete official Unicode catalog
+        run: npm run unicode:catalog:validate
+      - name: Build production PWA assets
+        run: npm run build
+      - name: Generate, convert, and parse a fixture TTF
+        run: node scripts/font-smoke-test.mjs
+      - name: Test font release package and ZIP integrity
+        run: npm run font:package:test
+      - name: Exercise Boolean geometry edge cases
+        run: node scripts/geometry-edge-cases.mjs
+      - name: Benchmark geometry complexity and cache reuse
+        run: node scripts/geometry-performance.mjs
+      - name: Install independent FontTools parser
+        run: python -m pip install fonttools
+      - name: Validate final TrueType fixture with FontTools
+        run: python scripts/validate-ttf-fonttools.py
+      - name: Install pinned Fontspector
+        uses: fonttools/setup-fontspector@d53404291dc78a5a41cf76ea48e1d13a731fb812
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          version: 1.9.1
+      - name: Run independent OpenType profile on generated TTF fixture
+        run: |
+          mkdir -p reports
+          fontspector --profile opentype --error-code-on fail --html reports/fontspector-opentype.html --json reports/fontspector-opentype.json /tmp/glyphflow-fixture.ttf
+      - name: Upload Fontspector reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: glyphflow-fontspector-reports
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  browser-smoke-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install locked browser test dependencies
+        run: npm ci
+      - name: Build production app for browser tests
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run production browser interaction tests
+        run: npm test
+      - name: Install independent FontTools parser for browser export
+        run: python -m pip install fonttools
+      - name: Validate the actual browser-exported TTF independently
+        run: python scripts/validate-browser-export-fonttools.py

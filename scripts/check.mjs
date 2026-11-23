@@ -1,0 +1,330 @@
+import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import assert from 'node:assert/strict';
+
+const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const moduleSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+const glyphMetadataSource = readFileSync(new URL('../src/glyph-metadata.js', import.meta.url), 'utf8');
+assert.ok(html.includes('<script type="module" src="./src/main.js"></script>'), 'HTML must load the local Vite entry module');
+assert.ok(!html.includes('https://cdn.') && !html.includes('https://esm.sh'), 'HTML must not load runtime dependencies from external CDNs');
+
+const fontSmoke = readFileSync(new URL('../scripts/font-smoke-test.mjs', import.meta.url), 'utf8');
+const kerningSource = readFileSync(new URL('../src/kerning.js', import.meta.url), 'utf8');
+const kerningTests = readFileSync(new URL('../scripts/kerning-test.mjs', import.meta.url), 'utf8');
+const fontCatalogValidator = readFileSync(new URL('../scripts/font-catalog-validator.mjs', import.meta.url), 'utf8');
+const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', import.meta.url), 'utf8');
+const geometryPerformance = readFileSync(new URL('../scripts/geometry-performance.mjs', import.meta.url), 'utf8');
+const sourceManifest = readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8');
+const pwaManifest = JSON.parse(sourceManifest);
+const serviceWorker = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+const publicManifest = readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8');
+const publicServiceWorker = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
+const publicIcon = readFileSync(new URL('../public/icons/glyphflow.svg', import.meta.url), 'utf8');
+const sourceIcon = readFileSync(new URL('../icons/glyphflow.svg', import.meta.url), 'utf8');
+const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const unicodeImporter = readFileSync(new URL('../scripts/update-unicode-catalog.mjs', import.meta.url), 'utf8');
+const unicodeParser = readFileSync(new URL('../scripts/unicode-catalog-parser.mjs', import.meta.url), 'utf8');
+const unicodeParserTests = readFileSync(new URL('../scripts/unicode-catalog-parser-test.mjs', import.meta.url), 'utf8');
+const unicodeMetadataTests = readFileSync(new URL('../scripts/glyph-metadata-test.mjs', import.meta.url), 'utf8');
+assert.ok(packageJson.scripts['unicode:catalog'] === 'node scripts/update-unicode-catalog.mjs 18.0.0', 'Unicode catalog command must pin version 18.0.0');
+assert.ok(unicodeImporter.includes('UnicodeData.txt') && unicodeImporter.includes('Scripts.txt'), 'Unicode importer must use official UCD data files');
+assert.ok(unicodeImporter.includes('runtime-catalog.json') && unicodeImporter.includes('glyphflow-unicode-runtime/v1'), 'Unicode importer must emit a compact browser runtime catalog');
+assert.ok(packageJson.scripts.prebuild === 'node scripts/prepare-unicode-catalog.mjs', 'Production builds must prepare the pinned Unicode runtime catalog');
+assert.ok(glyphMetadataSource.includes('loadUnicodeCatalog') && glyphMetadataSource.includes('getLoadedUnicodeVersion'), 'Glyph metadata must load and expose the official runtime catalog');
+assert.ok(moduleSource.includes('loadUnicodeCatalog().then'), 'The editor must load official Unicode metadata without blocking initial startup');
+assert.ok(unicodeParser.includes("name.endsWith(', First>')") && unicodeParser.includes("name.endsWith(', Last>')"), 'Unicode parser must preserve Unicode range records');
+assert.ok(unicodeParser.includes('combiningClass') && unicodeImporter.includes('scriptRangeCount'), 'Unicode parser must preserve combining classes and importer must report script ranges');
+assert.ok(unicodeImporter.includes('https://www.unicode.org/license.txt'), 'Unicode catalog must include official license reference');
+assert.ok(packageJson.scripts['unicode:catalog:test'] === 'node scripts/unicode-catalog-parser-test.mjs', 'Unicode parser regression test command must be available');
+assert.ok(packageJson.scripts['unicode:metadata:test'] === 'node scripts/glyph-metadata-test.mjs', 'Unicode runtime metadata regression test command must be available');
+const unicodeCatalogValidator = readFileSync(new URL('../scripts/validate-unicode-catalog.mjs', import.meta.url), 'utf8');
+const qualityWorkflow = readFileSync(new URL('../.github/workflows/quality.yml', import.meta.url), 'utf8');
+assert.ok(qualityWorkflow.includes('run: npm run unicode:metadata:test'), 'CI must run Unicode runtime metadata tests');
+assert.ok(packageJson.scripts['unicode:catalog:validate'] === 'node scripts/validate-unicode-catalog.mjs 18.0.0', 'Full Unicode catalog validator must use the pinned UCD version');
+assert.ok(unicodeCatalogValidator.includes('CYRILLIC CAPITAL LETTER IO') && unicodeCatalogValidator.includes('combiningClass'), 'Full Unicode validator must verify representative Cyrillic and combining metadata');
+assert.ok(unicodeCatalogValidator.includes('runtime-catalog.json') && unicodeCatalogValidator.includes('glyphflow-unicode-runtime/v1'), 'Full Unicode validator must verify the browser runtime projection');
+assert.ok(qualityWorkflow.includes('run: npm run unicode:catalog') && qualityWorkflow.includes('run: npm run unicode:catalog:validate'), 'CI must import and validate the complete pinned UCD, not only parser fixtures');
+assert.ok(qualityWorkflow.includes('--error-code-on fail'), 'CI must fail on Fontspector FAIL findings');
+assert.ok(moduleSource.includes('function getFontRevision(version)'), 'OpenType revision parser must be defined');
+assert.ok(moduleSource.includes('convertedFontData.head.fontRevision = getFontRevision(getFontMetadata().version'), 'TTF conversion must set head revision from the version embedded in name ID 5');
+assert.ok(fontSmoke.includes('convertedFontData.head.fontRevision = versionMatch ? Number(versionMatch[1]) : 1'), 'Font smoke test must preserve the numeric revision through conversion');
+assert.ok(readFileSync(new URL('../scripts/validate-ttf-fonttools.py', import.meta.url), 'utf8').includes('fontRevision - 2.125'), 'FontTools must verify the exported head revision');
+assert.ok(unicodeImporter.includes("from './unicode-catalog-parser.mjs'"), 'Unicode importer must use the tested pure parser module');
+assert.ok(unicodeParser.includes('function parseScripts') && unicodeParser.includes('function parseUnicodeData'), 'Unicode parser module must expose both UCD parsers');
+assert.ok(unicodeParserTests.includes('Mismatched') && unicodeParserTests.includes('combiningClass'), 'Unicode parser tests must cover malformed ranges and combining classes');
+const unicodeParserSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: unicodeParser, encoding: 'utf8' });
+assert.equal(unicodeParserSyntax.status, 0, `Unicode parser syntax check failed:\n${unicodeParserSyntax.stderr || unicodeParserSyntax.stdout}`);
+const unicodeParserTestSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: unicodeParserTests, encoding: 'utf8' });
+assert.equal(unicodeParserTestSyntax.status, 0, `Unicode parser test syntax check failed:\n${unicodeParserTestSyntax.stderr || unicodeParserTestSyntax.stdout}`);
+const unicodeMetadataTestSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: unicodeMetadataTests, encoding: 'utf8' });
+assert.equal(unicodeMetadataTestSyntax.status, 0, `Unicode metadata test syntax check failed:\n${unicodeMetadataTestSyntax.stderr || unicodeMetadataTestSyntax.stdout}`);
+
+const fontCatalogContracts = [
+  ['font passport validator checks parsed font cmap', 'font.charToGlyph(character)'],
+  ['font passport validator rejects multi-code-point sequences', 'Unsupported multi-code-point or invalid catalog entry'],
+  ['font passport validator detects missing exported glyphs', 'absent from the glyph catalog'],
+  ['font smoke test validates real converted TTF passport', 'validateGlyphCatalogAgainstFont(reparsedTtf, exportedCatalog)'],
+  ['font smoke test detects incomplete passport', 'incompleteCheck.valid, false'],
+  ['font smoke test rejects unmapped sequences', 'sequenceCheck.valid, false']
+];
+for (const [label, token] of fontCatalogContracts) {
+  assert.ok(fontCatalogValidator.includes(token) || fontSmoke.includes(token), `Missing font catalog contract: ${label}`);
+}
+
+const fontMetadataContracts = [
+  ['font metadata designer field', 'id="fontDesigner"'],
+  ['font metadata manufacturer field', 'id="fontManufacturer"'],
+  ['font metadata version field', 'id="fontVersion"'],
+  ['font metadata description field', 'id="fontDescription"'],
+  ['font metadata copyright field', 'id="fontCopyright"'],
+  ['font metadata trademark field', 'id="fontTrademark"'],
+  ['font metadata license field', 'id="fontLicense"'],
+  ['font metadata URLs are validated', "key.endsWith('URL')"],
+  ['font metadata restricts URL schemes', "['https:', 'http:'].includes(url.protocol)"],
+  ['font metadata project snapshot persistence', 'fontMetadata: getFontMetadata()'],
+  ['font metadata snapshot restore', 'applyFontMetadata(clean.fontMetadata)'],
+  ['font metadata draft persistence', 'fontMetadata: getFontMetadata(),'],
+  ['font metadata JSON glyph passport', 'fontMetadata: getFontMetadata(),'],
+  ['font metadata passed to OpenType name table', 'designer: metadata.designer'],
+  ['font metadata TTF conversion assertions', "reparsedTtf.names.designer.en"],
+  ['browser test covers metadata persistence', 'persists editable font metadata and embeds it in the exported TrueType name table']
+];
+for (const [label, token] of fontMetadataContracts) {
+  assert.ok(html.includes(token) || moduleSource.includes(token) || fontSmoke.includes(token) || browserTests.includes(token), `Missing font metadata contract: ${label}`);
+}
+
+const nestedExportContracts = [
+  ['font smoke fixture includes four nested depths', "'Ы': ["],
+  ['font smoke fixture reaches depth three', "thinning: 0.35, depth: 3"],
+  ['font smoke validates nested glyph cmap', "['A', 'Ё', '😀', 'О', 'Ж', 'Р', 'Ф', 'Ы', '∞']"],
+  ['font smoke validates four exported contours', "charToGlyph('Ы').path.commands.filter(command => command.type === 'M').length, 4"],
+  ['browser test exports nested counters', "exports four nested contour levels with alternating transparent counters"],
+  ['browser test checks filled island pixels', 'expect(result.alpha[2], JSON.stringify(result)).toBeGreaterThan(0)'],
+  ['browser test checks nested transparent counter', 'expect(result.alpha[3], JSON.stringify(result)).toBe(0)'],
+  ['browser test verifies depth metadata in IndexedDB', 'const readPersistedDepths = async () => page.evaluate'],
+  ['browser test verifies all four stored depth levels', 'toEqual([0, 1, 2, 3])'],
+  ['browser test verifies undo of nested depth', "toHaveValue('outer')"],
+  ['browser test verifies redo of nested depth', "toHaveValue('nested-hole')"],
+  ['browser test verifies depth after reload', "await page.reload();"],
+  ['browser test verifies depth after switching glyphs', "Switching to another glyph and back must not lose or cross-assign depths."],
+  ['browser test covers legacy hole role migration', 'migrates legacy hole roles and clamps unsupported stored contour depths'],
+  ['browser test covers invalid depth recovery', 'depth: 99'],
+  ['browser test covers high-frequency pointer batching', 'batches dense live pointer input into one preview render per animation frame'],
+  ['browser test sends dense pointer stream', 'index < 400'],
+  ['browser test asserts bounded preview DOM updates', 'toBeLessThanOrEqual(4)']
+];
+for (const [label, token] of nestedExportContracts) {
+  assert.ok(fontSmoke.includes(token) || browserTests.includes(token), `Missing nested TTF export test: ${label}`);
+}
+
+const performanceContracts = [
+  ['dense trajectory fixture', 'single-dense-trajectory-512'],
+  ['2k trajectory fixture', 'single-dense-trajectory-2000'],
+  ['5k trajectory fixture', 'single-dense-trajectory-5000'],
+  ['10k trajectory fixture', 'single-dense-trajectory-10000'],
+  ['64-stroke fixture', '64-overlapping-strokes'],
+  ['128-stroke fixture', '128-overlapping-strokes'],
+  ['Boolean union stress fixture', '32-overlapping-strokes'],
+  ['four-depth geometry fixture', 'four-depth-32-contours'],
+  ['geometry cache reuse measurement', 'cacheHitMs'],
+  ['generous CI stress budget', 'totalMs < 90000']
+];
+for (const [label, token] of performanceContracts) {
+  assert.ok(geometryPerformance.includes(token), `Missing geometry performance contract: ${label}`);
+}
+
+const browserEnduranceContracts = [
+  ['mobile viewport endurance test', 'repeated editing across narrow mobile viewport sizes'],
+  ['mobile 320px viewport', '{width: 320, height: 640}'],
+  ['mobile 412px viewport', '{width: 412, height: 915}'],
+  ['long-session glyph isolation', "toEqual({A: 18, B: 6})"],
+  ['long-session undo redo', "for (let index = 0; index < 4; index++) await page.locator('#undoBtn').click()"],
+  ['node editor browser regression', "test('edits a selected stroke centerline through draggable nodes with undo support'"],
+  ['trajectory point history', "test('adds and removes trajectory points with undo and redo'"],
+  ['trajectory point insertion and deletion regression', "test('adds and removes trajectory points with undo and redo'"]
+];
+for (const [label, token] of browserEnduranceContracts) {
+  assert.ok(browserTests.includes(token), `Missing browser endurance contract: ${label}`);
+}
+
+
+const metadataSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
+  input: glyphMetadataSource,
+  encoding: 'utf8'
+});
+assert.equal(metadataSyntax.status, 0, `Glyph metadata module syntax check failed:\n${metadataSyntax.stderr || metadataSyntax.stdout}`);
+
+const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
+  input: moduleSource,
+  encoding: 'utf8'
+});
+assert.equal(syntax.status, 0, `Inline module syntax check failed:\n${syntax.stderr || syntax.stdout}`);
+
+const gposSource = readFileSync(new URL('../src/gpos.js', import.meta.url), 'utf8');
+const sfntSource = readFileSync(new URL('../src/sfnt.js', import.meta.url), 'utf8');
+assert.ok(moduleSource.includes("import { addSfntTable } from './sfnt.js';"), 'GPOS must be injected after the writer drops unknown tables');
+assert.ok(moduleSource.includes("addSfntTable(ttfBuffer, 'GPOS', gposTable)"), 'Final TTF must include the raw GPOS table');
+assert.ok(sfntSource.includes('0xB1B0AFBA') && sfntSource.includes('head table'), 'SFNT injection must rebuild checksum adjustment and preserve head');
+assert.equal(packageJson.scripts['sfnt:test'], 'node scripts/sfnt-test.mjs', 'SFNT table injection regression test must be available');
+const sfntTestRun = spawnSync(process.execPath, ['scripts/sfnt-test.mjs'], {encoding:'utf8'});
+assert.equal(sfntTestRun.status, 0, `SFNT injection regression tests failed:\n${sfntTestRun.stderr || sfntTestRun.stdout}`);
+assert.ok(moduleSource.includes("import { buildGposTable } from './gpos.js';"), 'TTF export must use the tested GPOS table builder');
+assert.ok(moduleSource.includes("kerningFormat === 'gpos' ? buildGposTable(kerningPairs, convertedFontData.cmap) : null"), 'Modern export must map editor pairs to final glyph IDs');
+assert.ok(moduleSource.includes('else delete convertedFontData.GPOS;') && moduleSource.includes('else delete convertedFontData.kern;'), 'TTF export must remove the inactive kerning table');
+assert.ok(moduleSource.includes("['kern', 'gpos'].includes(kerningFormat)"), 'TTF export must reject unknown kerning modes');
+assert.ok(html.includes('id="kerningFormat"') && html.includes('value="kern" selected') && html.includes('value="gpos"'), 'Kerning format selector must default to legacy and expose GPOS');
+assert.ok(browserTests.includes("expect(gposTags).toContain('GPOS')") && browserTests.includes("expect(gposTags).not.toContain('kern')"), 'Browser export test must enforce GPOS-only output');
+assert.ok(gposSource.includes('export function buildGposTable(sourcePairs, cmap)'), 'GPOS Unicode-to-glyph mapping must be available and tested');
+
+const requiredContracts = [
+  ['primary pointer guard', 'if (e.button !== 0 || !e.isPrimary || isDrawing || panPointerId !== null) return;'],
+  ['SVG coordinate transform', 'point.matrixTransform(drawSvg.getScreenCTM().inverse())'],
+  ['bounded canvas zoom', 'const MIN_VIEW_SIZE = 120;'],
+  ['canvas viewBox zoom control', "getElementById('zoomInBtn')"],
+  ['typographic guides follow canvas zoom', 'guideSvg.setAttribute(\'viewBox\', nextViewBox);'],
+  ['canvas directional pan controls', "getElementById('panLeftBtn')"],
+  ['wheel zoom handler', "addEventListener('wheel'"],
+  ['mouse pan gesture', 'panStart = {clientX: e.clientX, clientY: e.clientY, x: viewBox.x, y: viewBox.y};'],
+  ['active pointer filtering', 'e.pointerId !== activePointerId'],
+  ['pointer cancellation', "addEventListener('pointercancel'"],
+  ['animation-frame stroke preview batching', 'function scheduleStrokePreviewRender()'],
+  ['bounded undo snapshot count', 'const MAX_HISTORY_ENTRIES = 40;'],
+  ['bounded undo snapshot memory', 'const MAX_HISTORY_BYTES = 8 * 1024 * 1024;'],
+  ['download Blob URL revocation uses the captured local URL', 'window.setTimeout(() => URL.revokeObjectURL(url), 1500);'],
+  ['history trimming before retaining snapshots', 'function trimHistoryToBudget()'],
+  ['pending stroke preview cancellation', 'cancelAnimationFrame(strokeRenderFrame)'],
+  ['lost pointer capture handling', "addEventListener('lostpointercapture'"],
+  ['local draft persistence', 'indexedDB.open(DRAFT_DB, 1)'],
+  ['draft restoration on startup', 'await restoreDraft();'],
+  ['serialized draft writes', 'let draftWriteQueue = Promise.resolve();'],
+  ['immutable queued draft snapshot', 'JSON.parse(JSON.stringify(glyphData))'],
+  ['restored stroke validation', 'Number.isFinite(Number(point[0]))'],
+  ['IndexedDB store migration guard', 'objectStoreNames.contains(DRAFT_STORE)'],
+  ['visible .notdef glyph', "name: '.notdef'"],
+  ['normalized left side bearing', 'const xOffset = sideBearing - minX * scale;'],
+  ['advance width from glyph bounds', '(maxX - minX) * scale'],
+  ['TrueType outer/hole winding normalization', "role === 'outer' && signedArea > 0"],
+  ['explicit contour role migration', "stroke && stroke.role === 'hole' ? 'hole' : 'outer'"],
+  ['compound nonzero contour fill', "setAttribute('fill-rule', 'nonzero')"],
+  ['Boolean polygon union dependency', "import polygonClipping from 'polygon-clipping';"],
+  ['explicit contour depth resolution', 'function getContourDepth(stroke)'],
+  ['nested contour level grouping', 'const levels = new Map();'],
+  ['alternating even-depth fill', 'if (depth % 2 === 0)'],
+  ['nested counter subtraction', 'polygonClipping.difference(result, levelUnion)'],
+  ['nested topology pipeline', 'buildNestedContourGeometry(contours)'],
+  ['microscopic geometry tolerance', 'Math.abs(contourSignedArea(ring)) > 1e-3'],
+  ['compound geometry export', 'getCompoundPathRecords(getCompoundGlyphGeometry(strokes, compoundOverrides[char]))'],
+  ['cached glyph Boolean geometry', 'const glyphGeometryCache = new WeakMap();'],
+  ['nested parent-depth validation', 'isContourWithinParentDepth(selected, strokes, selectedStrokeIndex, depth)'],
+  ['restored depth is restricted to supported UI levels', 'storedDepth <= 3'],
+  ['restored legacy hole role migrates to depth one', "stroke.role === 'hole' ? 1 : 0"],
+  ['restored role is normalized from depth parity', "role: depth % 2 ? 'hole' : 'outer'"],
+  ['four-level contour selector', 'value="nested-hole"'],
+  ['depth-preserving role compatibility', 'selected.depth = depth'],
+  ['nested parent containment checks actual polygon vertices', 'candidate.every(point => pointInsideRing(point, parent))'],
+  ['nested parent containment rejects boundary contact', 'segmentsIntersect(a, b, parent[j], parent[(j + 1) % parent.length])'],
+  ['segment endpoint and collinear rejection', 'return onSegment(a, c, b) || onSegment(a, d, b) || onSegment(c, a, d) || onSegment(c, b, d);'],
+  ['contour role editor controls', "getElementById('contourRoleSelect')"],
+  ['centerline node editor mode', "getElementById('nodeEditModeBtn')"],
+  ['vector outline editor mode', "getElementById('outlineEditModeBtn')"],
+  ['editable outline geometry override', 'stroke.outlineOverride'],
+  ['outline vertex drag handler', 'activeOutlineDrag.pointIndex'],
+  ['outline self-intersection guard', 'function isValidEditableRing(points, changedVertexIndex = null, originalPoints = null)'],
+  ['centerline node handles', "setAttribute('data-node-index', String(pointIndex))"],
+  ['centerline node dragging', 'activeNodeDrag.pointIndex'],
+  ['node drag undo commit only on change', 'if (commit && changed) {\ninvalidateCompoundOverride();\nsaveHistory();'],
+  ['trajectory point insertion', 'addTrajectoryPointBtn.onclick'],
+  ['trajectory point deletion', 'deleteTrajectoryPointBtn.onclick'],
+  ['OpenType preview MIME type', "type: 'font/otf'"],
+  ['TrueType export MIME type', "type: 'font/ttf'"],
+  ['OTF-to-TTF conversion lazy import', "const { createFont } = await import('fonteditor-core');"],
+  ['TTF converter is asynchronous', 'async function createTrueTypeFontBlob('],
+  ['TTF download awaits lazy conversion', 'const fontFile = await createTrueTypeFontBlob();'],
+  ['font library save awaits lazy conversion', 'const fontFile = await createTrueTypeFontBlob();'],
+  ['OTF parsing before conversion', "createFont(otfBuffer, {type: 'otf'})"],
+  ['TrueType output conversion selects legacy kern explicitly', "kerning: kerningFormat === 'kern' && kerningPairs.length > 0"],
+  ['TrueType sfnt signature validation', 'signature[1] !== 1'],
+  ['honest TrueType download extension', 'link.download = fileName;'],
+  ['download uses a user-triggered anchor', 'link.click();'],
+  ['vertical ascender metric covers maximum brush extent', 'const ascender = 950;'],
+  ['vertical descender metric covers maximum brush extent', 'const descender = -370;'],
+  ['Unicode scalar validation before cmap mapping', 'getSingleCodePoint(char)'],
+  ['font cmap rejects multi-code-point sequences without ligature mapping', 'Последовательность из нескольких кодовых точек не может быть экспортирована'],
+  ['glyph metadata module is imported', "from './glyph-metadata.js'"],
+  ['glyph metadata exposes official Unicode names', 'unicodeName'],
+  ['glyph metadata exposes standardized glyph names', 'glyphName'],
+  ['glyph metadata exposes character descriptions', 'description'],
+  ['glyph metadata includes Unicode general category', 'generalCategory'],
+  ['glyph metadata includes Unicode Script property', 'script'],
+  ['glyph metadata cards render for selected character', 'function renderCurrentGlyphMetadata()'],
+  ['glyph passport export function exists', 'function createGlyphCatalogBlob()'],
+  ['glyph passport export retains an explicit local fallback label', "'GlyphFlow bundled local metadata subset'"],
+  ['glyph passport identifies official UCD provenance when loaded', 'Unicode Character Database property subset'],
+  ['glyph passport export preserves multi-codepoint sequences', 'sequence-needs-explicit-mapping'],
+  ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"],
+  ['nearest outline handle hit testing', 'candidateHandles.reduce((best, handle) =>'],
+  ['final Boolean shape editing mode', "const compoundEditModeBtn = document.getElementById('compoundEditModeBtn');"],
+  ['per-glyph final geometry overrides', 'const compoundOverrides = {};'],
+  ['compound geometry persisted in project snapshots', 'compoundOverrides: JSON.parse(JSON.stringify(compoundOverrides))'],
+  ['compound geometry topology validation', 'function isValidCompoundEdit(candidate, original)'],
+  ['compound vertex drag lifecycle', 'function finishCompoundDrag(commit)'],
+  ['TTF export uses final Boolean geometry', 'getCompoundGlyphGeometry(strokes, compoundOverrides[char])'],
+  ['browser regression for final Boolean geometry editing', 'edits final Boolean compound rings with undo, redo, draft persistence and TTF export'],
+  ['font library uses IndexedDB', "const FONT_LIBRARY_PREFIX = 'font-library:';"],
+  ['font library saves generated TTF binaries', 'blob: fontFile.blob'],
+  ['font library saves editable project snapshots', 'projectSnapshot: serializeProjectSnapshot()'],
+  ['font library validates imported TTF and OTF binaries', 'function parseLibraryFontBytes(bytes, format)'],
+  ['font library enforces a 20 MiB imported font limit', 'const MAX_IMPORTED_FONT_BYTES = 20 * 1024 * 1024'],
+  ['single-font import uses the shared binary validator', 'const parsed = parseLibraryFontBytes(buffer, format);'],
+  ['backup restore validates each font binary', 'parseLibraryFontBytes(fontBuffer, item.format);'],
+  ['font library supports search', "librarySearch.addEventListener('input', renderFontLibrary)"],
+  ['font library supports backup export', "format:'GlyphFlowFontLibrary'"],
+  ['font library supports backup restore', "backup.format !== 'GlyphFlowFontLibrary'"],
+  ['PWA manifest linked from the app', 'rel="manifest"'],
+  ['service worker registered by the app', "navigator.serviceWorker.register('./sw.js'"]
+];
+
+for (const [label, token] of requiredContracts) {
+  assert.ok(html.includes(token) || moduleSource.includes(token) || browserTests.includes(token), `Missing required contract: ${label}`);
+}
+
+assert.ok(!moduleSource.includes("import { createFont } from 'fonteditor-core';"), 'fonteditor-core must not load at editor startup');
+
+assert.ok(!html.includes('font.download()'), 'Deprecated library download helper must not be used');
+assert.ok(!html.includes('Скачать .OTF'), 'The UI must provide the requested TrueType TTF export');
+assert.equal(pwaManifest.display, 'standalone', 'PWA must launch in standalone mode');
+assert.ok(pwaManifest.icons?.some(icon => icon.src === './icons/glyphflow.svg' && icon.purpose.includes('maskable')), 'PWA manifest must expose a maskable app icon');
+assert.equal(publicManifest, sourceManifest, 'Vite public manifest must match the source manifest');
+assert.equal(publicServiceWorker, serviceWorker, 'Vite public service worker must match the tested source worker');
+assert.equal(publicIcon, sourceIcon, 'Vite public icon must match the source icon');
+assert.ok(serviceWorker.includes("const CACHE_NAME = CACHE_PREFIX + 'v3';"), 'Service worker must version its app-shell cache');
+assert.ok(serviceWorker.includes("new URL('manifest.webmanifest', APP_SCOPE).href"), 'Service worker must cache the manifest');
+assert.equal(packageJson.dependencies['perfect-freehand'], '1.2.0', 'Brush runtime must be pinned locally');
+assert.equal(packageJson.dependencies['fonteditor-core'], '2.6.3', 'TTF conversion runtime must be pinned locally');
+assert.equal(packageJson.scripts['kerning:test'], 'node scripts/kerning-test.mjs', 'Kerning regression test command must be available');
+assert.ok(moduleSource.includes("import { buildKernTable, getKerningValue, normalizeKerningPairs } from './kerning.js';"), 'Editor must use the tested kerning module');
+assert.ok(moduleSource.includes('kerningPairs: JSON.parse(JSON.stringify(kerningPairs))'), 'Kerning pairs must be saved in draft data');
+assert.ok(moduleSource.includes('version: 3, glyphData, compoundOverrides, kerningPairs'), 'Kerning pairs must be part of versioned project snapshots');
+assert.ok(moduleSource.includes('buildKernTable(kerningPairs, convertedFontData.cmap)'), 'TTF export must map kerning pairs to final glyph IDs');
+assert.ok(moduleSource.includes("kerning: kerningFormat === 'kern' && kerningPairs.length > 0"), 'TTF writer must enable legacy kern only in legacy mode and only when pairs exist');
+assert.ok(fontSmoke.includes('buildKernTable(kernFixture, convertedFontData.cmap)'), 'Font smoke test must create a real kerning table');
+assert.ok(fontSmoke.includes('kerning: true'), 'Font smoke test must round-trip a kern table');
+assert.ok(kerningTests.includes('view.getUint16(16),0'), 'Kerning tests must verify format-0 binary search metadata');
+const kerningTestRun = spawnSync(process.execPath, ['scripts/kerning-test.mjs'], {encoding:'utf8'});
+assert.equal(kerningTestRun.status, 0, `Kerning regression tests failed:\n${kerningTestRun.stderr || kerningTestRun.stdout}`);
+assert.equal(packageJson.dependencies['opentype.js'], '1.3.4', 'OpenType runtime must be pinned locally');
+assert.equal(packageJson.dependencies['polygon-clipping'], '0.15.7', 'Boolean geometry runtime must be pinned locally');
+assert.ok(browserTests.includes('exposes an installable PWA manifest'), 'Browser tests must cover PWA installation metadata and shell caching');
+
+console.log(`GlyphFlow checks passed: module syntax + ${requiredContracts.length} structural contracts.`);
+console.log('Note: these checks do not replace browser, touch-device, or independent TTF validation.');
+
+const releasePackager = readFileSync(new URL('../scripts/pack-font-release.mjs', import.meta.url), 'utf8');
+const releasePackagerTest = readFileSync(new URL('../scripts/pack-font-release-test.mjs', import.meta.url), 'utf8');
+assert.ok(packageJson.scripts['font:package'] === 'node scripts/pack-font-release.mjs', 'Font release package command must be available');
+assert.ok(packageJson.scripts['font:package:test'] === 'node scripts/pack-font-release-test.mjs', 'Font release package regression test must be available');
+assert.ok(releasePackager.includes('glyphflow-glyph-catalog/v1') && releasePackager.includes('SHA256SUMS'), 'Release packager must validate the glyph catalog and emit checksums');
+assert.ok(releasePackager.includes('validateGlyphCatalogAgainstFont') && releasePackager.includes('Font cmap and glyph catalog do not match'), 'Release packager must reconcile the actual font cmap with its glyph passport');
+assert.ok(releasePackagerTest.includes('mismatched-catalog.json') && releasePackagerTest.includes('actual font cmap'), 'Release packager tests must reject a mismatched cmap passport');
+assert.ok(releasePackager.includes("licenseStatus: 'not-assigned'") && releasePackager.includes("publicationStatus: 'preflight-only'"), "Release packager must not invent a license or publication approval");
+assert.ok(releasePackagerTest.includes('inflateRawSync') && releasePackagerTest.includes('SHA256SUMS'), 'Release package test must inspect ZIP compression and checksum output');

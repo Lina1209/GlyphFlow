@@ -1,0 +1,157 @@
+from pathlib import Path
+from fontTools.ttLib import TTFont
+
+font_path = Path("/tmp/glyphflow-fixture.ttf")
+assert font_path.is_file(), "Fixture TrueType font was not written by the Node smoke test"
+
+font = TTFont(str(font_path), recalcBBoxes=True, recalcTimestamp=False)
+required_tables = {"head", "hhea", "maxp", "cmap", "glyf", "loca", "hmtx", "name", "post", "kern"}
+assert required_tables.issubset(font.keys()), f"Missing TrueType tables: {required_tables - set(font.keys())}"
+assert "CFF " not in font.keys(), "Final .ttf must not contain CFF outlines"
+assert font.sfntVersion == "\x00\x01\x00\x00", "Expected TrueType sfnt signature"
+
+assert font["head"].unitsPerEm == 1000
+assert abs(font["head"].fontRevision - 2.125) < 0.0001, "head.fontRevision must match name ID 5 version 2.125"
+assert font["hhea"].ascent == 950
+assert font["hhea"].descent == -370
+os2 = font["OS/2"]
+assert os2.sTypoAscender == font["hhea"].ascent, "OS/2 typographic ascender must match hhea ascent"
+assert os2.sTypoDescender == font["hhea"].descent, "OS/2 typographic descender must match hhea descent"
+assert os2.sTypoLineGap == font["hhea"].lineGap, "OS/2 typographic line gap must match hhea line gap"
+assert font["maxp"].numGlyphs >= 3
+assert font["head"].indexToLocFormat in (0, 1)
+assert "OS/2" in font, "TrueType font must contain OS/2 metrics and classification"
+assert font["OS/2"].usWeightClass == 400, "Regular font weight must be 400"
+assert font["OS/2"].usWidthClass in range(1, 10), "OS/2 width class must be within the OpenType range"
+assert font["OS/2"].fsSelection & 0x0100, "Regular static export must set the WWS conformance bit"
+assert "post" in font and font["post"].formatType in (2.0, 2.5, 3.0), "Invalid post table format"
+
+name_expectations = {
+    0: "Copyright 2026 GlyphFlow Test",
+    1: "GlyphFlow CI Fixture",
+    2: "Regular",
+    4: "GlyphFlow CI Fixture Regular",
+    5: "Version 2.125",
+    6: "GlyphFlowCIFixture-Regular",
+    7: "GlyphFlow Test Mark",
+    8: "GlyphFlow Test Foundry",
+    9: "GlyphFlow Test Designer",
+    10: "Metadata regression fixture",
+    11: "https://example.com/foundry",
+    12: "https://example.com/designer",
+    13: "Test license text, not a real grant",
+    14: "https://example.com/license",
+}
+unique_id = font["name"].getDebugName(3)
+assert unique_id and unique_id.strip(), "OpenType name ID 3 must contain a non-empty unique font identifier"
+for name_id, expected in name_expectations.items():
+    actual = font["name"].getDebugName(name_id)
+    assert actual == expected, f"name ID {name_id} mismatch: {actual!r} != {expected!r}"
+
+cmap = font.getBestCmap()
+for char in ("A", "Ё", "😀", "Ф", "Ы", " "):
+    assert ord(char) in cmap, f"Missing cmap entry for U+{ord(char):04X}"
+
+assert font["hmtx"].metrics[cmap[ord(" ")]][0] == 350
+kern_tables = font["kern"].kernTables
+assert len(kern_tables) == 1 and kern_tables[0].format == 0, "Expected one horizontal format-0 kern subtable"
+kern_pairs = kern_tables[0].kernTable
+left_name, right_name = cmap[ord("A")], cmap[ord("Ё")]
+assert kern_pairs.get((left_name, right_name)) == -75, f"Expected A/Ё kerning -75, got {kern_pairs.get((left_name, right_name))!r}"
+
+glyf_table = font["glyf"]
+glyph_y_max = max((glyf_table[name].yMax for name in cmap.values() if glyf_table[name].numberOfContours > 0), default=0)
+glyph_y_min = min((glyf_table[name].yMin for name in cmap.values() if glyf_table[name].numberOfContours > 0), default=0)
+assert os2.usWinAscent >= max(0, glyph_y_max), (
+    f"OS/2 usWinAscent clips glyphs: {os2.usWinAscent} < {glyph_y_max}"
+)
+assert os2.usWinDescent >= max(0, -glyph_y_min), (
+    f"OS/2 usWinDescent clips glyphs: {os2.usWinDescent} < {-glyph_y_min}"
+)
+
+# Verify real glyph bounds against global vertical metrics and both horizontal bearings.
+# GlyphFlow's drawing transform uses a 50-unit left/right side bearing for drawn glyphs.
+for codepoint, glyph_name in cmap.items():
+    if codepoint == 32:
+        continue
+    glyph = glyf_table[glyph_name]
+    if glyph.numberOfContours == 0:
+        continue
+    advance_width, left_side_bearing = font["hmtx"].metrics[glyph_name]
+    assert glyph.xMin >= left_side_bearing, (
+        f"Left side bearing clips {glyph_name}: xMin={glyph.xMin}, lsb={left_side_bearing}"
+    )
+    right_side_bearing = advance_width - left_side_bearing - (glyph.xMax - glyph.xMin)
+    assert right_side_bearing >= 0, (
+        f"Negative right side bearing for {glyph_name}: advance={advance_width}, "
+        f"lsb={left_side_bearing}, xMin={glyph.xMin}, xMax={glyph.xMax}"
+    )
+    assert glyph.yMax <= font["hhea"].ascent, (
+        f"Glyph {glyph_name} exceeds hhea ascent: yMax={glyph.yMax}, ascent={font['hhea'].ascent}"
+    )
+    assert glyph.yMin >= font["hhea"].descent, (
+        f"Glyph {glyph_name} exceeds hhea descent: yMin={glyph.yMin}, descent={font['hhea'].descent}"
+    )
+    assert left_side_bearing == 50 and abs(right_side_bearing - 50) <= 1, (
+        f"Unexpected side bearings for {glyph_name}: LSB={left_side_bearing}, RSB={right_side_bearing}; "
+        "allow at most one font unit of right-bearing quantization from ceil(advanceWidth)"
+    )
+
+for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("Ж", 1), ("∞", 2), ("Р", 2), ("Ф", 3), ("Ы", 4)):
+    glyph_name = cmap[ord(char)]
+    glyph = glyf_table[glyph_name]
+    assert glyph.numberOfContours == expected_contours, f"Unexpected contour count for {char}"
+    coordinates, end_points, _ = glyph.getCoordinates(glyf_table)
+    assert len(coordinates) >= 3, f"Empty outline for {char}"
+    start = 0
+    for end in end_points:
+        contour = coordinates[start:end + 1]
+        assert len(contour) >= 3
+        area2 = 0
+        for index, point in enumerate(contour):
+            next_point = contour[(index + 1) % len(contour)]
+            area2 += point[0] * next_point[1] - next_point[0] * point[1]
+        contour_index = sum(1 for previous_end in end_points if previous_end < end)
+        is_hole = (char == "Р" and contour_index == 1) or (char == "∞" and contour_index == 1) or (char == "Ф" and contour_index in {1, 2}) or (char == "Ы" and contour_index in {1, 3})
+        expected_negative = not is_hole
+        assert (area2 < 0) == expected_negative, (
+            f"Unexpected contour winding for {char} contour {contour_index} ending at {end}: "
+            f"signed_area2={area2}, expected_negative={expected_negative}"
+        )
+        start = end + 1
+    for x, y in coordinates:
+        assert isinstance(x, int) and isinstance(y, int)
+
+for char in ("О", "∞"):
+    glyph_name = cmap[ord(char)]
+    glyph = glyf_table[glyph_name]
+    assert glyph.numberOfContours >= 1, f"Closed/self-crossing glyph {char} lost its outline"
+
+
+# Independently parse the GPOS-only fixture emitted through fonteditor-core.
+gpos_path = Path("/tmp/glyphflow-gpos-fixture.ttf")
+assert gpos_path.is_file(), "GPOS fixture was not written by the Node integration test"
+gpos_font = TTFont(str(gpos_path), recalcBBoxes=True, recalcTimestamp=False)
+assert "GPOS" in gpos_font, "fonteditor-core writer dropped the raw GPOS table"
+assert "kern" not in gpos_font, "GPOS-only fixture must not contain legacy kern data"
+gpos = gpos_font["GPOS"].table
+assert gpos.Version == 0x00010000
+assert len(gpos.LookupList.Lookup) == 1
+lookup = gpos.LookupList.Lookup[0]
+assert lookup.LookupType == 2, "Expected GPOS Pair Adjustment lookup type 2"
+assert len(lookup.SubTable) == 1
+pair_pos = lookup.SubTable[0]
+assert pair_pos.Format == 1, "Expected PairPos format 1"
+assert pair_pos.ValueFormat1 == 4 and pair_pos.ValueFormat2 == 0
+gpos_cmap = gpos_font.getBestCmap()
+left_glyph = gpos_cmap[ord("A")]
+right_glyph = gpos_cmap[ord("Ё")]
+coverage = pair_pos.Coverage.glyphs
+assert left_glyph in coverage, f"GPOS Coverage missing left glyph {left_glyph}"
+pair_set = pair_pos.PairSet[coverage.index(left_glyph)]
+pair_values = {record.SecondGlyph: record.Value1.XAdvance for record in pair_set.PairValueRecord}
+assert pair_values.get(right_glyph) == -75, (
+    f"Expected GPOS A/Ё XAdvance=-75, got {pair_values.get(right_glyph)!r}"
+)
+
+print(f"FontTools validation passed: kern format-0 A/Ё=-75; hhea/OS2 vertical metrics agree; Windows bounds cover glyphs (usWinAscent={os2.usWinAscent}, usWinDescent={os2.usWinDescent}); independent TrueType parse + glyf/loca + cmap + hmtx + contour geometry.")
