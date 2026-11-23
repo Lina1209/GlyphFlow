@@ -50,6 +50,8 @@ for char in ("A", "Ё", "😀", "Ф", "Ы", " "):
 
 assert font["hmtx"].metrics[cmap[ord(" ")]][0] == 350
 
+glyf_table = font["glyf"]
+
 # Verify real glyph bounds against global vertical metrics and both horizontal bearings.
 # GlyphFlow's drawing transform uses a 50-unit left/right side bearing for drawn glyphs.
 for codepoint, glyph_name in cmap.items():
@@ -77,7 +79,6 @@ for codepoint, glyph_name in cmap.items():
         f"Unexpected side bearings for {glyph_name}: LSB={left_side_bearing}, RSB={right_side_bearing}"
     )
 
-glyf_table = font["glyf"]
 for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("Ж", 1), ("∞", 2), ("Р", 2), ("Ф", 3), ("Ы", 4)):
     glyph_name = cmap[ord(char)]
     glyph = glyf_table[glyph_name]
