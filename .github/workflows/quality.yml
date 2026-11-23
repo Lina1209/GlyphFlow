@@ -33,6 +33,8 @@ jobs:
         run: npm run check
       - name: Test Unicode catalog parser fixtures
         run: npm run unicode:catalog:test
+      - name: Test Unicode runtime metadata loader
+        run: npm run unicode:metadata:test
       - name: Import pinned official Unicode Character Database
         run: npm run unicode:catalog
       - name: Validate complete official Unicode catalog
