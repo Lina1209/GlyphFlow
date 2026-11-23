@@ -1,6 +1,6 @@
 const CYRILLIC_UPPER = [...'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'];
 const CYRILLIC_UPPER_NAMES = [
-  'A', 'BE', 'VE', 'GHE', 'DE', 'IE', 'ZHE', 'ZE', 'I', 'SHORT I',
+  'A', 'BE', 'VE', 'GHE', 'DE', 'IE', 'IO', 'ZHE', 'ZE', 'I', 'SHORT I',
   'KA', 'EL', 'EM', 'EN', 'O', 'PE', 'ER', 'ES', 'TE', 'U', 'EF',
   'HA', 'TSE', 'CHE', 'SHA', 'SHCHA', 'HARD SIGN', 'YERU',
   'SOFT SIGN', 'E', 'YU', 'YA'
