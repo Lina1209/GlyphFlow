@@ -1556,7 +1556,7 @@ test('shows a readable error when the font library cannot be read', async ({ pag
       throw new DOMException('Simulated storage access failure', 'SecurityError');
     };
   });
-  await page.locator('#librarySearch').fill('trigger refresh');
+  await page.locator('#fontLibrarySearch').fill('trigger refresh');
   await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось открыть библиотеку');
   await expect(page.locator('#fontLibraryStatus')).toContainText('браузер запретил доступ к локальному хранилищу');
 });
