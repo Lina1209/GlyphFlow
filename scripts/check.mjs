@@ -160,6 +160,15 @@ const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
 });
 assert.equal(syntax.status, 0, `Inline module syntax check failed:\n${syntax.stderr || syntax.stdout}`);
 
+const gposSource = readFileSync(new URL('../src/gpos.js', import.meta.url), 'utf8');
+assert.ok(moduleSource.includes("import { buildGposTable } from './gpos.js';"), 'TTF export must use the tested GPOS table builder');
+assert.ok(moduleSource.includes("kerningFormat === 'gpos' ? buildGposTable(kerningPairs, convertedFontData.cmap) : null"), 'Modern export must map editor pairs to final glyph IDs');
+assert.ok(moduleSource.includes('else delete convertedFontData.GPOS;') && moduleSource.includes('else delete convertedFontData.kern;'), 'TTF export must remove the inactive kerning table');
+assert.ok(moduleSource.includes("['kern', 'gpos'].includes(kerningFormat)"), 'TTF export must reject unknown kerning modes');
+assert.ok(html.includes('id="kerningFormat"') && html.includes('value="kern" selected') && html.includes('value="gpos"'), 'Kerning format selector must default to legacy and expose GPOS');
+assert.ok(browserTests.includes("expect(gposTags).toContain('GPOS')") && browserTests.includes("expect(gposTags).not.toContain('kern')"), 'Browser export test must enforce GPOS-only output');
+assert.ok(gposSource.includes('export function buildGposTable(sourcePairs, cmap)'), 'GPOS Unicode-to-glyph mapping must be available and tested');
+
 const requiredContracts = [
   ['primary pointer guard', 'if (e.button !== 0 || !e.isPrimary || isDrawing || panPointerId !== null) return;'],
   ['SVG coordinate transform', 'point.matrixTransform(drawSvg.getScreenCTM().inverse())'],
@@ -223,7 +232,7 @@ const requiredContracts = [
   ['TrueType export MIME type', "type: 'font/ttf'"],
   ['OTF-to-TTF conversion import', "import { createFont } from 'fonteditor-core';"],
   ['OTF parsing before conversion', "createFont(otfBuffer, {type: 'otf'})"],
-  ['TrueType output conversion includes configured kerning', 'kerning: kerningPairs.length > 0'],
+  ['TrueType output conversion selects legacy kern explicitly', "kerning: kerningFormat === 'kern' && kerningPairs.length > 0"],
   ['TrueType sfnt signature validation', 'signature[1] !== 1'],
   ['honest TrueType download extension', 'link.download = fileName;'],
   ['download uses a user-triggered anchor', 'link.click();'],
