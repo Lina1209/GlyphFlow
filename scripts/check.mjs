@@ -9,6 +9,7 @@ assert.ok(html.includes('<script type="module" src="./src/main.js"></script>'), 
 assert.ok(!html.includes('https://cdn.') && !html.includes('https://esm.sh'), 'HTML must not load runtime dependencies from external CDNs');
 
 const fontSmoke = readFileSync(new URL('../scripts/font-smoke-test.mjs', import.meta.url), 'utf8');
+const fontCatalogValidator = readFileSync(new URL('../scripts/font-catalog-validator.mjs', import.meta.url), 'utf8');
 const browserTests = readFileSync(new URL('../tests/browser/editor.spec.mjs', import.meta.url), 'utf8');
 const geometryPerformance = readFileSync(new URL('../scripts/geometry-performance.mjs', import.meta.url), 'utf8');
 const sourceManifest = readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8');
@@ -50,6 +51,18 @@ const unicodeParserTestSyntax = spawnSync(process.execPath, ['--check', '--input
 assert.equal(unicodeParserTestSyntax.status, 0, `Unicode parser test syntax check failed:\n${unicodeParserTestSyntax.stderr || unicodeParserTestSyntax.stdout}`);
 const unicodeMetadataTestSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: unicodeMetadataTests, encoding: 'utf8' });
 assert.equal(unicodeMetadataTestSyntax.status, 0, `Unicode metadata test syntax check failed:\n${unicodeMetadataTestSyntax.stderr || unicodeMetadataTestSyntax.stdout}`);
+
+const fontCatalogContracts = [
+  ['font passport validator checks parsed font cmap', 'font.charToGlyph(character)'],
+  ['font passport validator rejects multi-code-point sequences', 'Unsupported multi-code-point or invalid catalog entry'],
+  ['font passport validator detects missing exported glyphs', 'absent from the glyph catalog'],
+  ['font smoke test validates real converted TTF passport', 'validateGlyphCatalogAgainstFont(reparsedTtf, exportedCatalog)'],
+  ['font smoke test detects incomplete passport', 'incompleteCheck.valid, false'],
+  ['font smoke test rejects unmapped sequences', 'sequenceCheck.valid, false']
+];
+for (const [label, token] of fontCatalogContracts) {
+  assert.ok(fontCatalogValidator.includes(token) || fontSmoke.includes(token), `Missing font catalog contract: ${label}`);
+}
 
 const fontMetadataContracts = [
   ['font metadata designer field', 'id="fontDesigner"'],
