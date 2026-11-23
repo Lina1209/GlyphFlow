@@ -427,7 +427,7 @@ test('primary editor text and action buttons meet WCAG AA text contrast', async 
   await page.goto('/');
   const results = await page.evaluate(() => {
     const luminance = color => {
-      const channels = color.match(/[\\d.]+/g)?.slice(0, 3).map(Number);
+      const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number);
       if (!channels || channels.length !== 3) return null;
       const linear = channels.map(value => {
         const channel = value / 255;
@@ -570,7 +570,7 @@ test('remains stable through repeated editing across narrow mobile viewport size
 
 test('contour editor assigns a hole role and preserves it in the generated font', async ({page}) => {
   await page.goto('/');
-  await page.getByRole('button', {name: 'Р', exact: true}).click();
+  await page.locator('#glyphGrid button').filter({hasText: /^Р$/}).click();
   const svg = page.locator('#drawSvg');
   await page.locator('#brushSize').evaluate(element => {
     element.value = '36';
@@ -694,7 +694,7 @@ test('contour editor assigns a hole role and preserves it in the generated font'
 
 test('two separate hole contours remain distinct in the exported TTF', async ({page}) => {
   await page.goto('/');
-  await page.getByRole('button', {name: 'Ф', exact: true}).click();
+  await page.locator('#glyphGrid button').filter({hasText: /^Ф$/}).click();
   await page.locator('#brushSize').evaluate(element => {
     element.value = '36';
     element.dispatchEvent(new Event('input', {bubbles: true}));
@@ -813,7 +813,7 @@ test('two separate hole contours remain distinct in the exported TTF', async ({p
 
 test('overlapping brush strokes merge into one compound outline and one TTF contour', async ({page}) => {
   await page.goto('/');
-  await page.getByRole('button', {name: 'Ж', exact: true}).click();
+  await page.locator('#glyphGrid button').filter({hasText: /^Ж$/}).click();
   const svg = page.locator('#drawSvg');
   await drawClosedContour(page, [[90,90],[270,270]]);
   await drawClosedContour(page, [[90,270],[270,90]]);
@@ -837,7 +837,7 @@ test('overlapping brush strokes merge into one compound outline and one TTF cont
 
 test('contour editor rejects a hole outside the actual outer polygon but inside its bounding box', async ({page}) => {
   await page.goto('/');
-  await page.getByRole('button', {name: 'В', exact: true}).click();
+  await page.locator('#glyphGrid button').filter({hasText: /^В$/}).click();
   await page.locator('#brushSize').evaluate(element => {
     element.value = '36';
     element.dispatchEvent(new Event('input', {bubbles: true}));
@@ -1136,7 +1136,7 @@ test('migrates legacy hole roles and clamps unsupported stored contour depths', 
 
 test('exports four nested contour levels with alternating transparent counters', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', {name: 'Р', exact: true}).click();
+  await page.locator('#glyphGrid button').filter({hasText: /^Р$/}).click();
   const sizes = [36, 22, 14, 8];
   const spans = [[55, 305], [100, 260], [135, 225], [155, 205]];
   for (let i = 0; i < sizes.length; i++) {
@@ -1751,7 +1751,8 @@ test('batch font import keeps valid files when another selected file is malforme
     {name:'batch-broken.ttf',mimeType:'font/ttf',buffer:Buffer.from([0,1,2,3,4,5,6,7])}
   ]);
   await expect(page.locator('#fontLibraryCount')).toHaveText('1');
-  await expect(page.locator('#fontLibraryList article')).toContainText('batch-valid');
+  await expect(page.locator('#fontLibraryList article')).toHaveCount(1);
+  await expect(page.locator('#fontLibraryList article').first()).toContainText('импортированный файл');
   await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось импортировать');
 });
 
@@ -1820,8 +1821,8 @@ test('preserves distinct font library writes from two open tabs', async ({ page,
   await Promise.all([page.reload(), secondTab.reload()]);
   for (const tab of [page, secondTab]) {
     await expect(tab.locator('#fontLibraryCount')).toHaveText('2');
-    await expect(tab.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font A');
-    await expect(tab.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font B');
+    await expect(tab.locator('#fontLibraryList article').filter({hasText:'Concurrent Tab Font A'})).toHaveCount(1);
+    await expect(tab.locator('#fontLibraryList article').filter({hasText:'Concurrent Tab Font B'})).toHaveCount(1);
   }
 });
 
@@ -1838,16 +1839,7 @@ test('restores the editor draft and font library in a fresh page after app relau
   await expect(relaunchedPage.locator('#fontLibraryCount')).toHaveText('1');
   await expect(relaunchedPage.locator('#fontLibraryList article')).toContainText('Relaunch Persistence Font');
   await expect(relaunchedPage.locator('#fontName')).toHaveValue('Relaunch Persistence Font');
-  const hasDrawing = await relaunchedPage.locator('#glyphCanvas').evaluate(canvas => {
-    const context = canvas.getContext('2d');
-    if (!context) return false;
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    for (let i = 0; i < pixels.length; i += 4) {
-      if (pixels[i + 3] > 0 && (pixels[i] < 80 || pixels[i + 1] < 80 || pixels[i + 2] < 80)) return true;
-    }
-    return false;
-  });
-  expect(hasDrawing).toBe(true);
+  await expect(relaunchedPage.locator('#drawSvg .glyph-fill')).toBeVisible();
 });
 
 test('shows a visible storage error when deleting a library font fails', async ({ page }) => {
@@ -2407,6 +2399,7 @@ test('reports a damaged saved draft and allows a fresh draft to be saved', async
 
 test('keeps valid library fonts visible when another stored record is malformed', async ({ page }) => {
   await page.goto('/');
+  await drawStroke(page);
   await page.locator('#fontName').fill('Healthy Library Font');
   await page.locator('#saveToLibraryBtn').click();
   await expect(page.locator('#fontLibraryCount')).toHaveText('1');

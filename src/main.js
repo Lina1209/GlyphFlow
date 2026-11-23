@@ -1345,6 +1345,9 @@ tx.onerror = () => reject(tx.error || request.error || new Error('Ошибка �
 tx.onabort = () => reject(tx.error || new Error('Чтение сохранённого черновика было прервано.'));
 });
 if (draft !== undefined) {
+// Preserve the stored revision even when its payload is invalid, so a fresh
+// edit can replace a damaged draft instead of looking like a competing tab.
+lastDraftSavedAt = Number.isFinite(Number(draft?.savedAt)) ? Number(draft.savedAt) : 0;
 if (!draft || typeof draft !== 'object' || Array.isArray(draft) ||
 !draft.glyphData || typeof draft.glyphData !== 'object' || Array.isArray(draft.glyphData)) {
 throw new Error('Сохранённый черновик имеет неверную структуру.');
