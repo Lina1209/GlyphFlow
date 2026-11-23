@@ -77,7 +77,7 @@ try {
   assert.equal(manifest.licenseStatus, 'not-assigned');
   assert.equal(manifest.publicationStatus, 'preflight-only');
   const sums = await readFile(path.join(outDir, 'SHA256SUMS'), 'utf8');
-  assert.match(sums, /[a-f0-9]{64}  GlyphFlow_QA_Fixture-Regular\.ttf/);
+  assert.match(sums, /[a-f0-9]{64}  GlyphFlow_QA_Fixture-Regular\.otf/);
   console.log('Font release packager tests passed.');
 } finally {
   await rm(root, { recursive: true, force: true });
