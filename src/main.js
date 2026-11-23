@@ -1811,7 +1811,7 @@ custom: !knownUnicodeName
 };
 });
 const catalog = {
-schema: 'https://glyphflow.app/schemas/glyph-catalog-v1.json',
+schema: 'glyphflow-glyph-catalog/v1',
 format: 'GlyphFlow Glyph Catalog',
 formatVersion: 1,
 fontFamily: fontName,
