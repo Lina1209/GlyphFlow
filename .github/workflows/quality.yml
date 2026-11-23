@@ -43,6 +43,8 @@ jobs:
         run: npm run build
       - name: Generate, convert, and parse a fixture TTF
         run: node scripts/font-smoke-test.mjs
+      - name: Test font release package and ZIP integrity
+        run: npm run font:package:test
       - name: Exercise Boolean geometry edge cases
         run: node scripts/geometry-edge-cases.mjs
       - name: Benchmark geometry complexity and cache reuse
