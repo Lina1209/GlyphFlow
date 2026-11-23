@@ -27,5 +27,5 @@ assert.equal(view.getUint16(16),0);
 assert.deepEqual([[view.getUint16(18),view.getUint16(20),view.getInt16(22)],[view.getUint16(24),view.getUint16(26),view.getInt16(28)]],[[2,3,-50],[3,2,-80]]);
 assert.equal(buildKernTable([] ,{}),null);
 assert.throws(()=>buildKernTable([{left:'A',right:'V',value:-50}],{65:2}),/нарисуйте и экспортируйте оба глифа/);
-assert.throws(()=>buildKernTable([{left:'A',right:'V',value:-50}],{65:2,86:2}),/одной и той же паре глифов/);
+assert.throws(()=>buildKernTable([{left:'A',right:'V',value:-50},{left:'V',right:'A',value:-60}],{65:2,86:2}),/одной и той же паре глифов/);
 console.log('GlyphFlow kerning tests passed: scalar validation, duplicate/range guards, deterministic format-0 binary, sorted glyph pairs and missing-cmap rejection.');
