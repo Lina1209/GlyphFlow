@@ -1206,8 +1206,12 @@ db = await openDraftDB();
 const tx = db.transaction(DRAFT_STORE, 'readonly');
 const request = tx.objectStore(DRAFT_STORE).get('current');
 const draft = await new Promise((resolve, reject) => {
-request.onsuccess = () => resolve(request.result);
-request.onerror = () => reject(request.error);
+let result;
+request.onsuccess = () => { result = request.result; };
+request.onerror = () => reject(request.error || new Error('Не удалось прочитать сохранённый черновик.'));
+tx.oncomplete = () => resolve(result);
+tx.onerror = () => reject(tx.error || request.error || new Error('Ошибка чтения сохранённого черновика.'));
+tx.onabort = () => reject(tx.error || new Error('Чтение сохранённого черновика было прервано.'));
 });
 if (draft !== undefined) {
 if (!draft || typeof draft !== 'object' || Array.isArray(draft) ||
@@ -1763,11 +1767,14 @@ const request = store.openCursor();
 const records = [];
 request.onsuccess = () => {
 const cursor = request.result;
-if (!cursor) return resolve(records.sort((a,b) => (b.savedAt || 0) - (a.savedAt || 0)));
+if (!cursor) return;
 if (typeof cursor.key === 'string' && cursor.key.startsWith(FONT_LIBRARY_PREFIX)) records.push(cursor.value);
 cursor.continue();
 };
-request.onerror = () => reject(request.error);
+request.onerror = () => reject(request.error || new Error('Не удалось прочитать библиотеку шрифтов.'));
+tx.oncomplete = () => resolve(records.sort((a,b) => (b.savedAt || 0) - (a.savedAt || 0)));
+tx.onerror = () => reject(tx.error || new Error('Ошибка чтения библиотеки шрифтов.'));
+tx.onabort = () => reject(tx.error || new Error('Чтение библиотеки шрифтов было прервано.'));
 });
 } finally { db.close(); }
 }
