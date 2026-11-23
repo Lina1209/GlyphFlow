@@ -117,9 +117,12 @@ function getAlgorithmicRangeName(codePoint, range) {
     return 'CJK UNIFIED IDEOGRAPH-' + codePoint.toString(16).toUpperCase().padStart(4, '0');
   }
   const algorithmicPrefixes = {
+    'Egyptian Hieroglyph':'EGYPTIAN HIEROGLYPH-',
     'Tangut Ideograph':'TANGUT IDEOGRAPH-',
+    'Khitan Small Script Character':'KHITAN SMALL SCRIPT CHARACTER-',
+    'Jurchen Character':'JURCHEN CHARACTER-',
     'Nushu Character':'NUSHU CHARACTER-',
-    'Khitan Small Script Character':'KHITAN SMALL SCRIPT CHARACTER-'
+    'Small Seal Character':'SMALL SEAL CHARACTER-'
   };
   if (algorithmicPrefixes[template]) {
     return algorithmicPrefixes[template] + codePoint.toString(16).toUpperCase().padStart(4, '0');
