@@ -198,7 +198,7 @@ const requiredContracts = [
   ['glyph metadata cards render for selected character', 'function renderCurrentGlyphMetadata()'],
   ['glyph passport export function exists', 'function createGlyphCatalogBlob()'],
   ['glyph passport export retains an explicit local fallback label', "'GlyphFlow bundled local metadata subset'"],
-  ['glyph passport identifies official UCD provenance when loaded', "'Unicode Character Database'"],
+  ['glyph passport identifies official UCD provenance when loaded', 'Unicode Character Database property subset'],
   ['glyph passport export preserves multi-codepoint sequences', 'sequence-needs-explicit-mapping'],
   ['supplementary-plane glyph naming', "'u' + codePoint.toString(16).toUpperCase().padStart(5, '0')"],
   ['nearest outline handle hit testing', 'candidateHandles.reduce((best, handle) =>'],
