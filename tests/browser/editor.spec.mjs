@@ -362,6 +362,12 @@ test('mobile editor controls meet minimum touch target dimensions', async ({ pag
     expect(box.width, selector).toBeGreaterThanOrEqual(44);
   }
   await expect(page.locator('#zoomResetBtn')).toHaveAttribute('aria-label', 'Сбросить масштаб и положение холста');
+  for (const selector of ['#importFontInput', '#importLibraryBackupInput']) {
+    const label = page.locator('label').filter({has: page.locator(selector)});
+    const box = await label.boundingBox();
+    expect(box, selector).toBeTruthy();
+    expect(box.height, selector).toBeGreaterThanOrEqual(44);
+  }
 });
 
 test('drawing canvas supports keyboard navigation and announces its shortcuts', async ({ page }) => {
