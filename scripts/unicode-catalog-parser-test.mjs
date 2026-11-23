@@ -52,7 +52,7 @@ assert.throws(() => parseUnicodeData([
 assert.throws(() => parseUnicodeData([
   unicodeLine(0x3400, 'RANGE, First>', 'Lo'),
   unicodeLine(0x3401, 'RANGE, First>', 'Lo')
-].join('\\n'), scripts), /Nested/);
+].join('\n'), scripts), /Nested/);
 assert.throws(() => parseUnicodeData(unicodeLine(0x110000, 'OUT OF RANGE'), scripts), /Invalid or unsorted/);
 assert.throws(() => parseUnicodeData('', scripts), /empty catalog/);
 assert.deepEqual(parseScripts(''), [], 'Empty Scripts.txt should parse to an empty range list');
