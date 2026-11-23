@@ -8,7 +8,7 @@ font = TTFont(str(font_path), recalcBBoxes=True, recalcTimestamp=False)
 required = {"head", "hhea", "maxp", "cmap", "glyf", "loca", "hmtx", "name", "OS/2", "post", "kern"}
 missing = required - set(font.keys())
 assert not missing, f"Browser-exported TTF is missing tables: {sorted(missing)}"
-assert font.sfntVersion == "\\x00\\x01\\x00\\x00", "Browser export is not a TrueType sfnt"
+assert font.sfntVersion == "\x00\x01\x00\x00", "Browser export is not a TrueType sfnt"
 assert font["head"].unitsPerEm == 1000, "Unexpected unitsPerEm in browser export"
 
 cmap = font.getBestCmap()
