@@ -1869,7 +1869,7 @@ libraryStatus.textContent = '«' + name + '» сохранён в библиот
 await renderFontLibrary();
 } catch (err) {
 console.error('Не удалось сохранить шрифт:', err);
-libraryStatus.textContent = 'Не удалось сохранить: ' + (err.name === 'QuotaExceededError' ? 'недостаточно места в хранилище устройства.' : (err.message || 'ошибка IndexedDB'));
+libraryStatus.textContent = 'Не удалось сохранить: ' + describeStorageError(err, 'ошибка IndexedDB');
 }
 });
 const MAX_IMPORTED_FONT_BYTES = 20 * 1024 * 1024;
