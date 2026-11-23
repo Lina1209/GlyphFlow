@@ -27,7 +27,7 @@ name_expectations = {
     3: "Version 2.125",
     4: "GlyphFlow CI Fixture Regular",
     5: "Version 2.125",
-    6: "GlyphFlowCI​Fixture-Regular".replace("\u200b", ""),
+    6: "GlyphFlowCIFixture-Regular",
     7: "GlyphFlow Test Mark",
     8: "GlyphFlow Test Foundry",
     9: "GlyphFlow Test Designer",
