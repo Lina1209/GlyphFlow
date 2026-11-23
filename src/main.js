@@ -764,6 +764,45 @@ zoomAt(e.deltaY < 0 ? 0.9 : 1.1, e.clientX, e.clientY);
 }, {passive: false});
 drawSvg.addEventListener('contextmenu', e => e.preventDefault());
 
+// Keyboard navigation for users who cannot or prefer not to use a pointer.
+// The SVG receives focus and exposes these shortcuts through aria-keyshortcuts.
+drawSvg.addEventListener('keydown', e => {
+  const panStep = e.shiftKey ? 48 : 24;
+  switch (e.key) {
+    case 'ArrowLeft':
+      e.preventDefault();
+      panView(-panStep, 0);
+      break;
+    case 'ArrowRight':
+      e.preventDefault();
+      panView(panStep, 0);
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      panView(0, -panStep);
+      break;
+    case 'ArrowDown':
+      e.preventDefault();
+      panView(0, panStep);
+      break;
+    case '+':
+    case '=':
+      e.preventDefault();
+      zoomAt(0.8);
+      break;
+    case '-':
+    case '_':
+      e.preventDefault();
+      zoomAt(1.25);
+      break;
+    case 'Home':
+      e.preventDefault();
+      viewBox = {x: 0, y: 0, size: 360};
+      applyViewBox();
+      break;
+  }
+});
+
 // Получение точных координат SVG с учётом текущего масштаба и положения viewBox.
 function getPointerPos(e) {
 const point = svgPointFromClient(e.clientX, e.clientY);
