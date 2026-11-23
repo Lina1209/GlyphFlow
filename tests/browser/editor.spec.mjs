@@ -333,6 +333,10 @@ test('font library import controls have accessible names and remain keyboard rea
   await page.locator('#fontLibrary').scrollIntoViewIfNeeded();
   await fontInput.focus();
   await expect(fontInput).toBeFocused();
+  const importLabel = page.locator('label').filter({has: fontInput});
+  await expect(importLabel).toHaveCSS('outline-style', 'solid');
+  await expect(page.locator('#fontLibraryStatus')).toHaveAttribute('aria-atomic', 'true');
+  await expect(page.locator('#contourStatus')).toHaveAttribute('role', 'status');
 });
 
 test('editor remains usable at 200 percent page zoom without horizontal overflow', async ({ page }) => {
