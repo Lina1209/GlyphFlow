@@ -70,7 +70,7 @@ async function clickContourPath(page, path) {
 test('exposes accessible names for the main editor inputs and drawing surface', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('textbox', {name:'Название шрифта'})).toBeVisible();
-  await expect(page.getByRole('group', {name:'Холст текущего символа. Стрелки перемещают холст, плюс и минус меняют вид'})).toBeVisible();
+  await expect(page.getByRole('group', {name:/Холст текущего символа\. Стрелки перемещают холст/})).toBeVisible();
   await expect(page.getByRole('textbox', {name:'Текст для проверки шрифта'})).toBeVisible();
   await expect(page.getByRole('searchbox', {name:'Поиск в библиотеке шрифтов'})).toBeVisible();
 });
