@@ -3,3 +3,5 @@ dist/
 playwright-report/
 test-results/
 .DS_Store
+/data/unicode/
+/public/data/unicode/
