@@ -26,8 +26,8 @@ class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus
 </div>
 </div>
 </header>
-<p id="draftSyncStatus" role="status" aria-live="polite" class="hidden max-w-7xl w-full mx-auto px-6 pt-3 text-sm text-amber-300"></p>
-<p id="pwaStatus" role="status" aria-live="polite" class="hidden max-w-7xl w-full mx-auto px-6 pt-2 text-sm text-amber-300"></p>
+<p id="draftSyncStatus" role="status" aria-live="polite" aria-atomic="true" class="hidden max-w-7xl w-full mx-auto px-6 pt-3 text-sm text-amber-300"></p>
+<p id="pwaStatus" role="status" aria-live="polite" aria-atomic="true" class="hidden max-w-7xl w-full mx-auto px-6 pt-2 text-sm text-amber-300"></p>
 
 <!-- Основная рабочая область -->
 <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl w-full mx-auto">
@@ -109,7 +109,7 @@ class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus
     </select>
     <button id="applyContourRoleBtn" type="button" disabled class="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-40 rounded-lg px-3 py-2 text-xs font-medium">Применить</button>
   </div>
-  <p id="contourStatus" class="text-[11px] text-slate-400 mt-2" aria-live="polite">Старые и новые штрихи считаются внешними контурами. Включите выбор, чтобы назначить отверстию отдельную роль.</p>
+  <p id="contourStatus" role="status" aria-live="polite" aria-atomic="true" class="text-[11px] text-slate-400 mt-2">Старые и новые штрихи считаются внешними контурами. Включите выбор, чтобы назначить отверстию отдельную роль.</p>
 </div>
 
 <!-- Настройки кисти -->
@@ -161,7 +161,7 @@ placeholder="Введите текст для проверки...">ПРИВЕТ<
 </div>
 </div>
 <input id="fontLibrarySearch" type="search" aria-label="Поиск в библиотеке шрифтов" placeholder="Найти шрифт…" class="w-full sm:max-w-sm bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm mb-3">
-<p id="fontLibraryStatus" role="status" aria-live="polite" class="text-xs text-emerald-300 mb-2 min-h-4"></p>
+<p id="fontLibraryStatus" role="status" aria-live="polite" aria-atomic="true" class="text-xs text-slate-200 mb-2 min-h-4"></p>
 <div id="fontLibraryList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
 </div>
 </section>
