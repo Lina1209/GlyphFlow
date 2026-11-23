@@ -24,6 +24,20 @@ function crc32(buffer) {
   return (crc ^ 0xFFFFFFFF) >>> 0;
 }
 
+function releaseCreatedAt() {
+  const sourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
+  if (sourceDateEpoch === undefined || sourceDateEpoch === '') return new Date().toISOString();
+  if (!/^\\d+$/.test(sourceDateEpoch)) {
+    throw new Error('SOURCE_DATE_EPOCH must be a non-negative integer number of seconds.');
+  }
+  const seconds = Number(sourceDateEpoch);
+  const date = new Date(seconds * 1000);
+  if (!Number.isSafeInteger(seconds) || !Number.isFinite(date.getTime())) {
+    throw new Error('SOURCE_DATE_EPOCH is outside the supported timestamp range.');
+  }
+  return date.toISOString();
+}
+
 function safeFileStem(value) {
   const stem = String(value || 'GlyphFlow')
     .normalize('NFKD')
@@ -172,7 +186,7 @@ export async function buildReleasePackage({ fontPath, catalogPath, outDir }) {
     schema: 'glyphflow-font-release/v1',
     family,
     style: 'Regular',
-    createdAt: new Date().toISOString(),
+    createdAt: releaseCreatedAt(),
     files: {
       font: { name: fontName, sha256: fontHash, bytes: fontBytes.length },
       glyphCatalog: { name: catalogName, sha256: catalogHash, bytes: catalogBytes.length }

@@ -47,6 +47,8 @@ try {
     }]
   };
   await (await import('node:fs/promises')).writeFile(catalogPath, JSON.stringify(catalog));
+  const previousSourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
+  process.env.SOURCE_DATE_EPOCH = '1790000000';
   const result = await buildReleasePackage({ fontPath, catalogPath, outDir });
   assert.equal(result.glyphCount, 1);
   assert.deepEqual(result.metadataReport.counts, {
@@ -54,6 +56,18 @@ try {
   });
   assert.ok(result.files.includes('SHA256SUMS'));
   const archive = await readFile(result.zipPath);
+  const firstManifest = JSON.parse(await readFile(path.join(outDir, 'release-manifest.json'), 'utf8'));
+  assert.equal(firstManifest.createdAt, new Date(1790000000 * 1000).toISOString());
+  const repeatedResult = await buildReleasePackage({
+    fontPath,
+    catalogPath,
+    outDir: path.join(root, 'release-repeat')
+  });
+  assert.deepEqual(
+    await readFile(repeatedResult.zipPath),
+    archive,
+    'SOURCE_DATE_EPOCH must make the complete release archive byte-for-byte reproducible'
+  );
   assert.equal(archive.readUInt32LE(0), 0x04034B50, 'ZIP must begin with a local file header');
   const eocd = archive.readUInt32LE(archive.length - 22);
   assert.equal(eocd, 0x06054B50, 'ZIP must contain a valid end-of-central-directory record');
@@ -146,5 +160,7 @@ try {
   assert.match(sums, /[a-f0-9]{64}  GlyphFlow_QA_Fixture-Regular\.otf/);
   console.log('Font release packager tests passed.');
 } finally {
+  if (typeof previousSourceDateEpoch === 'undefined') delete process.env.SOURCE_DATE_EPOCH;
+  else process.env.SOURCE_DATE_EPOCH = previousSourceDateEpoch;
   await rm(root, { recursive: true, force: true });
 }
