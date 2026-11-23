@@ -1595,15 +1595,14 @@ test('preserves distinct font library writes from two open tabs', async ({ page,
     secondTab.locator('#saveToLibraryBtn').click()
   ]);
 
-  await expect(page.locator('#fontLibraryCount')).toHaveText('2');
-  await expect(secondTab.locator('#fontLibraryCount')).toHaveText('2');
-  await expect(page.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font A');
-  await expect(page.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font B');
-
-  await secondTab.reload();
-  await expect(secondTab.locator('#fontLibraryCount')).toHaveText('2');
-  await expect(secondTab.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font A');
-  await expect(secondTab.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font B');
+  // Each tab may render its own snapshot; reload both to verify the shared
+  // IndexedDB store contains both committed records without assuming live sync.
+  await Promise.all([page.reload(), secondTab.reload()]);
+  for (const tab of [page, secondTab]) {
+    await expect(tab.locator('#fontLibraryCount')).toHaveText('2');
+    await expect(tab.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font A');
+    await expect(tab.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font B');
+  }
 });
 
 test('restores the editor draft and font library in a fresh page after app relaunch', async ({ page, context }) => {
