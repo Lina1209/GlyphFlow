@@ -83,6 +83,18 @@ const context = {
   polygonClipping,
   getGlyphMetadata,
   getSingleCodePoint,
+  getFontMetadata: () => ({
+    designer: 'GlyphFlow Test Designer',
+    manufacturer: 'GlyphFlow Test Foundry',
+    version: 'Version 2.125',
+    description: 'Metadata regression fixture',
+    copyright: 'Copyright 2026 GlyphFlow Test',
+    trademark: 'GlyphFlow Test Mark',
+    license: 'Test license text, not a real grant',
+    licenseURL: 'https://example.com/license',
+    designerURL: 'https://example.com/designer',
+    manufacturerURL: 'https://example.com/foundry'
+  }),
   document: { getElementById: id => ({ value: ({
     fontName: 'GlyphFlow CI Fixture',
     fontDesigner: 'GlyphFlow Test Designer',
