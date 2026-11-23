@@ -33,6 +33,10 @@ jobs:
         run: npm run check
       - name: Test Unicode catalog parser fixtures
         run: npm run unicode:catalog:test
+      - name: Import pinned official Unicode Character Database
+        run: npm run unicode:catalog
+      - name: Validate complete official Unicode catalog
+        run: npm run unicode:catalog:validate
       - name: Build production PWA assets
         run: npm run build
       - name: Generate, convert, and parse a fixture TTF
