@@ -25,10 +25,22 @@ jobs:
           node-version: 22
       - name: Install pinned project dependencies
         run: npm install --no-package-lock
-      - name: Report dependency security advisories
+      - name: Audit dependency security
         run: |
-          npm audit --no-package-lock --json > npm-audit-report.json || true
+          set +e
+          npm audit --no-package-lock --json > npm-audit-report.json
+          audit_status=$?
+          set -e
           node -e "const report = require('./npm-audit-report.json'); for (const [name, item] of Object.entries(report.vulnerabilities || {})) console.log(name + ': ' + item.severity + ', direct=' + item.isDirect + ', fixAvailable=' + JSON.stringify(item.fixAvailable)); console.log('Totals:', JSON.stringify(report.metadata?.vulnerabilities || {}))"
+          exit "$audit_status"
+      - name: Upload dependency audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: glyphflow-dependency-audit-report
+          path: npm-audit-report.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Check project contracts
         run: npm run check
       - name: Test Unicode catalog parser fixtures
