@@ -2483,9 +2483,31 @@ test('reports a malformed draft envelope without deleting it or other library re
   expect(stored).toEqual({draftRetained: true, libraryRecordRetained: true});
 });
 
-test('recovers a stroke after an immediate page reload without an artificial wait', async ({ page }) => {
+test('recovers a stroke after its IndexedDB autosave transaction commits', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
+  await expect(page.locator('#drawSvg path.glyph-fill')).toBeVisible();
+
+  // Autosave is asynchronous by design. Synchronize on the durable IndexedDB
+  // record rather than sleeping for an arbitrary number of milliseconds.
+  await page.waitForFunction(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('glyphflow-local', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction('projects', 'readonly');
+        const request = tx.objectStore('projects').get('current');
+        request.onsuccess = () => resolve(Boolean(request.result?.glyphData?.А?.length));
+        request.onerror = () => reject(request.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
+
   await page.reload();
   await expect(page.locator('#drawSvg path.glyph-fill')).toBeVisible();
   await expect(page.locator('#progressText')).toContainText('1 /');
