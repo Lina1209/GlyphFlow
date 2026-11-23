@@ -25,6 +25,16 @@ assert.ok(unicodeImporter.includes('UnicodeData.txt') && unicodeImporter.include
 assert.ok(unicodeImporter.includes('name.endsWith(\', First>\')') && unicodeImporter.includes('name.endsWith(\', Last>\')'), 'Unicode importer must preserve Unicode range records');
 assert.ok(unicodeImporter.includes('combiningClass') && unicodeImporter.includes('scriptRangeCount'), 'Unicode importer must export combining classes and script ranges');
 assert.ok(unicodeImporter.includes('https://www.unicode.org/license.txt'), 'Unicode catalog must include official license reference');
+const unicodeParser = readFileSync(new URL('../scripts/unicode-catalog-parser.mjs', import.meta.url), 'utf8');
+const unicodeParserTests = readFileSync(new URL('../scripts/unicode-catalog-parser-test.mjs', import.meta.url), 'utf8');
+assert.ok(packageJson.scripts['unicode:catalog:test'] === 'node scripts/unicode-catalog-parser-test.mjs', 'Unicode parser regression test command must be available');
+assert.ok(unicodeImporter.includes("from './unicode-catalog-parser.mjs'"), 'Unicode importer must use the tested pure parser module');
+assert.ok(unicodeParser.includes('function parseScripts') && unicodeParser.includes('function parseUnicodeData'), 'Unicode parser module must expose both UCD parsers');
+assert.ok(unicodeParserTests.includes('Mismatched') && unicodeParserTests.includes('combiningClass'), 'Unicode parser tests must cover malformed ranges and combining classes');
+const unicodeParserSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: unicodeParser, encoding: 'utf8' });
+assert.equal(unicodeParserSyntax.status, 0, `Unicode parser syntax check failed:\n${unicodeParserSyntax.stderr || unicodeParserSyntax.stdout}`);
+const unicodeParserTestSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: unicodeParserTests, encoding: 'utf8' });
+assert.equal(unicodeParserTestSyntax.status, 0, `Unicode parser test syntax check failed:\n${unicodeParserTestSyntax.stderr || unicodeParserTestSyntax.stdout}`);
 
 const nestedExportContracts = [
   ['font smoke fixture includes four nested depths', "'Ы': ["],
