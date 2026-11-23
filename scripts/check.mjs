@@ -28,6 +28,11 @@ assert.ok(unicodeParser.includes("name.endsWith(', First>')") && unicodeParser.i
 assert.ok(unicodeImporter.includes('combiningClass') && unicodeImporter.includes('scriptRangeCount'), 'Unicode importer must export combining classes and script ranges');
 assert.ok(unicodeImporter.includes('https://www.unicode.org/license.txt'), 'Unicode catalog must include official license reference');
 assert.ok(packageJson.scripts['unicode:catalog:test'] === 'node scripts/unicode-catalog-parser-test.mjs', 'Unicode parser regression test command must be available');
+const unicodeCatalogValidator = readFileSync(new URL('../scripts/validate-unicode-catalog.mjs', import.meta.url), 'utf8');
+const qualityWorkflow = readFileSync(new URL('../.github/workflows/quality.yml', import.meta.url), 'utf8');
+assert.ok(packageJson.scripts['unicode:catalog:validate'] === 'node scripts/validate-unicode-catalog.mjs 18.0.0', 'Full Unicode catalog validator must use the pinned UCD version');
+assert.ok(unicodeCatalogValidator.includes('CYRILLIC CAPITAL LETTER IO') && unicodeCatalogValidator.includes('combiningClass'), 'Full Unicode validator must verify representative Cyrillic and combining metadata');
+assert.ok(qualityWorkflow.includes('run: npm run unicode:catalog') && qualityWorkflow.includes('run: npm run unicode:catalog:validate'), 'CI must import and validate the complete pinned UCD, not only parser fixtures');
 assert.ok(unicodeImporter.includes("from './unicode-catalog-parser.mjs'"), 'Unicode importer must use the tested pure parser module');
 assert.ok(unicodeParser.includes('function parseScripts') && unicodeParser.includes('function parseUnicodeData'), 'Unicode parser module must expose both UCD parsers');
 assert.ok(unicodeParserTests.includes('Mismatched') && unicodeParserTests.includes('combiningClass'), 'Unicode parser tests must cover malformed ranges and combining classes');
