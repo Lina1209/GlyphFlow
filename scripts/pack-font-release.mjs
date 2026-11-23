@@ -109,6 +109,22 @@ export async function buildReleasePackage({ fontPath, catalogPath, outDir }) {
   if (catalog?.schema !== 'glyphflow-glyph-catalog/v1' || !Array.isArray(catalog.glyphs) || catalog.glyphs.length === 0) {
     throw new Error('Unsupported or empty GlyphFlow glyph catalog.');
   }
+  let parsedFont;
+  try {
+    const arrayBuffer = fontBytes.buffer.slice(fontBytes.byteOffset, fontBytes.byteOffset + fontBytes.byteLength);
+    parsedFont = opentype.parse(arrayBuffer);
+  } catch (error) {
+    throw new Error('Font binary could not be parsed as a valid OpenType/TrueType font: ' + (error.message || String(error)));
+  }
+  const passport = catalog.glyphs.map(glyph => ({
+    character: glyph.character,
+    codePoint: Array.isArray(glyph.codePoints) && glyph.codePoints.length === 1 ? glyph.codePoints[0] : null
+  }));
+  const cmapReport = validateGlyphCatalogAgainstFont(parsedFont, passport);
+  if (!cmapReport.valid) {
+    throw new Error('Font cmap and glyph catalog do not match: ' + cmapReport.errors.join('; '));
+  }
+
   const family = String(catalog.fontFamily || 'GlyphFlow').trim();
   if (!family || family.length > 128) throw new Error('Font family name is empty or too long.');
 
