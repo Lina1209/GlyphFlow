@@ -2026,6 +2026,32 @@ test('rejects a malformed imported font file without adding it to the library', 
   await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось импортировать');
 });
 
+test('validates every backup entry before writing any earlier valid entry', async ({ page }) => {
+  await page.goto('/');
+  await drawStroke(page);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const validFont = (await readFile(await download.path())).toString('base64');
+  const backup = {
+    format: 'GlyphFlowFontLibrary',
+    version: 1,
+    fonts: [
+      {name:'Valid first entry',format:'ttf',fontBase64:validFont,projectSnapshot:null},
+      {name:'Invalid second entry',format:'ttf',fontBase64:Buffer.from([0,1,2,3]).toString('base64'),projectSnapshot:null}
+    ]
+  };
+  await page.locator('#importLibraryBackupInput').setInputFiles({
+    name:'mixed-valid-invalid-backup.json',
+    mimeType:'application/json',
+    buffer:Buffer.from(JSON.stringify(backup))
+  });
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Не удалось восстановить библиотеку');
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+  await page.reload();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('0');
+});
+
 test('rejects a malformed font binary in a library backup before writing any records', async ({ page }) => {
   await page.goto('/');
   const backup = {
