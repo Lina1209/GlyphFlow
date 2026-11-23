@@ -14,6 +14,10 @@ assert font["head"].unitsPerEm == 1000
 assert abs(font["head"].fontRevision - 2.125) < 0.0001, "head.fontRevision must match name ID 5 version 2.125"
 assert font["hhea"].ascent == 950
 assert font["hhea"].descent == -370
+os2 = font["OS/2"]
+assert os2.sTypoAscender == font["hhea"].ascent, "OS/2 typographic ascender must match hhea ascent"
+assert os2.sTypoDescender == font["hhea"].descent, "OS/2 typographic descender must match hhea descent"
+assert os2.sTypoLineGap == font["hhea"].lineGap, "OS/2 typographic line gap must match hhea line gap"
 assert font["maxp"].numGlyphs >= 3
 assert font["head"].indexToLocFormat in (0, 1)
 assert "OS/2" in font, "TrueType font must contain OS/2 metrics and classification"
@@ -51,6 +55,14 @@ for char in ("A", "Ё", "😀", "Ф", "Ы", " "):
 assert font["hmtx"].metrics[cmap[ord(" ")]][0] == 350
 
 glyf_table = font["glyf"]
+glyph_y_max = max((glyf_table[name].yMax for name in cmap.values() if glyf_table[name].numberOfContours > 0), default=0)
+glyph_y_min = min((glyf_table[name].yMin for name in cmap.values() if glyf_table[name].numberOfContours > 0), default=0)
+assert os2.usWinAscent >= max(0, glyph_y_max), (
+    f"OS/2 usWinAscent clips glyphs: {os2.usWinAscent} < {glyph_y_max}"
+)
+assert os2.usWinDescent >= max(0, -glyph_y_min), (
+    f"OS/2 usWinDescent clips glyphs: {os2.usWinDescent} < {-glyph_y_min}"
+)
 
 # Verify real glyph bounds against global vertical metrics and both horizontal bearings.
 # GlyphFlow's drawing transform uses a 50-unit left/right side bearing for drawn glyphs.
@@ -110,4 +122,4 @@ for char in ("О", "∞"):
     glyph = glyf_table[glyph_name]
     assert glyph.numberOfContours >= 1, f"Closed/self-crossing glyph {char} lost its outline"
 
-print("FontTools validation passed: independent TrueType TTF parse + glyf/loca + metrics + cmap + hmtx + curved/closed/intersecting/self-crossing glyph contours + four-level nested counters + alternating clockwise winding.")
+print(f"FontTools validation passed: hhea/OS2 vertical metrics agree; Windows bounds cover glyphs (usWinAscent={os2.usWinAscent}, usWinDescent={os2.usWinDescent}); independent TrueType parse + glyf/loca + cmap + hmtx + contour geometry.")

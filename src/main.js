@@ -1868,6 +1868,21 @@ convertedFontData['OS/2'].usWeightClass = 400;
 convertedFontData['OS/2'].usWidthClass = 5;
 // The exported face is a single WWS-conformant Regular style (weight/width/slope only).
 convertedFontData['OS/2'].fsSelection = (convertedFontData['OS/2'].fsSelection || 0) | 0x0100;
+// fonteditor-core carries its generic OS/2 vertical defaults through OTF conversion.
+// Reconcile typographic metrics with hhea and derive Windows clipping bounds from
+// the actual converted glyph outlines, rather than shipping unrelated defaults.
+const verticalMetrics = convertedFontData['OS/2'];
+const verticalHeader = convertedFontData.hhea;
+if (!verticalHeader || !Array.isArray(convertedFontData.glyf)) {
+throw new Error('Не удалось проверить вертикальные метрики TTF.');
+}
+verticalMetrics.sTypoAscender = verticalHeader.ascent;
+verticalMetrics.sTypoDescender = verticalHeader.descent;
+verticalMetrics.sTypoLineGap = verticalHeader.lineGap;
+const glyphYMax = Math.max(0, ...convertedFontData.glyf.map(glyph => Number.isFinite(glyph.yMax) ? glyph.yMax : 0));
+const glyphYMin = Math.min(0, ...convertedFontData.glyf.map(glyph => Number.isFinite(glyph.yMin) ? glyph.yMin : 0));
+verticalMetrics.usWinAscent = glyphYMax;
+verticalMetrics.usWinDescent = -glyphYMin;
 const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: false});
 const ttfBuffer = rawTtf instanceof ArrayBuffer
 ? rawTtf
