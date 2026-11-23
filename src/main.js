@@ -1819,9 +1819,18 @@ format: 'GlyphFlow Glyph Catalog',
 formatVersion: 1,
 fontFamily: fontName,
 createdAt: new Date().toISOString(),
-unicodeDataVersion: '18.0.0',
-unicodeDataSource: 'https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt',
-glyphNameSource: 'https://github.com/adobe-type-tools/agl-aglfn',
+metadataCatalog: {
+name: 'GlyphFlow bundled local metadata subset',
+source: 'src/glyph-metadata.js',
+completeness: 'partial',
+coverage: 'Latin A-Z/a-z, Cyrillic А-Я/а-я including Ё/ё, digits, selected punctuation and SPACE',
+notice: 'This export does not claim to use the complete Unicode Character Database.'
+},
+glyphNameConventions: {
+latin: 'Adobe Glyph List for New Fonts (AGLFN) conventions where applicable',
+otherSingleCodePoints: 'uniXXXX/uXXXXX convention; not an official Unicode glyph-name standard',
+sequences: 'custom.sequence with explicit code-point sequence'
+},
 glyphs
 };
 const json = JSON.stringify(catalog, null, 2) + '\n';
