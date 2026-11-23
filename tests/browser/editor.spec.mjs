@@ -1419,12 +1419,13 @@ test('exposes an installable PWA manifest and caches the application shell', asy
     }
   });
   await page.reload();
+  await expect(page.locator('#currentGlyphMetadata')).toContainText('Unicode Character Database 18.0.0');
   const pwa = await page.evaluate(async () => {
     const manifestUrl = document.querySelector('link[rel="manifest"]')?.href;
     const manifestResponse = await fetch(manifestUrl);
     const manifest = await manifestResponse.json();
     const registration = await navigator.serviceWorker.ready;
-    const cache = await caches.open('glyphflow-shell-v2');
+    const cache = await caches.open('glyphflow-shell-v3');
     const cachedUrls = await cache.keys();
     return {
       manifestUrl,
@@ -1447,6 +1448,7 @@ test('exposes an installable PWA manifest and caches the application shell', asy
   expect(pwa.cachedUrls.some(url => url.endsWith('/index.html') || url.endsWith('/'))).toBe(true);
   expect(pwa.cachedUrls.some(url => url.endsWith('/manifest.webmanifest'))).toBe(true);
   expect(pwa.cachedUrls.some(url => url.endsWith('/icons/glyphflow.svg'))).toBe(true);
+  expect(pwa.cachedUrls.some(url => url.endsWith('/data/unicode/18.0.0/runtime-catalog.json'))).toBe(true);
   expect(pwa.cachedUrls.some(url => /\/assets\/.*\.js$/.test(url))).toBe(true);
   expect(pwa.cachedUrls.some(url => /\/assets\/.*\.css$/.test(url))).toBe(true);
   const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name));
@@ -1500,7 +1502,7 @@ test('activating a replacement service worker removes stale GlyphFlow caches', a
     });
   });
   const cacheNames = await page.evaluate(() => caches.keys());
-  expect(cacheNames).toContain('glyphflow-shell-v2');
+  expect(cacheNames).toContain('glyphflow-shell-v3');
   expect(cacheNames).not.toContain('glyphflow-shell-stale-test');
 });
 
