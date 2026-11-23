@@ -30,7 +30,7 @@ const runtimeCatalog = {
   unicodeVersion:'18.0.0',
   source:'https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt',
   records,
-  ranges:[[0x3400,0x4DBF,'CJK UNIFIED IDEOGRAPH-3400','Lo',0,'Han']]
+  ranges:[[0x3400,0x4DBF,'<CJK Ideograph Extension A','Lo',0,'Han'],[0xAC00,0xD7A3,'<Hangul Syllable','Lo',0,'Hangul']]
 };
 let fetchCount = 0;
 const fetcher = async url => {
@@ -65,6 +65,10 @@ const algorithmic = getGlyphMetadata(String.fromCodePoint(0x3401));
 assert.equal(algorithmic.unicodeName,'CJK UNIFIED IDEOGRAPH-3401');
 assert.equal(algorithmic.generalCategory,'Lo');
 assert.equal(algorithmic.script,'Han');
+
+const hangul = getGlyphMetadata(String.fromCodePoint(0xAC00));
+assert.equal(hangul.unicodeName,'HANGUL SYLLABLE GA');
+assert.equal(hangul.script,'Hangul');
 
 assert.equal(getGlyphMetadata('AB'),null);
 console.log('Glyph metadata tests passed: local fallback, pinned UCD loading, fetch reuse, official names, categories, scripts, combining classes and algorithmic ranges.');
