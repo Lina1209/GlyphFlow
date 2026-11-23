@@ -2595,8 +2595,8 @@ test('edits, persists and exports real pair kerning through the browser editor',
   await expect(page.locator('#currentCharLabel')).toHaveText('Б');
   await drawStroke(page, 18);
 
-  await page.locator('#kerningLeft').selectOption({label: /^А/});
-  await page.locator('#kerningRight').selectOption({label: /^Б/});
+  await page.locator('#kerningLeft').selectOption('А');
+  await page.locator('#kerningRight').selectOption('Б');
   await page.locator('#kerningValue').fill('-80');
   await page.locator('#kerningSaveBtn').click();
   await expect(page.locator('#kerningPairsList')).toContainText('АБ');
