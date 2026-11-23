@@ -172,4 +172,41 @@ assert.equal(reparsedTtf.charToGlyph('Ф').path.commands.filter(command => comma
 assert.equal(reparsedTtf.charToGlyph('Ы').path.commands.filter(command => command.type === 'M').length, 4,
   'Four nested depth levels must survive TTF conversion as outer, hole, island and nested hole');
 
+// Unicode metadata regression checks: official names, glyph naming conventions and scalar safety.
+const cyrillicUpper = [...'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'];
+const cyrillicLower = [...'абвгдеёжзийклмнопрстуфхцчшщъыьэюя'];
+assert.equal(cyrillicUpper.length, 33, 'Cyrillic uppercase catalog must contain 33 letters');
+assert.equal(cyrillicLower.length, 33, 'Cyrillic lowercase catalog must contain 33 letters');
+for (const [upper, lower] of cyrillicUpper.map((char, index) => [char, cyrillicLower[index]])) {
+  const upperMetadata = getGlyphMetadata(upper);
+  const lowerMetadata = getGlyphMetadata(lower);
+  assert.ok(upperMetadata && lowerMetadata, `Missing Cyrillic metadata for ${upper}/${lower}`);
+  assert.equal(upperMetadata.codePoint, 'U+' + upper.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
+  assert.equal(lowerMetadata.codePoint, 'U+' + lower.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
+  assert.equal(upperMetadata.generalCategory, 'Lu');
+  assert.equal(lowerMetadata.generalCategory, 'Ll');
+  assert.equal(upperMetadata.script, 'Cyrillic');
+  assert.equal(lowerMetadata.script, 'Cyrillic');
+  assert.equal(upperMetadata.glyphName, 'uni' + upperMetadata.codePoint.slice(2));
+  assert.equal(lowerMetadata.glyphName, 'uni' + lowerMetadata.codePoint.slice(2));
+}
+assert.equal(getGlyphMetadata('Ё').unicodeName, 'CYRILLIC CAPITAL LETTER IO');
+assert.equal(getGlyphMetadata('ё').unicodeName, 'CYRILLIC SMALL LETTER IO');
+assert.equal(getGlyphMetadata('Й').unicodeName, 'CYRILLIC CAPITAL LETTER SHORT I');
+assert.equal(getGlyphMetadata('й').unicodeName, 'CYRILLIC SMALL LETTER SHORT I');
+assert.equal(getGlyphMetadata('A').glyphName, 'A');
+assert.equal(getGlyphMetadata('a').glyphName, 'a');
+assert.equal(getGlyphMetadata('0').unicodeName, 'DIGIT ZERO');
+assert.equal(getGlyphMetadata(' ').unicodeName, 'SPACE');
+assert.equal(getSingleCodePoint('A'), 0x41);
+assert.equal(getSingleCodePoint('😀'), 0x1F600, 'Supplementary-plane Unicode scalar must be accepted');
+assert.equal(getSingleCodePoint('A\\u0301'), null, 'Combining sequences must not be silently reduced to one scalar');
+assert.equal(getSingleCodePoint(''), null);
+assert.equal(getSingleCodePoint('AB'), null);
+assert.equal(getSingleCodePoint('\\uD800'), null, 'Unpaired surrogate must not be accepted as a Unicode scalar');
+assert.equal(getSingleCodePoint(null), null);
+assert.equal(getGlyphMetadata('😀').glyphName, 'u1F600');
+assert.equal(getGlyphMetadata('🜁').unicodeName, null, 'Unknown official Unicode names must not be invented');
+assert.equal(getGlyphMetadata('🜁').generalCategory, 'Unknown');
+
 console.log('GlyphFlow font pipeline passed: real perfect-freehand curves, closed loop, explicit hole subtraction, Boolean union of intersecting brush strokes, self-crossing trajectory, OTF-to-TTF conversion, Unicode and multi-contour preservation.');
