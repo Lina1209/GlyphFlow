@@ -22,6 +22,7 @@ const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.me
 const unicodeImporter = readFileSync(new URL('../scripts/update-unicode-catalog.mjs', import.meta.url), 'utf8');
 const unicodeParser = readFileSync(new URL('../scripts/unicode-catalog-parser.mjs', import.meta.url), 'utf8');
 const unicodeParserTests = readFileSync(new URL('../scripts/unicode-catalog-parser-test.mjs', import.meta.url), 'utf8');
+const unicodeMetadataTests = readFileSync(new URL('../scripts/glyph-metadata-test.mjs', import.meta.url), 'utf8');
 assert.ok(packageJson.scripts['unicode:catalog'] === 'node scripts/update-unicode-catalog.mjs 18.0.0', 'Unicode catalog command must pin version 18.0.0');
 assert.ok(unicodeImporter.includes('UnicodeData.txt') && unicodeImporter.includes('Scripts.txt'), 'Unicode importer must use official UCD data files');
 assert.ok(unicodeImporter.includes('runtime-catalog.json') && unicodeImporter.includes('glyphflow-unicode-runtime/v1'), 'Unicode importer must emit a compact browser runtime catalog');
@@ -46,6 +47,8 @@ const unicodeParserSyntax = spawnSync(process.execPath, ['--check', '--input-typ
 assert.equal(unicodeParserSyntax.status, 0, `Unicode parser syntax check failed:\n${unicodeParserSyntax.stderr || unicodeParserSyntax.stdout}`);
 const unicodeParserTestSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: unicodeParserTests, encoding: 'utf8' });
 assert.equal(unicodeParserTestSyntax.status, 0, `Unicode parser test syntax check failed:\n${unicodeParserTestSyntax.stderr || unicodeParserTestSyntax.stdout}`);
+const unicodeMetadataTestSyntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: unicodeMetadataTests, encoding: 'utf8' });
+assert.equal(unicodeMetadataTestSyntax.status, 0, `Unicode metadata test syntax check failed:\n${unicodeMetadataTestSyntax.stderr || unicodeMetadataTestSyntax.stdout}`);
 
 const nestedExportContracts = [
   ['font smoke fixture includes four nested depths', "'Ы': ["],
