@@ -1813,7 +1813,13 @@ test('shows a visible error when draft autosave runs out of storage space', asyn
     const originalPut = IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put = function (...args) {
       if (args[1] === 'current') {
-        throw new DOMException('Simulated storage quota failure', 'QuotaExceededError');
+        const transaction = this.transaction;
+        Object.defineProperty(transaction, 'error', {
+          configurable: true,
+          get: () => new DOMException('Simulated storage quota failure', 'QuotaExceededError')
+        });
+        transaction.abort();
+        return undefined;
       }
       return originalPut.apply(this, args);
     };
