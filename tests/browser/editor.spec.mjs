@@ -2428,6 +2428,9 @@ test('shows Unicode names, glyph names and descriptions for selected characters'
   await expect(metadata).toContainText('U+0410');
   await expect(metadata).toContainText('CYRILLIC CAPITAL LETTER A');
   await expect(metadata).toContainText('uni0410');
+  await expect(metadata).toContainText('Unicode General Category:');
+  await expect(metadata).toContainText('Lu');
+  await expect(metadata).toContainText('Cyrillic');
   await expect(metadata).toContainText('Заглавная буква кириллицы');
   const yo = page.getByRole('button', {name: /CYRILLIC CAPITAL LETTER IO/});
   await yo.click();
