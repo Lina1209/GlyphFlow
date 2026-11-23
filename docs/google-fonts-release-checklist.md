@@ -66,7 +66,25 @@
 - [ ] Проверены ширины, боковые интервалы, вертикальные метрики, пробелы, пунктуация и базовые пары кернинга, если они заявлены.
 - [ ] Проверено отображение на реальных строках и языках, которые заявлены в METADATA.pb.
 - [ ] TTF открыт и проверен независимыми инструментами, включая FontTools; файл протестирован в нескольких приложениях и системах.
-- [ ] Выполнен Google Fonts FontBakery profile; каждый FAIL рассмотрен, а WARN объяснён.
+- [ ] Выполнен актуальный Google Fonts profile в Fontspector; каждый FAIL рассмотрен, а WARN объяснён. Для воспроизводимости зафиксировать версию Fontspector и сохранить HTML/JSON-отчёты.
+
+### Независимая автоматическая проверка Fontspector
+
+В CI GlyphFlow закреплён Fontspector CLI `1.9.1` и запускается профиль `opentype` на реальном TrueType fixture, созданном предыдущим smoke-тестом. Это проверяет базовую совместимость OpenType независимо от собственного валидатора GlyphFlow. HTML- и JSON-отчёты сохраняются как CI artifact на 14 дней.
+
+Пример локального запуска на готовом файле:
+
+```bash
+fontspector --profile opentype --html fontspector-opentype.html --json fontspector-opentype.json MyFont.ttf
+```
+
+Профиль `googlefonts` запускать только на полном кандидате семейства после подготовки реальных `METADATA.pb`, OFL 1.1 и остальных материалов пакета:
+
+```bash
+fontspector --profile googlefonts --html fontspector-googlefonts.html --json fontspector-googlefonts.json path/to/family-directory/*.ttf
+```
+
+Не запускать Google Fonts profile на CI-fixture GlyphFlow: у него тестовые метаданные и фиктивный текст лицензии. Успешный `opentype` profile не означает готовность к Google Fonts и не заменяет проверку прав, лицензии, shaping и визуальную экспертизу.
 - [ ] Проведена визуальная проверка пробных листов: согласованность дизайна, качество контуров, интервалы, отсутствие пропусков и ошибок shaping.
 
 ## 5. Сведения о составе глифов
