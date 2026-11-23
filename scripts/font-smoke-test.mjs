@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import { createFont } from 'fonteditor-core';
 import { getStroke } from 'perfect-freehand';
 import polygonClipping from 'polygon-clipping';
+import { getGlyphMetadata } from '../src/glyph-metadata.js';
 
 const require = createRequire(import.meta.url);
 const opentype = require('opentype.js');
@@ -80,6 +81,7 @@ const context = {
   compoundOverrides: {},
   getStroke,
   polygonClipping,
+  getGlyphMetadata,
   document: { getElementById: id => ({ value: id === 'fontName' ? 'GlyphFlow CI Fixture' : '' }) }
 };
 vm.runInNewContext(builderSource + '\nthis.buildOpenTypeFont = buildOpenTypeFont;', context);
