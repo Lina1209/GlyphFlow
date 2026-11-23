@@ -13,7 +13,8 @@
     "unicode:catalog": "node scripts/update-unicode-catalog.mjs 18.0.0",
     "unicode:catalog:test": "node scripts/unicode-catalog-parser-test.mjs",
     "unicode:catalog:validate": "node scripts/validate-unicode-catalog.mjs 18.0.0",
-    "prebuild": "node scripts/prepare-unicode-catalog.mjs"
+    "prebuild": "node scripts/prepare-unicode-catalog.mjs",
+    "unicode:metadata:test": "node scripts/glyph-metadata-test.mjs"
   },
   "dependencies": {
     "fonteditor-core": "2.6.3",
