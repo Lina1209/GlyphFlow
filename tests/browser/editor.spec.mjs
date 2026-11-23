@@ -2006,6 +2006,54 @@ test('reports a damaged saved draft and allows a fresh draft to be saved', async
   await expect(page.locator('#progressText')).toContainText('1 /');
 });
 
+test('reports a malformed draft envelope without deleting it or other library records', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readwrite');
+      const store = tx.objectStore('projects');
+      store.put({fontName: 'Broken envelope', savedAt: Date.now()}, 'current');
+      store.put({
+        id: 'preserved-record',
+        name: 'Preserved font',
+        fileName: 'preserved.ttf',
+        format: 'ttf',
+        blob: new Blob(['font-data'], {type: 'font/ttf'}),
+        savedAt: Date.now()
+      }, 'font-library:preserved-record');
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+
+  await page.reload();
+  await expect(page.locator('#draftSyncStatus')).toContainText('Не удалось восстановить черновик');
+  await expect(page.locator('#draftSyncStatus')).toContainText('неверную структуру');
+  const stored = await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const store = tx.objectStore('projects');
+      const draftRequest = store.get('current');
+      const libraryRequest = store.get('font-library:preserved-record');
+      tx.oncomplete = () => {
+        resolve({
+          draftRetained: Boolean(draftRequest.result),
+          libraryRecordRetained: libraryRequest.result?.name === 'Preserved font'
+        });
+        db.close();
+      };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  expect(stored).toEqual({draftRetained: true, libraryRecordRetained: true});
+});
+
 test('recovers a stroke after an immediate page reload without an artificial wait', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
