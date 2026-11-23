@@ -1901,6 +1901,48 @@ test('does not replace the active drawing when a saved library project is invali
 });
 
 
+test('refuses to download a corrupted font blob without deleting its library record', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readwrite');
+      tx.objectStore('projects').put({
+        id: 'broken-font-blob',
+        name: 'Damaged Binary',
+        format: 'ttf',
+        fileName: 'damaged.ttf',
+        blob: new Blob(['not a font binary'], {type: 'font/ttf'}),
+        size: 17,
+        savedAt: Date.now(),
+        projectSnapshot: null
+      }, 'font-library:broken-font-blob');
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  await page.reload();
+  await expect(page.locator('#fontLibraryList article')).toHaveCount(1);
+  const downloadPromise = page.waitForEvent('download', {timeout: 1000}).catch(() => null);
+  await page.locator('#fontLibraryList article').getByRole('button', {name:'Скачать'}).click();
+  expect(await downloadPromise).toBeNull();
+  await expect(page.locator('#fontLibraryStatus')).toContainText('файл повреждён');
+  const retained = await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('font-library:broken-font-blob');
+      tx.oncomplete = () => { resolve(get.result?.name === 'Damaged Binary'); db.close(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  expect(retained).toBe(true);
+});
+
 test('closes an existing IndexedDB connection so a schema upgrade can proceed', async ({ page }) => {
   await page.addInitScript(() => {
     const originalOpen = IDBFactory.prototype.open;
