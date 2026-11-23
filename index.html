@@ -75,7 +75,7 @@ class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus
 <line x1="0" y1="330" x2="360" y2="330" stroke="#cbd5e1" stroke-dasharray="4 4" stroke-width="1" />
 </svg>
 <!-- Интерактивный SVG для рисования -->
-<svg id="drawSvg" role="img" aria-label="Интерактивный холст для рисования текущего символа" class="relative z-10 w-full h-full touch-none" viewBox="0 0 360 360"></svg>
+<svg id="drawSvg" role="group" tabindex="0" aria-label="Холст текущего символа. Стрелки перемещают холст, плюс и минус меняют масштаб, Home сбрасывает вид" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + - Home" class="relative z-10 w-full h-full touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500" viewBox="0 0 360 360"></svg>
 </div>
 <div class="w-full max-w-[360px] flex flex-wrap items-center justify-between gap-2 mt-2" aria-label="Управление масштабом холста">
   <div class="flex items-center gap-1">
