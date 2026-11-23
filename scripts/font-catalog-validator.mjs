@@ -34,7 +34,7 @@ export function validateGlyphCatalogAgainstFont(font, catalog) {
     }
     if (typeof declared === 'string') {
       const normalized = declared.replace(/^U\\+/i, '').toUpperCase();
-      if (normalized !== key) {
+      if (!/^[0-9A-F]+$/.test(normalized) || Number.parseInt(normalized, 16) !== codePoint) {
         errors.push(`Catalog code point mismatch for U+${key}`);
         continue;
       }
