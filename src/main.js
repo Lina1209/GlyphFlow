@@ -1805,11 +1805,22 @@ async function renderFontLibrary() {
 if (!libraryList) return;
 libraryList.replaceChildren();
 try {
-const records = await getFontLibraryRecords();
+const storedRecords = await getFontLibraryRecords();
+const records = storedRecords.filter(record =>
+record && typeof record === 'object' && !Array.isArray(record) &&
+typeof record.id === 'string' && record.id.length > 0 &&
+typeof record.name === 'string' && record.blob instanceof Blob &&
+Number.isSafeInteger(record.blob.size) && record.blob.size >= 1 &&
+['ttf', 'otf'].includes(record.format)
+);
+const damagedCount = storedRecords.length - records.length;
 const query = (librarySearch?.value || '').trim().toLocaleLowerCase();
-const filtered = records.filter(record => (record.name || '').toLocaleLowerCase().includes(query));
+const filtered = records.filter(record => record.name.toLocaleLowerCase().includes(query));
 const countLabel = document.getElementById('fontLibraryCount');
 if (countLabel) countLabel.textContent = String(records.length);
+if (damagedCount > 0 && libraryStatus) {
+libraryStatus.textContent = 'Обнаружено повреждённых записей: ' + damagedCount + '. Исправные шрифты доступны; повреждённые данные сохранены и не удалены.';
+}
 if (!filtered.length) {
 const empty = document.createElement('p');
 empty.className = 'text-sm text-slate-400 py-5 text-center';
