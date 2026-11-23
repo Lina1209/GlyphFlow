@@ -18,14 +18,14 @@ const unicodeLine = (cp, name, category='Lu', combining=0) =>
 const unicode = [
   unicodeLine(0x41,'LATIN CAPITAL LETTER A'),
   unicodeLine(0x300,'COMBINING GRAVE ACCENT','Mn',230),
-  unicodeLine(0x3400,'CJK UNIFIED IDEOGRAPH-3400, First>','Lo'),
-  unicodeLine(0x4DBF,'CJK UNIFIED IDEOGRAPH-3400, Last>','Lo')
+  unicodeLine(0x3400,'<CJK Ideograph Extension A, First>','Lo'),
+  unicodeLine(0x4DBF,'<CJK Ideograph Extension A, Last>','Lo')
 ].join('\n');
 const records = parseUnicodeData(unicode, scripts);
 assert.equal(records.length,3);
 assert.deepEqual(records[0],{cp:0x41,name:'LATIN CAPITAL LETTER A',category:'Lu',combiningClass:0,script:'Latin'});
 assert.equal(records[1].combiningClass,230);
-assert.deepEqual(records[2],{range:[0x3400,0x4DBF],nameTemplate:'CJK UNIFIED IDEOGRAPH-3400',category:'Lo',combiningClass:0,script:'Unknown'});
+assert.deepEqual(records[2],{range:[0x3400,0x4DBF],nameTemplate:'<CJK Ideograph Extension A',category:'Lo',combiningClass:0,script:'Unknown'});
 
 assert.throws(() => parseScripts('0041..005A ; Latin\n0050..0060 ; Greek'),/overlapping/);
 assert.throws(() => parseScripts('110000 ; Invalid'),/Out-of-range/);
