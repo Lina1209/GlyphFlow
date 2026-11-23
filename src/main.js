@@ -1855,6 +1855,9 @@ if (!otfBuffer || otfBuffer.byteLength < 100) throw new Error('Получен п
 const converter = createFont(otfBuffer, {type: 'otf'});
 const convertedFontData = converter.get();
 if (!convertedFontData['OS/2']) throw new Error('Конвертер не создал обязательную таблицу OS/2.');
+if (!convertedFontData.head) throw new Error('Конвертер не создал обязательную таблицу head.');
+// fonteditor-core resets head.fontRevision during OTF-to-TTF conversion; restore the revision that was serialized in the source OTF.
+convertedFontData.head.fontRevision = font.tables.head.fontRevision;
 // The OTF intermediate does not carry OS/2 weight data through fonteditor-core.
 // GlyphFlow exports a Regular static face, so explicitly set the OpenType class.
 convertedFontData['OS/2'].usWeightClass = 400;
