@@ -87,6 +87,19 @@ const context = {
 };
 vm.runInNewContext(builderSource + '\nthis.buildOpenTypeFont = buildOpenTypeFont;', context);
 const generated = context.buildOpenTypeFont();
+
+// The real font builder must fail closed for a multi-code-point glyph key,
+// rather than silently mapping only the first scalar into cmap.
+glyphData['A\\u0301'] = [{
+  points: [[18, 320, 0.5], [22, 270, 0.6], [35, 220, 0.7], [52, 170, 0.8]],
+  size: 18, thinning: 0.5
+}];
+assert.throws(
+  () => context.buildOpenTypeFont(),
+  /нескольких кодовых точек/,
+  'Multi-code-point sequences must require an explicit ligature/mapping rule'
+);
+delete glyphData['A\\u0301'];
 const bytes = generated.toArrayBuffer();
 assert.ok(bytes instanceof ArrayBuffer && bytes.byteLength > 100, 'Font serialization returned an empty buffer');
 writeFileSync('/tmp/glyphflow-fixture.otf', Buffer.from(bytes));
