@@ -39,6 +39,7 @@ const qualityWorkflow = readFileSync(new URL('../.github/workflows/quality.yml',
 assert.ok(qualityWorkflow.includes('run: npm run unicode:metadata:test'), 'CI must run Unicode runtime metadata tests');
 assert.ok(packageJson.scripts['unicode:catalog:validate'] === 'node scripts/validate-unicode-catalog.mjs 18.0.0', 'Full Unicode catalog validator must use the pinned UCD version');
 assert.ok(unicodeCatalogValidator.includes('CYRILLIC CAPITAL LETTER IO') && unicodeCatalogValidator.includes('combiningClass'), 'Full Unicode validator must verify representative Cyrillic and combining metadata');
+assert.ok(unicodeCatalogValidator.includes('runtime-catalog.json') && unicodeCatalogValidator.includes('glyphflow-unicode-runtime/v1'), 'Full Unicode validator must verify the browser runtime projection');
 assert.ok(qualityWorkflow.includes('run: npm run unicode:catalog') && qualityWorkflow.includes('run: npm run unicode:catalog:validate'), 'CI must import and validate the complete pinned UCD, not only parser fixtures');
 assert.ok(unicodeImporter.includes("from './unicode-catalog-parser.mjs'"), 'Unicode importer must use the tested pure parser module');
 assert.ok(unicodeParser.includes('function parseScripts') && unicodeParser.includes('function parseUnicodeData'), 'Unicode parser module must expose both UCD parsers');
