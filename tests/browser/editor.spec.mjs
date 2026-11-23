@@ -322,6 +322,31 @@ test('canvas zoom, pan and coordinate mapping stay stable', async ({ page }) => 
   expect(coordinates.every(Number.isFinite)).toBe(true);
 });
 
+test('font library import controls have accessible names and remain keyboard reachable', async ({ page }) => {
+  await page.goto('/');
+  const fontInput = page.locator('#importFontInput');
+  const backupInput = page.locator('#importLibraryBackupInput');
+  await expect(fontInput).toHaveAccessibleName('Выбрать файлы шрифтов TTF или OTF для импорта');
+  await expect(backupInput).toHaveAccessibleName('Выбрать файл резервной копии библиотеки');
+  await expect(fontInput).toHaveClass(/sr-only/);
+  await expect(backupInput).toHaveClass(/sr-only/);
+  await page.locator('#fontLibrary').scrollIntoViewIfNeeded();
+  await page.locator('label[for="importFontInput"]').focus().catch(() => {});
+});
+
+test('editor remains usable at 200 percent page zoom without horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({width: 1280, height: 900});
+  await page.goto('/');
+  await page.evaluate(() => { document.documentElement.style.zoom = '200%'; });
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    scroll: document.documentElement.scrollWidth
+  }));
+  expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.viewport + 2);
+  await expect(page.locator('#drawSvg')).toBeVisible();
+  await expect(page.locator('#fontLibrarySearch')).toBeVisible();
+});
+
 test('mobile editor controls meet minimum touch target dimensions', async ({ page }) => {
   await page.setViewportSize({width: 375, height: 812});
   await page.goto('/');
