@@ -20,13 +20,13 @@ const publicIcon = readFileSync(new URL('../public/icons/glyphflow.svg', import.
 const sourceIcon = readFileSync(new URL('../icons/glyphflow.svg', import.meta.url), 'utf8');
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const unicodeImporter = readFileSync(new URL('../scripts/update-unicode-catalog.mjs', import.meta.url), 'utf8');
+const unicodeParser = readFileSync(new URL('../scripts/unicode-catalog-parser.mjs', import.meta.url), 'utf8');
+const unicodeParserTests = readFileSync(new URL('../scripts/unicode-catalog-parser-test.mjs', import.meta.url), 'utf8');
 assert.ok(packageJson.scripts['unicode:catalog'] === 'node scripts/update-unicode-catalog.mjs 18.0.0', 'Unicode catalog command must pin version 18.0.0');
 assert.ok(unicodeImporter.includes('UnicodeData.txt') && unicodeImporter.includes('Scripts.txt'), 'Unicode importer must use official UCD data files');
 assert.ok(unicodeParser.includes("name.endsWith(', First>')") && unicodeParser.includes("name.endsWith(', Last>')"), 'Unicode parser must preserve Unicode range records');
 assert.ok(unicodeImporter.includes('combiningClass') && unicodeImporter.includes('scriptRangeCount'), 'Unicode importer must export combining classes and script ranges');
 assert.ok(unicodeImporter.includes('https://www.unicode.org/license.txt'), 'Unicode catalog must include official license reference');
-const unicodeParser = readFileSync(new URL('../scripts/unicode-catalog-parser.mjs', import.meta.url), 'utf8');
-const unicodeParserTests = readFileSync(new URL('../scripts/unicode-catalog-parser-test.mjs', import.meta.url), 'utf8');
 assert.ok(packageJson.scripts['unicode:catalog:test'] === 'node scripts/unicode-catalog-parser-test.mjs', 'Unicode parser regression test command must be available');
 assert.ok(unicodeImporter.includes("from './unicode-catalog-parser.mjs'"), 'Unicode importer must use the tested pure parser module');
 assert.ok(unicodeParser.includes('function parseScripts') && unicodeParser.includes('function parseUnicodeData'), 'Unicode parser module must expose both UCD parsers');
