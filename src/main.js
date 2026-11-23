@@ -1209,7 +1209,11 @@ const draft = await new Promise((resolve, reject) => {
 request.onsuccess = () => resolve(request.result);
 request.onerror = () => reject(request.error);
 });
-if (draft && draft.glyphData && typeof draft.glyphData === 'object') {
+if (draft !== undefined) {
+if (!draft || typeof draft !== 'object' || Array.isArray(draft) ||
+!draft.glyphData || typeof draft.glyphData !== 'object' || Array.isArray(draft.glyphData)) {
+throw new Error('Сохранённый черновик имеет неверную структуру.');
+}
 restoreProjectSnapshot(JSON.stringify({
 version: 2,
 glyphData: draft.glyphData,
