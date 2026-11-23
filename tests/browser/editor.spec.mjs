@@ -1580,6 +1580,32 @@ test('removing one library font preserves other records after reload', async ({ 
   await expect(page.locator('#fontLibraryList article')).not.toContainText('Library Keep A');
 });
 
+test('preserves distinct font library writes from two open tabs', async ({ page, context }) => {
+  const secondTab = await context.newPage();
+  await Promise.all([page.goto('/'), secondTab.goto('/')]);
+
+  await Promise.all([drawStroke(page), drawStroke(secondTab)]);
+  await Promise.all([
+    page.locator('#fontName').fill('Concurrent Tab Font A'),
+    secondTab.locator('#fontName').fill('Concurrent Tab Font B')
+  ]);
+
+  await Promise.all([
+    page.locator('#saveToLibraryBtn').click(),
+    secondTab.locator('#saveToLibraryBtn').click()
+  ]);
+
+  await expect(page.locator('#fontLibraryCount')).toHaveText('2');
+  await expect(secondTab.locator('#fontLibraryCount')).toHaveText('2');
+  await expect(page.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font A');
+  await expect(page.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font B');
+
+  await secondTab.reload();
+  await expect(secondTab.locator('#fontLibraryCount')).toHaveText('2');
+  await expect(secondTab.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font A');
+  await expect(secondTab.locator('#fontLibraryList article')).toContainText('Concurrent Tab Font B');
+});
+
 test('restores the editor draft and font library in a fresh page after app relaunch', async ({ page, context }) => {
   await page.goto('/');
   await drawStroke(page);
