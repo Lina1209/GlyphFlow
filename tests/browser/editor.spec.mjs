@@ -2006,6 +2006,43 @@ test('reports a damaged saved draft and allows a fresh draft to be saved', async
   await expect(page.locator('#progressText')).toContainText('1 /');
 });
 
+test('keeps valid library fonts visible when another stored record is malformed', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#fontName').fill('Healthy Library Font');
+  await page.locator('#saveToLibraryBtn').click();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readwrite');
+      tx.objectStore('projects').put({name: 'Broken record without font data'}, 'font-library:broken-record');
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+
+  await page.reload();
+  await expect(page.locator('#fontLibraryCount')).toHaveText('1');
+  await expect(page.locator('#fontLibraryList article')).toHaveCount(1);
+  await expect(page.locator('#fontLibraryList article')).toContainText('Healthy Library Font');
+  await expect(page.locator('#fontLibraryStatus')).toContainText('Обнаружено повреждённых записей: 1');
+  const brokenRecordPreserved = await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readonly');
+      const get = tx.objectStore('projects').get('font-library:broken-record');
+      tx.oncomplete = () => { resolve(get.result?.name === 'Broken record without font data'); db.close(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  expect(brokenRecordPreserved).toBe(true);
+});
+
 test('reports a malformed draft envelope without deleting it or other library records', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => new Promise((resolve, reject) => {
