@@ -1843,16 +1843,21 @@ libraryStatus.textContent = 'Открыт проект «' + (record.name || 'Б
 }));
 actions.appendChild(makeLibraryButton('Удалить', 'rounded-md bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-3 py-1.5 text-xs', async () => {
 if (!confirm('Удалить «' + (record.name || 'Без названия') + '» из библиотеки?')) return;
+try {
 await libraryTransaction('readwrite', store => store.delete(FONT_LIBRARY_PREFIX + record.id));
 libraryStatus.textContent = 'Шрифт удалён из библиотеки.';
 await renderFontLibrary();
+} catch (err) {
+console.error('Не удалось удалить шрифт из библиотеки:', err);
+libraryStatus.textContent = 'Не удалось удалить шрифт: ' + describeStorageError(err, 'ошибка IndexedDB');
+}
 }));
 card.append(top, actions);
 libraryList.appendChild(card);
 });
 } catch (err) {
 console.error('Не удалось прочитать библиотеку шрифтов:', err);
-libraryStatus.textContent = 'Не удалось открыть библиотеку: ' + (err.message || 'ошибка хранилища');
+libraryStatus.textContent = 'Не удалось открыть библиотеку: ' + describeStorageError(err, 'ошибка хранилища');
 }
 }
 document.getElementById('saveToLibraryBtn').addEventListener('click', async () => {
