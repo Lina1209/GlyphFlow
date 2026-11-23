@@ -27,7 +27,7 @@ function crc32(buffer) {
 function releaseCreatedAt() {
   const sourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
   if (sourceDateEpoch === undefined || sourceDateEpoch === '') return new Date().toISOString();
-  if (!/^\\d+$/.test(sourceDateEpoch)) {
+  if (!/^\d+$/.test(sourceDateEpoch)) {
     throw new Error('SOURCE_DATE_EPOCH must be a non-negative integer number of seconds.');
   }
   const seconds = Number(sourceDateEpoch);
