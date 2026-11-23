@@ -113,9 +113,43 @@ test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ 
   await expect(page.locator('#glyphGrid button').first()).toBeVisible();
   await expect(page.locator('#currentCharLabel')).toHaveText('А');
 
+  // Capture the real browser pointer lifecycle before asserting the first stroke.
+  await page.evaluate(() => {
+    const svg = document.querySelector('#drawSvg');
+    window.__glyphFlowPointerTrace = [];
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'gotpointercapture', 'lostpointercapture']) {
+      svg.addEventListener(type, event => window.__glyphFlowPointerTrace.push({
+        type, pointerId: event.pointerId, pointerType: event.pointerType,
+        isPrimary: event.isPrimary, button: event.button, buttons: event.buttons,
+        clientX: event.clientX, clientY: event.clientY,
+        target: event.target?.tagName, defaultPrevented: event.defaultPrevented
+      }));
+    }
+    window.addEventListener('error', event => window.__glyphFlowPointerTrace.push({
+      type: 'window-error', message: event.message
+    }));
+  });
   // Draw a multi-point pressure-aware stroke on the first glyph.
   await drawStroke(page);
-  await expect(page.locator('#drawSvg path')).toHaveCount(1);
+  const pointerDiagnostics = await page.evaluate(() => {
+    const svg = document.querySelector('#drawSvg');
+    const rect = svg.getBoundingClientRect();
+    return {
+      trace: window.__glyphFlowPointerTrace,
+      svg: {rect: {x: rect.x, y: rect.y, width: rect.width, height: rect.height},
+        viewBox: svg.getAttribute('viewBox'), role: svg.getAttribute('role'),
+        pathCount: svg.querySelectorAll('path').length,
+        paths: [...svg.querySelectorAll('path')].map(path => ({
+          className: path.getAttribute('class'), dLength: path.getAttribute('d')?.length
+        }))},
+      hitTestAtStart: document.elementFromPoint(rect.x + 45 * rect.width / 360,
+        rect.y + 275 * rect.height / 360)?.outerHTML?.slice(0, 240),
+      currentChar: document.querySelector('#currentCharLabel')?.textContent,
+      gridButtons: document.querySelectorAll('#glyphGrid button').length
+    };
+  });
+  console.log('GLYPHFLOW_POINTER_DIAGNOSTIC', JSON.stringify(pointerDiagnostics));
+  await expect(page.locator('#drawSvg path'), JSON.stringify(pointerDiagnostics)).toHaveCount(1);
   await expect(page.locator('#progressText')).toContainText('1 /');
 
   // Undo and redo must change the visible glyph geometry.
