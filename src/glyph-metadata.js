@@ -100,7 +100,8 @@ const SCRIPT_LABELS_RU = {
   Georgian:'грузинского письма', Hangul:'корейского письма', Ethiopic:'эфиопского письма',
   Khmer:'кхмерского письма', Hiragana:'японской хираганы', Katakana:'японской катаканы',
   Han:'китайских иероглифов', Bopomofo:'чжуинь', Nushu:'нушу',
-  Tangut:'тангутского письма', Khitan_Small_Script:'киданьского малого письма'
+  Tangut:'тангутского письма', Khitan_Small_Script:'киданьского малого письма',
+  Egyptian_Hieroglyphs:'египетских иероглифов', Jurchen:'чжурчжэньского письма', Small_Seal:'малой печати'
 };
 
 function isOfficialCharacterName(name) {
