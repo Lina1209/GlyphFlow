@@ -602,6 +602,8 @@ test('contour editor assigns a hole role and preserves it in the generated font'
   await page.locator('#downloadBtn').click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.ttf$/i);
+  const fontBytes = await readFile(await download.path());
+  expect(fontBytes.byteLength).toBeGreaterThan(100);
   const encoded = fontBytes.toString('base64');
   const pixels = await page.evaluate(async base64 => {
     const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
