@@ -75,8 +75,9 @@ for codepoint, glyph_name in cmap.items():
     assert glyph.yMin >= font["hhea"].descent, (
         f"Glyph {glyph_name} exceeds hhea descent: yMin={glyph.yMin}, descent={font['hhea'].descent}"
     )
-    assert left_side_bearing == 50 and right_side_bearing == 50, (
-        f"Unexpected side bearings for {glyph_name}: LSB={left_side_bearing}, RSB={right_side_bearing}"
+    assert left_side_bearing == 50 and abs(right_side_bearing - 50) <= 1, (
+        f"Unexpected side bearings for {glyph_name}: LSB={left_side_bearing}, RSB={right_side_bearing}; "
+        "allow at most one font unit of right-bearing quantization from ceil(advanceWidth)"
     )
 
 for char, expected_contours in (("A", 1), ("Ё", 2), ("😀", 1), ("О", 1), ("Ж", 1), ("∞", 2), ("Р", 2), ("Ф", 3), ("Ы", 4)):
