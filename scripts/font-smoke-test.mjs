@@ -83,7 +83,19 @@ const context = {
   polygonClipping,
   getGlyphMetadata,
   getSingleCodePoint,
-  document: { getElementById: id => ({ value: id === 'fontName' ? 'GlyphFlow CI Fixture' : '' }) }
+  document: { getElementById: id => ({ value: ({
+    fontName: 'GlyphFlow CI Fixture',
+    fontDesigner: 'GlyphFlow Test Designer',
+    fontManufacturer: 'GlyphFlow Test Foundry',
+    fontVersion: 'Version 2.125',
+    fontDescription: 'Metadata regression fixture',
+    fontCopyright: 'Copyright 2026 GlyphFlow Test',
+    fontTrademark: 'GlyphFlow Test Mark',
+    fontLicense: 'Test license text, not a real grant',
+    fontLicenseURL: 'https://example.com/license',
+    fontDesignerURL: 'https://example.com/designer',
+    fontManufacturerURL: 'https://example.com/foundry'
+  })[id] || '' }) }
 };
 vm.runInNewContext(builderSource + '\nthis.buildOpenTypeFont = buildOpenTypeFont;', context);
 const generated = context.buildOpenTypeFont();
@@ -110,6 +122,16 @@ assert.equal(parsed.outlinesFormat, 'cff', 'opentype.js should identify CFF outl
 assert.equal(parsed.unitsPerEm, 1000);
 assert.equal(parsed.ascender, 950);
 assert.equal(parsed.descender, -370);
+assert.equal(parsed.names.designer.en, 'GlyphFlow Test Designer');
+assert.equal(parsed.names.manufacturer.en, 'GlyphFlow Test Foundry');
+assert.equal(parsed.names.version.en, 'Version 2.125');
+assert.equal(parsed.names.description.en, 'Metadata regression fixture');
+assert.equal(parsed.names.copyright.en, 'Copyright 2026 GlyphFlow Test');
+assert.equal(parsed.names.trademark.en, 'GlyphFlow Test Mark');
+assert.equal(parsed.names.license.en, 'Test license text, not a real grant');
+assert.equal(parsed.names.licenseURL.en, 'https://example.com/license');
+assert.equal(parsed.names.designerURL.en, 'https://example.com/designer');
+assert.equal(parsed.names.manufacturerURL.en, 'https://example.com/foundry');
 
 const notdef = parsed.glyphs.get(0);
 assert.equal(notdef.name, '.notdef', 'Glyph zero must be .notdef');
@@ -144,6 +166,12 @@ const ttfArrayBuffer = ttfBytes.buffer.slice(ttfBytes.byteOffset, ttfBytes.byteO
 const reparsedTtf = opentype.parse(ttfArrayBuffer);
 // The TrueType cmap is the authoritative character-to-glyph mapping. A TTF post table may use format 3.0 and omit glyph names; human-readable descriptions therefore belong in the publication sidecar/catalog, not in a claim that every TTF reader exposes glyph names.
 assert.equal(reparsedTtf.outlinesFormat, 'truetype', 'Converted font must use TrueType outlines');
+assert.equal(reparsedTtf.names.designer.en, 'GlyphFlow Test Designer', 'TTF conversion must preserve designer metadata');
+assert.equal(reparsedTtf.names.manufacturer.en, 'GlyphFlow Test Foundry', 'TTF conversion must preserve manufacturer metadata');
+assert.equal(reparsedTtf.names.version.en, 'Version 2.125', 'TTF conversion must preserve version metadata');
+assert.equal(reparsedTtf.names.description.en, 'Metadata regression fixture', 'TTF conversion must preserve description metadata');
+assert.equal(reparsedTtf.names.license.en, 'Test license text, not a real grant', 'TTF conversion must preserve license metadata');
+assert.equal(reparsedTtf.names.licenseURL.en, 'https://example.com/license', 'TTF conversion must preserve license URL metadata');
 assert.equal(reparsedTtf.charToGlyph('A').unicode, 65);
 assert.equal(reparsedTtf.charToGlyph('Ё').unicode, 0x401);
 assert.equal(reparsedTtf.charToGlyph('😀').unicode, 0x1F600);
