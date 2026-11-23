@@ -93,6 +93,27 @@ function isOfficialCharacterName(name) {
   return typeof name === 'string' && name.length > 0 && !/^<.*>$/.test(name);
 }
 
+const HANGUL_L = ['G','GG','N','D','DD','R','M','B','BB','S','SS','','J','JJ','C','K','T','P','H'];
+const HANGUL_V = ['A','AE','YA','YAE','EO','E','YEO','YE','O','WA','WAE','OE','YO','U','WEO','WE','WI','YU','EU','YI','I'];
+const HANGUL_T = ['','G','GG','GS','N','NJ','NH','D','L','LG','LM','LB','LS','LT','LP','LH','M','B','BS','S','SS','NG','J','C','K','T','P','H'];
+
+function getAlgorithmicRangeName(codePoint, range) {
+  const template = range.nameTemplate.replace(/^</, '').replace(/>$/, '');
+  if (/^CJK Ideograph(?: Extension [A-I])?$/.test(template)) {
+    return 'CJK UNIFIED IDEOGRAPH-' + codePoint.toString(16).toUpperCase().padStart(4, '0');
+  }
+  if (template === 'Hangul Syllable' && codePoint >= 0xAC00 && codePoint <= 0xD7A3) {
+    const index = codePoint - 0xAC00;
+    const l = Math.floor(index / 588);
+    const v = Math.floor((index % 588) / 28);
+    const t = index % 28;
+    return 'HANGUL SYLLABLE ' + HANGUL_L[l] + HANGUL_V[v] + HANGUL_T[t];
+  }
+  const match = /^(.*?)([0-9A-F]+)$/i.exec(range.nameTemplate);
+  if (match) return match[1] + codePoint.toString(16).toUpperCase().padStart(match[2].length, '0');
+  return null;
+}
+
 function getUnicodeRecord(codePoint) {
   const direct = unicodeRecords.get(codePoint);
   if (direct) return direct;
@@ -103,8 +124,12 @@ function getUnicodeRecord(codePoint) {
     if (codePoint < range.start) high = middle - 1;
     else if (codePoint > range.end) low = middle + 1;
     else {
-      const suffix = codePoint.toString(16).toUpperCase().padStart(range.hexWidth, '0');
-      return {name:range.namePrefix + suffix, category:range.category, combiningClass:range.combiningClass, script:range.script};
+      return {
+        name:getAlgorithmicRangeName(codePoint, range),
+        category:range.category,
+        combiningClass:range.combiningClass,
+        script:range.script
+      };
     }
   }
   return null;
@@ -153,9 +178,7 @@ export async function loadUnicodeCatalog(options = {}) {
           combiningClass < 0 || combiningClass > 255 || typeof script !== 'string' || !script) {
         throw new Error('Invalid Unicode algorithmic range.');
       }
-      const match = /^(.*?)([0-9A-F]+)$/i.exec(nameTemplate);
-      if (!match) throw new Error('Unicode algorithmic range has no hexadecimal name template.');
-      nextRanges.push({start,end,namePrefix:match[1],hexWidth:match[2].length,category,combiningClass,script});
+      nextRanges.push({start,end,nameTemplate,category,combiningClass,script});
       previousEnd = end;
     }
     unicodeRecords.clear();
