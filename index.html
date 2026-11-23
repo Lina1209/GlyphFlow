@@ -47,9 +47,9 @@ class="min-w-0 max-w-full w-full sm:w-auto bg-slate-900 border border-slate-700 
 <p id="pwaStatus" role="status" aria-live="polite" aria-atomic="true" class="hidden max-w-7xl w-full mx-auto px-6 pt-2 text-sm text-amber-300"></p>
 
 <!-- Основная рабочая область -->
-<main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl w-full mx-auto">
+<main class="min-w-0 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl w-full mx-auto">
 <!-- Левая колонка: Выбор глифа -->
-<section class="lg:col-span-4 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col h-[620px]">
+<section class="min-w-0 lg:col-span-4 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col h-[620px]">
 <div class="flex items-center justify-between mb-3">
 <h2 class="font-semibold text-slate-300">Символы (Глифы)</h2>
 <span id="progressText" class="text-xs text-slate-400">Готово: 0</span>
@@ -60,14 +60,14 @@ class="min-w-0 max-w-full w-full sm:w-auto bg-slate-900 border border-slate-700 
 </section>
 
 <!-- Центральная колонка: Холст рисования -->
-<section class="lg:col-span-5 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col items-center justify-between">
-<div class="w-full flex items-center justify-between mb-2">
+<section class="min-w-0 lg:col-span-5 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col items-center justify-between">
+<div class="w-full min-w-0 flex flex-wrap items-center justify-between gap-2 mb-2">
 <div>
 <span class="text-xs text-slate-400 uppercase tracking-wider">Редактирование символа</span>
 <div id="currentCharLabel" class="text-2xl font-bold text-indigo-400">А</div>
 <div id="currentGlyphMetadata" aria-label="Паспорт текущего символа" class="mt-2 rounded-lg border border-slate-700 bg-slate-900/70 p-2 space-y-1"></div>
 </div>
-<div class="flex gap-2">
+<div class="min-w-0 flex flex-wrap gap-2">
 <button id="undoBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">↩ Назад</button>
 <button id="redoBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">Вперёд ↪</button>
 <button id="clearBtn" class="bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 px-3 py-1.5 rounded-lg text-xs font-medium transition">
@@ -150,7 +150,7 @@ class="min-w-0 max-w-full w-full sm:w-auto bg-slate-900 border border-slate-700 
 </section>
 
 <!-- Правая колонка: Предпросмотр текста -->
-<section class="lg:col-span-3 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col">
+<section class="min-w-0 lg:col-span-3 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col">
 <h2 class="font-semibold text-slate-300 mb-2">Проверка шрифта</h2>
 <p class="text-xs text-slate-400 mb-3">Нарисуйте несколько букв (например, А, Б, В, О, П, Р, С) и введите слово ниже:</p>
 <textarea id="previewInput" aria-label="Текст для проверки шрифта" rows="3"

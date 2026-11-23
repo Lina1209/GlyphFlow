@@ -865,7 +865,7 @@ test('two-finger touch gesture zooms and pans without committing a glyph', async
   await page.setViewportSize({width: 390, height: 844});
   await page.goto('/');
   const svg = page.locator('#drawSvg');
-  await page.evaluate(() => document.querySelector('#drawSvg').scrollIntoView({block: 'center', inline: 'center'}));
+  await svg.scrollIntoViewIfNeeded();
   const initialViewBox = await svg.getAttribute('viewBox');
   const session = await page.context().newCDPSession(page);
   await session.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 2});
