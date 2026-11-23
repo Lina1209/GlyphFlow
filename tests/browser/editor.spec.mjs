@@ -2653,4 +2653,23 @@ test('edits, persists and exports real pair kerning through the browser editor',
   }, encoded);
   expect(kerning.unitsPerEm).toBe(1000);
   expect(kerning.value).toBe(-80);
+
+  // The modern export must contain GPOS only, with the same adjustment.
+  const formatSelect = page.locator('#kerningFormat');
+  await expect(formatSelect).toHaveValue('kern');
+  await formatSelect.selectOption('gpos');
+  const gposDownloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const gposDownload = await gposDownloadPromise;
+  const gposPath = 'test-results/glyphflow-browser-export-gpos.ttf';
+  await gposDownload.saveAs(gposPath);
+  const gposBytes = await readFile(gposPath);
+  const gposView = new DataView(gposBytes.buffer, gposBytes.byteOffset, gposBytes.byteLength);
+  const gposCount = gposView.getUint16(4);
+  const gposTags = Array.from({length: gposCount}, (_, index) => {
+    const offset = 12 + index * 16;
+    return String.fromCharCode(...gposBytes.subarray(offset, offset + 4));
+  });
+  expect(gposTags).toContain('GPOS');
+  expect(gposTags).not.toContain('kern');
 });

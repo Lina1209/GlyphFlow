@@ -6,6 +6,7 @@ import { createFont } from 'fonteditor-core';
 import polygonClipping from 'polygon-clipping';
 import { getGlyphMetadata, getSingleCodePoint, getLoadedUnicodeVersion, loadUnicodeCatalog } from './glyph-metadata.js';
 import { buildKernTable, getKerningValue, normalizeKerningPairs } from './kerning.js';
+import { buildGposTable } from './gpos.js';
 
 // Keep the historical browser parser API available for font inspection and integrations.
 window.opentype = opentype;
@@ -1990,7 +1991,8 @@ console.error('Ошибка обновления шрифта:', err);
 }
 
 // Создание проверенного бинарного TrueType-шрифта.
-function createTrueTypeFontBlob() {
+function createTrueTypeFontBlob(kerningFormat = document.getElementById('kerningFormat')?.value || 'kern') {
+if (!['kern', 'gpos'].includes(kerningFormat)) throw new Error('Выбран неизвестный формат кернинга.');
 const count = Object.values(glyphData).filter(strokes => strokes && strokes.length).length;
 if (!count) throw new Error('Сначала нарисуйте хотя бы один символ.');
 if (typeof opentype === 'undefined' || !opentype.Font) throw new Error('Библиотека opentype.js не загрузилась.');
@@ -2024,13 +2026,17 @@ const glyphYMax = convertedFontData.glyf.reduce((maximum, glyph) => Math.max(max
 const glyphYMin = convertedFontData.glyf.reduce((minimum, glyph) => Math.min(minimum, Number.isFinite(glyph.yMin) ? glyph.yMin : 0), 0);
 verticalMetrics.usWinAscent = glyphYMax;
 verticalMetrics.usWinDescent = -glyphYMin;
-const kernTable = buildKernTable(kerningPairs, convertedFontData.cmap);
+const kernTable = kerningFormat === 'kern' ? buildKernTable(kerningPairs, convertedFontData.cmap) : null;
 if (kernTable) convertedFontData.kern = kernTable;
 else delete convertedFontData.kern;
+const gposTable = kerningFormat === 'gpos' ? buildGposTable(kerningPairs, convertedFontData.cmap) : null;
+if (gposTable) convertedFontData.GPOS = gposTable;
+else delete convertedFontData.GPOS;
+// Exactly one kerning source is emitted: legacy kern or modern GPOS, never both.
 // Re-attach the mutated TTF object explicitly before writing. This keeps raw
 // tables added after OTF conversion in the writer's authoritative font state.
 converter.set(convertedFontData);
-const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: kerningPairs.length > 0});
+const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: kerningFormat === 'kern' && kerningPairs.length > 0});
 const ttfBuffer = rawTtf instanceof ArrayBuffer
 ? rawTtf
 : rawTtf.buffer.slice(rawTtf.byteOffset, rawTtf.byteOffset + rawTtf.byteLength);
