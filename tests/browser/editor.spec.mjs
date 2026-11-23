@@ -154,15 +154,17 @@ test('draw, undo/redo, restore IndexedDB draft and export a real TTF', async ({ 
   expect(catalogDownload.suggestedFilename()).toMatch(/-glyph-catalog\.json$/i);
   const catalog = JSON.parse(await readFile(await catalogDownload.path(), 'utf8'));
   expect(catalog.format).toBe('GlyphFlow Glyph Catalog');
-  expect(catalog.unicodeDataVersion).toBe('18.0.0');
-  expect(catalog.unicodeDataSource).toBe('https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt');
+  expect(catalog.metadataCatalog.unicodeDataVersion).toBe('18.0.0');
+  expect(catalog.metadataCatalog.source).toBe('https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt');
+  expect(catalog.metadataCatalog.completeness).toBe('full-ucd');
   expect(catalog.glyphs.map(glyph => glyph.character)).toEqual(expect.arrayContaining(['А', 'Б']));
   const cyrillicA = catalog.glyphs.find(glyph => glyph.character === 'А');
   expect(cyrillicA.codePoint).toBe('U+0410');
   expect(cyrillicA.unicodeName).toBe('CYRILLIC CAPITAL LETTER A');
   expect(cyrillicA.glyphName).toBe('uni0410');
   expect(cyrillicA.unicodeGeneralCategory).toBe('Lu');
-  expect(cyrillicA.metadataStatus).toBe('verified-local-catalog');
+  expect(cyrillicA.metadataStatus).toBe('verified-ucd');
+  expect(cyrillicA.metadataSource).toBe('Unicode Character Database 18.0.0');
 
   // Load the downloaded binary as a real browser font and verify glyph rendering.
   const fontBase64 = bytes.toString('base64');
@@ -2451,6 +2453,7 @@ test('shows Unicode names, glyph names and descriptions for selected characters'
   const metadata = page.locator('#currentGlyphMetadata');
   await expect(metadata).toContainText('U+0410');
   await expect(metadata).toContainText('CYRILLIC CAPITAL LETTER A');
+  await expect(metadata).toContainText('Unicode Character Database 18.0.0');
   await expect(metadata).toContainText('uni0410');
   await expect(metadata).toContainText('Unicode General Category:');
   await expect(metadata).toContainText('Lu');
