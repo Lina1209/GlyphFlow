@@ -2027,6 +2027,9 @@ verticalMetrics.usWinDescent = -glyphYMin;
 const kernTable = buildKernTable(kerningPairs, convertedFontData.cmap);
 if (kernTable) convertedFontData.kern = kernTable;
 else delete convertedFontData.kern;
+// Re-attach the mutated TTF object explicitly before writing. This keeps raw
+// tables added after OTF conversion in the writer's authoritative font state.
+converter.set(convertedFontData);
 const rawTtf = converter.write({type: 'ttf', hinting: false, kerning: kerningPairs.length > 0});
 const ttfBuffer = rawTtf instanceof ArrayBuffer
 ? rawTtf
