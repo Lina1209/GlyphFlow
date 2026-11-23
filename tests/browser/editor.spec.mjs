@@ -8,6 +8,7 @@ test('maps only one valid Unicode scalar value to a single cmap entry', async ()
 import { getSingleCodePoint } from '../../src/glyph-metadata.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import opentype from 'opentype.js';
 
 async function drawStroke(page, offset = 0) {
   const svg = page.locator('#drawSvg');
@@ -2477,4 +2478,49 @@ test('shows Unicode names, glyph names and descriptions for selected characters'
   await digit.click();
   await expect(metadata).toContainText('U+0030');
   await expect(metadata).toContainText('DIGIT ZERO');
+});
+
+
+test('persists editable font metadata and embeds it in the exported TrueType name table', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#fontDesigner').fill('Lina1209 Test Designer');
+  await page.locator('#fontManufacturer').fill('Mirror Studio Test Foundry');
+  await page.locator('#fontVersion').fill('Version 3.240');
+  await page.locator('#fontDescription').fill('A test font with editable family metadata.');
+  await page.locator('#fontCopyright').fill('Copyright 2026 Test Author');
+  await page.locator('#fontTrademark').fill('GlyphFlow Test Mark');
+  await page.locator('#fontLicense').fill('Test-only license notice; no actual license is granted.');
+  await page.locator('#fontLicenseURL').fill('https://example.com/test-license');
+  await page.locator('#fontDesignerURL').fill('https://example.com/test-designer');
+  await page.locator('#fontManufacturerURL').fill('https://example.com/test-foundry');
+  await drawStroke(page);
+  await page.reload();
+
+  await expect(page.locator('#fontDesigner')).toHaveValue('Lina1209 Test Designer');
+  await expect(page.locator('#fontManufacturer')).toHaveValue('Mirror Studio Test Foundry');
+  await expect(page.locator('#fontVersion')).toHaveValue('Version 3.240');
+  await expect(page.locator('#fontDescription')).toHaveValue('A test font with editable family metadata.');
+  await expect(page.locator('#fontCopyright')).toHaveValue('Copyright 2026 Test Author');
+  await expect(page.locator('#fontTrademark')).toHaveValue('GlyphFlow Test Mark');
+  await expect(page.locator('#fontLicense')).toHaveValue('Test-only license notice; no actual license is granted.');
+  await expect(page.locator('#fontLicenseURL')).toHaveValue('https://example.com/test-license');
+  await expect(page.locator('#fontDesignerURL')).toHaveValue('https://example.com/test-designer');
+  await expect(page.locator('#fontManufacturerURL')).toHaveValue('https://example.com/test-foundry');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#downloadBtn').click();
+  const download = await downloadPromise;
+  const bytes = await readFile(await download.path());
+  const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const font = opentype.parse(arrayBuffer);
+  expect(font.names.designer.en).toBe('Lina1209 Test Designer');
+  expect(font.names.manufacturer.en).toBe('Mirror Studio Test Foundry');
+  expect(font.names.version.en).toBe('Version 3.240');
+  expect(font.names.description.en).toBe('A test font with editable family metadata.');
+  expect(font.names.copyright.en).toBe('Copyright 2026 Test Author');
+  expect(font.names.trademark.en).toBe('GlyphFlow Test Mark');
+  expect(font.names.license.en).toBe('Test-only license notice; no actual license is granted.');
+  expect(font.names.licenseURL.en).toBe('https://example.com/test-license');
+  expect(font.names.designerURL.en).toBe('https://example.com/test-designer');
+  expect(font.names.manufacturerURL.en).toBe('https://example.com/test-foundry');
 });
