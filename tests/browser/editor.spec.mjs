@@ -1,13 +1,6 @@
 test('maps only one valid Unicode scalar value to a single cmap entry', async () => {
   expect(getSingleCodePoint('A')).toBe(0x0041);
   expect(getSingleCodePoint('𐐀')).toBe(0x10400);
-  expect(getSingleCodePoint('A\\u0301')).toBeNull();
-  expect(getSingleCodePoint('\\uD800')).toBeNull();
-});
-
-test('maps only one valid Unicode scalar value to a single cmap entry', async () => {
-  expect(getSingleCodePoint('A')).toBe(0x0041);
-  expect(getSingleCodePoint('𐐀')).toBe(0x10400);
   expect(getSingleCodePoint('A\u0301')).toBeNull();
   expect(getSingleCodePoint('\uD800')).toBeNull();
 });
