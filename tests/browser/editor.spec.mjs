@@ -2421,3 +2421,25 @@ test('recovers a stroke after an immediate page reload without an artificial wai
   await expect(page.locator('#drawSvg path.glyph-fill')).toBeVisible();
   await expect(page.locator('#progressText')).toContainText('1 /');
 });
+
+test('shows Unicode names, glyph names and descriptions for selected characters', async ({ page }) => {
+  await page.goto('/');
+  const metadata = page.locator('#currentGlyphMetadata');
+  await expect(metadata).toContainText('U+0410');
+  await expect(metadata).toContainText('CYRILLIC CAPITAL LETTER A');
+  await expect(metadata).toContainText('uni0410');
+  await expect(metadata).toContainText('Заглавная буква кириллицы');
+  const yo = page.getByRole('button', {name: /CYRILLIC CAPITAL LETTER IO/});
+  await yo.click();
+  await expect(metadata).toContainText('U+0401');
+  await expect(metadata).toContainText('CYRILLIC CAPITAL LETTER IO');
+  const latin = page.getByRole('button', {name: /LATIN CAPITAL LETTER A/});
+  await latin.click();
+  await expect(metadata).toContainText('Glyph Name:');
+  await expect(metadata).toContainText('LATIN CAPITAL LETTER A');
+  await expect(metadata).toContainText('A');
+  const digit = page.getByRole('button', {name: /DIGIT ZERO/});
+  await digit.click();
+  await expect(metadata).toContainText('U+0030');
+  await expect(metadata).toContainText('DIGIT ZERO');
+});
