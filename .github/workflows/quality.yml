@@ -53,6 +53,22 @@ jobs:
         run: python -m pip install fonttools
       - name: Validate final TrueType fixture with FontTools
         run: python scripts/validate-ttf-fonttools.py
+      - name: Install pinned Fontspector
+        uses: fonttools/setup-fontspector@d53404291dc78a5a41cf76ea48e1d13a731fb812
+        with:
+          version: 1.9.1
+      - name: Run independent OpenType profile on generated TTF fixture
+        run: |
+          mkdir -p reports
+          fontspector --profile opentype --error-code-on error --html reports/fontspector-opentype.html --json reports/fontspector-opentype.json /tmp/glyphflow-fixture.ttf
+      - name: Upload Fontspector reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: glyphflow-fontspector-reports
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 14
 
   browser-smoke-tests:
     runs-on: ubuntu-24.04
