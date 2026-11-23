@@ -602,17 +602,6 @@ test('contour editor assigns a hole role and preserves it in the generated font'
   await page.locator('#downloadBtn').click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.ttf$/i);
-  const exportPath = 'test-results/glyphflow-browser-export.ttf';
-  await mkdir('test-results', {recursive: true});
-  await download.saveAs(exportPath);
-  const fontBytes = await readFile(exportPath);
-  const sfntView = new DataView(fontBytes.buffer, fontBytes.byteOffset, fontBytes.byteLength);
-  const tableCount = sfntView.getUint16(4);
-  const tableTags = Array.from({length: tableCount}, (_, index) => {
-    const offset = 12 + index * 16;
-    return String.fromCharCode(...fontBytes.subarray(offset, offset + 4));
-  });
-  expect(tableTags).toContain('kern');
   const encoded = fontBytes.toString('base64');
   const pixels = await page.evaluate(async base64 => {
     const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
@@ -2637,7 +2626,17 @@ test('edits, persists and exports real pair kerning through the browser editor',
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#downloadBtn').click();
   const download = await downloadPromise;
-  const fontBytes = await readFile(await download.path());
+  const exportPath = 'test-results/glyphflow-browser-export.ttf';
+  await mkdir('test-results', {recursive: true});
+  await download.saveAs(exportPath);
+  const fontBytes = await readFile(exportPath);
+  const sfntView = new DataView(fontBytes.buffer, fontBytes.byteOffset, fontBytes.byteLength);
+  const tableCount = sfntView.getUint16(4);
+  const tableTags = Array.from({length: tableCount}, (_, index) => {
+    const offset = 12 + index * 16;
+    return String.fromCharCode(...fontBytes.subarray(offset, offset + 4));
+  });
+  expect(tableTags).toContain('kern');
   const encoded = fontBytes.toString('base64');
   const kerning = await page.evaluate(base64 => {
     const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
