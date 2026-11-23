@@ -3,6 +3,11 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deflateRawSync } from 'node:zlib';
+import { createRequire } from 'node:module';
+import { validateGlyphCatalogAgainstFont } from './font-catalog-validator.mjs';
+
+const require = createRequire(import.meta.url);
+const opentype = require('opentype.js');
 
 const MAGIC = new Set(['00010000', '4F54544F', '74727565', '74797031']);
 const encoder = new TextEncoder();
