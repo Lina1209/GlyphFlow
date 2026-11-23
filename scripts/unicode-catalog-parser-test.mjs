@@ -55,7 +55,7 @@ assert.throws(() => parseUnicodeData([
 ].join('\\n'), scripts), /Nested/);
 assert.throws(() => parseUnicodeData(unicodeLine(0x110000, 'OUT OF RANGE'), scripts), /Invalid or unsorted/);
 assert.throws(() => parseUnicodeData('', scripts), /empty catalog/);
-assert.equal(parseScripts(''), 0, 'Empty Scripts.txt should parse to an empty range list');
+assert.deepEqual(parseScripts(''), [], 'Empty Scripts.txt should parse to an empty range list');
 assert.equal(parseUnicodeData(unicodeLine(0x41, 'LATIN CAPITAL LETTER A'), [] )[0].script, 'Unknown');
 
 console.log('Unicode catalog parser tests passed: Scripts ranges, Unicode records, combining classes, First/Last ranges and malformed input.');
