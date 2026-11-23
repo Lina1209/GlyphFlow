@@ -1796,6 +1796,8 @@ path: fontPath
 const rawFamilyName = document.getElementById('fontName').value.trim() || 'MyHandwriting';
 const familyName = rawFamilyName.replace(/[\\{};\n\r]/g, '').slice(0, 48) || 'MyHandwriting';
 const metadata = getFontMetadata();
+const versionMatch = (metadata.version || 'Version 1.000').match(/(\\d+(?:\\.\\d{1,3})?)/);
+const fontRevision = versionMatch ? Number(versionMatch[1]) : 1;
 const safePostScriptFamily = familyName.replace(/[^a-zA-Z0-9-]/g, '') || 'MyHandwriting';
 return new opentype.Font({
 familyName,
@@ -1812,6 +1814,7 @@ license: metadata.license,
 licenseURL: metadata.licenseURL,
 designerURL: metadata.designerURL,
 manufacturerURL: metadata.manufacturerURL,
+tables: {head: {fontRevision}},
 unitsPerEm,
 ascender,
 descender,
