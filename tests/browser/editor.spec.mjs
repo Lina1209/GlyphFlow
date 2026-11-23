@@ -1975,6 +1975,37 @@ test('shows a visible error when draft autosave runs out of storage space', asyn
   await expect(page.locator('#draftSyncStatus')).toContainText('недостаточно места в хранилище устройства');
 });
 
+test('reports a damaged saved draft and allows a fresh draft to be saved', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('glyphflow-local', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('projects', 'readwrite');
+      tx.objectStore('projects').put({
+        glyphData: {'А': [{points:[[0,0]],size:0,thinning:0.5}]},
+        compoundOverrides: {},
+        fontName: 'Damaged draft',
+        savedAt: Date.now()
+      }, 'current');
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
+  await page.reload();
+  await expect(page.locator('#draftSyncStatus')).toContainText('Не удалось восстановить черновик');
+  await expect(page.locator('#draftSyncStatus')).toContainText('недопустимые параметры кисти');
+  await expect(page.locator('#drawSvg .glyph-fill')).toHaveCount(0);
+
+  await drawStroke(page);
+  await expect(page.locator('#drawSvg .glyph-fill')).toBeVisible();
+  await expect(page.locator('#draftSyncStatus')).toBeHidden();
+  await page.reload();
+  await expect(page.locator('#drawSvg .glyph-fill')).toBeVisible();
+  await expect(page.locator('#progressText')).toContainText('1 /');
+});
+
 test('recovers a stroke after an immediate page reload without an artificial wait', async ({ page }) => {
   await page.goto('/');
   await drawStroke(page);
