@@ -186,8 +186,8 @@ assert.ok(verticalHeader && Array.isArray(convertedFontData.glyf), 'Converted TT
 verticalMetrics.sTypoAscender = verticalHeader.ascent;
 verticalMetrics.sTypoDescender = verticalHeader.descent;
 verticalMetrics.sTypoLineGap = verticalHeader.lineGap;
-const glyphYMax = Math.max(0, ...convertedFontData.glyf.map(glyph => Number.isFinite(glyph.yMax) ? glyph.yMax : 0));
-const glyphYMin = Math.min(0, ...convertedFontData.glyf.map(glyph => Number.isFinite(glyph.yMin) ? glyph.yMin : 0));
+const glyphYMax = convertedFontData.glyf.reduce((maximum, glyph) => Math.max(maximum, Number.isFinite(glyph.yMax) ? glyph.yMax : 0), 0);
+const glyphYMin = convertedFontData.glyf.reduce((minimum, glyph) => Math.min(minimum, Number.isFinite(glyph.yMin) ? glyph.yMin : 0), 0);
 verticalMetrics.usWinAscent = glyphYMax;
 verticalMetrics.usWinDescent = -glyphYMin;
 const ttfBytes = Buffer.from(converted.write({type: 'ttf', hinting: false, kerning: false}));
