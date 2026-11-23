@@ -4,7 +4,7 @@ import opentype from 'opentype.js';
 import { getStroke } from 'perfect-freehand';
 import { createFont } from 'fonteditor-core';
 import polygonClipping from 'polygon-clipping';
-import { getGlyphMetadata, getSingleCodePoint } from './glyph-metadata.js';
+import { getGlyphMetadata, getSingleCodePoint, getLoadedUnicodeVersion, loadUnicodeCatalog } from './glyph-metadata.js';
 
 // Keep the historical browser parser API available for font inspection and integrations.
 window.opentype = opentype;
@@ -213,6 +213,9 @@ const fields = [
 ['Категория', item.category],
 ['Unicode General Category', item.generalCategory],
 ['Unicode Script', item.script],
+['Combining Class', item.combiningClass ?? '—'],
+['Источник метаданных', item.metadataSource || 'Локальный каталог'],
+['Статус', item.metadataStatus || 'needs-review'],
 ['Описание', item.description]
 ];
 fields.forEach(([label, value]) => {
@@ -1808,7 +1811,9 @@ unicodeScript: metadata?.script || null,
 description: metadata?.description || (singleCodePoint
 ? 'Официальное имя и описание отсутствуют в локальном каталоге GlyphFlow; требуется проверка по UCD.'
 : 'Последовательность из нескольких кодовых точек. Для корректного экспорта требуется отдельное правило лигатуры/последовательности.'),
-metadataStatus: knownUnicodeName ? 'verified-local-catalog' : 'needs-review',
+metadataStatus: metadata?.metadataStatus || (knownUnicodeName ? 'verified-local-catalog' : 'needs-review'),
+metadataSource: metadata?.metadataSource || 'GlyphFlow local subset',
+combiningClass: metadata?.combiningClass ?? null,
 mappingStatus: singleCodePoint ? 'single-code-point' : 'sequence-needs-explicit-mapping',
 custom: !knownUnicodeName
 };
@@ -1820,11 +1825,12 @@ formatVersion: 1,
 fontFamily: fontName,
 createdAt: new Date().toISOString(),
 metadataCatalog: {
-name: 'GlyphFlow bundled local metadata subset',
-source: 'src/glyph-metadata.js',
-completeness: 'partial',
-coverage: 'Latin A-Z/a-z, Cyrillic А-Я/а-я including Ё/ё, digits, selected punctuation and SPACE',
-notice: 'This export does not claim to use the complete Unicode Character Database.'
+name: getLoadedUnicodeVersion() ? 'Unicode Character Database' : 'GlyphFlow bundled local metadata subset',
+source: getLoadedUnicodeVersion() ? 'https://www.unicode.org/Public/' + getLoadedUnicodeVersion() + '/ucd/UnicodeData.txt' : 'src/glyph-metadata.js',
+unicodeDataVersion: getLoadedUnicodeVersion(),
+completeness: getLoadedUnicodeVersion() ? 'full-ucd' : 'partial',
+coverage: getLoadedUnicodeVersion() ? 'Official Unicode character records and algorithmic ranges; glyph naming conventions remain a separate OpenType layer.' : 'Latin A-Z/a-z, Cyrillic А-Я/а-я including Ё/ё, digits, selected punctuation and SPACE',
+notice: getLoadedUnicodeVersion() ? 'Unicode names, general categories and scripts are sourced from the pinned official Unicode Character Database.' : 'This export does not claim to use the complete Unicode Character Database.'
 },
 glyphNameConventions: {
 latin: 'Adobe Glyph List for New Fonts (AGLFN) conventions where applicable',
@@ -2198,3 +2204,11 @@ renderGrid();
 renderCanvas();
 updateLiveFont();
 updateContourTools();
+
+// Load official Unicode 18.0.0 metadata in the background. The editor remains
+// usable with its bundled fallback if the catalog is unavailable or offline.
+loadUnicodeCatalog().then(() => {
+  renderGrid();
+}).catch(error => {
+  console.warn('Official Unicode catalog is unavailable; using the local metadata subset.', error);
+});
